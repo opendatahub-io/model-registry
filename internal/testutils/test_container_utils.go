@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/opendatahub-io/model-registry/internal/ml_metadata/proto"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -82,13 +83,8 @@ func SetupMLMetadataTestContainer(t *testing.T) (*grpc.ClientConn, proto.Metadat
 		Env: map[string]string{
 			"METADATA_STORE_SERVER_CONFIG_FILE": "/tmp/shared/conn_config.pb",
 		},
-		Mounts: testcontainers.ContainerMounts{
-			testcontainers.ContainerMount{
-				Source: testcontainers.GenericBindMountSource{
-					HostPath: wd,
-				},
-				Target: "/tmp/shared",
-			},
+		HostConfigModifier: func(hc *container.HostConfig) {
+			hc.Binds = []string{wd + ":/tmp/shared"}
 		},
 		WaitingFor: wait.ForLog("Server listening on"),
 	}
