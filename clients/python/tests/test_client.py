@@ -66,3 +66,22 @@ def test_get(mr_client: ModelRegistry):
     assert mv.id == _mv.id
     assert (_ma := mr_client.get_model_artifact(name, version))
     assert ma.id == _ma.id
+
+
+def test_hf_import(mr_client: ModelRegistry):
+    pytest.importorskip("huggingface_hub")
+    name = "gpt2"
+    version = "1.2.3"
+
+    rm = mr_client.register_hf_model(
+        name,
+        "/onnx/decoder_model.onnx",
+        version=version,
+        model_format_name="test_format",
+        model_format_version="test_version",
+    )
+
+    assert rm.id is not None
+    assert (mv := mr_client.get_model_version(name, version))
+    print(mv)
+    assert mr_client.get_model_artifact(name, version)

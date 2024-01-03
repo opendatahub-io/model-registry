@@ -37,6 +37,26 @@ version = registry.get_model_version("my-model", "v2.0")
 experiment = registry.get_model_artifact("my-model", "v2.0")
 ```
 
+### Importing from Hugging Face Hub
+
+To import models from Hugging Face Hub, start by installing the `huggingface-hub` package, either directly or as an
+extra (available as `model-registry[hf]`).
+Models can be imported with
+
+```py
+hf_model = registry.register_hf_model(
+    "hf-namespace/hf-model",  # HF repo
+    "relative/path/to/model/file.onnx",
+    version="1.2.3",
+    git_ref="master",
+    model_name="my-model",
+    model_format_name="onnx",
+    model_format_version="1",
+)
+```
+
+Note that it's only possible to import a single model file per Hugging Face Hub repo right now.
+
 ## Development
 
 Common tasks, such as building documentation and running tests, can be executed using [`nox`](https://github.com/wntrblm/nox) sessions.
