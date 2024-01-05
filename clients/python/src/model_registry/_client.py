@@ -1,8 +1,12 @@
 """Standard client for the model registry."""
 from __future__ import annotations
 
+import warnings
+from typing import get_args
+
 from .core import ModelRegistryAPIClient
 from .exceptions import StoreException
+from .store import ScalarType
 from .types import ModelArtifact, ModelVersion, RegisteredModel
 
 
@@ -21,12 +25,12 @@ class ModelRegistry:
         """Constructor.
 
         Args:
-            server_address (str): Server address.
-            port (int): Server port.
-            author (str): Name of the author.
-            client_key (str, optional): The PEM-encoded private key as a byte string.
-            server_cert (str, optional): The PEM-encoded certificate as a byte string.
-            custom_ca (str, optional): The PEM-encoded root certificates as a byte string.
+            server_address: Server address.
+            port: Server port.
+            author: Name of the author.
+            client_key: The PEM-encoded private key as a byte string.
+            server_cert: The PEM-encoded certificate as a byte string.
+            custom_ca: The PEM-encoded root certificates as a byte string.
         """
         # TODO: get args from env
         self._author = author
@@ -43,14 +47,14 @@ class ModelRegistry:
         return rm
 
     def _register_new_version(
-        self, rm: RegisteredModel, version: str, /, description: str | None
+        self, rm: RegisteredModel, version: str, author: str, /, **kwargs
     ) -> ModelVersion:
         assert rm.id is not None, "Registered model must have an ID"
         if self._api.get_model_version_by_params(rm.id, version):
             msg = f"Version {version} already exists"
             raise StoreException(msg)
 
-        mv = ModelVersion(rm.name, version, self._author, description=description)
+        mv = ModelVersion(rm.name, version, author, **kwargs)
         self._api.upsert_model_version(mv, rm.id)
         return mv
 
@@ -70,34 +74,43 @@ class ModelRegistry:
         model_format_name: str,
         model_format_version: str,
         version: str,
+        author: str | None = None,
         description: str | None = None,
         storage_key: str | None = None,
         storage_path: str | None = None,
         service_account_name: str | None = None,
+        metadata: dict[str, ScalarType] | None = None,
     ) -> RegisteredModel:
         """Register a model.
 
-        Version has to be unique for the model.
         Either `storage_key` and `storage_path`, or `service_account_name` must be provided.
 
         Args:
-            name (str): Name of the model.
-            uri (str): URI of the model.
+            name: Name of the model.
+            uri: URI of the model.
 
         Keyword Args:
-            model_format_name (str): Name of the model format.
-            model_format_version (str): Version of the model format.
-            version (str): Version of the model.
-            description (str, optional): Description of the model.
-            storage_key (str, optional): Storage key.
-            storage_path (str, optional): Storage path.
-            service_account_name (str, optional): Service account name.
+            version: Version of the model. Has to be unique.
+            model_format_name: Name of the model format.
+            model_format_version: Version of the model format.
+            description: Description of the model.
+            author: Author of the model. Defaults to the client author.
+            storage_key: Storage key.
+            storage_path: Storage path.
+            service_account_name: Service account name.
+            metadata: Additional version metadata.
 
         Returns:
-            RegisteredModel: Registered model.
+            Registered model.
         """
         rm = self._register_model(name)
-        mv = self._register_new_version(rm, version, description=description)
+        mv = self._register_new_version(
+            rm,
+            version,
+            author or self._author,
+            description=description,
+            metadata=metadata or {},
+        )
         self._register_model_artifact(
             mv,
             uri,
@@ -110,39 +123,144 @@ class ModelRegistry:
 
         return rm
 
-    def get_registered_model(self, name: str) -> RegisteredModel:
+    def register_hf_model(
+        self,
+        repo: str,
+        path: str,
+        *,
+        version: str,
+        model_format_name: str,
+        model_format_version: str,
+        author: str | None = None,
+        model_name: str | None = None,
+        description: str | None = None,
+        git_ref: str = "main",
+    ) -> RegisteredModel:
+        """Register a Hugging Face model.
+
+        This imports a model from Hugging Face hub and registers it in the model registry.
+        Note that the model is not downloaded.
+
+        Args:
+            repo: Name of the repository from Hugging Face hub.
+            path: URI of the model.
+
+        Keyword Args:
+            version: Version of the model. Has to be unique.
+            model_format_name: Name of the model format.
+            model_format_version: Version of the model format.
+            author: Author of the model. Defaults to repo owner.
+            model_name: Name of the model. Defaults to the repo name.
+            description: Description of the model. Defaults to repo README.md text.
+            git_ref: Git reference to use. Defaults to `main`.
+
+        Returns:
+            Registered model.
+        """
+        try:
+            from huggingface_hub import (
+                HfApi,
+                ModelCard,
+                hf_hub_download,
+                hf_hub_url,
+                utils,
+            )
+        except ImportError as e:
+            msg = "huggingface_hub is not installed"
+            raise StoreException(msg) from e
+
+        api = HfApi()
+
+        try:
+            model_info = api.model_info(repo, revision=git_ref)
+        except utils.RepositoryNotFoundError as e:
+            msg = f"Repository {repo} does not exist"
+            raise StoreException(msg) from e
+        except utils.RevisionNotFoundError as e:
+            # TODO: as all hf-hub client calls default to using main, should we provide a tip?
+            msg = f"Revision {git_ref} does not exist"
+            raise StoreException(msg) from e
+
+        # model author can be None if the repo is in a "global" namespace (i.e. no / in repo).
+        model_author = model_info.author or "huggingface"
+        # card_data is the new field, but let's use the old one for backwards compatibility.
+        # As the card is built from the README.md, cardData is only None if the file doesn't exist, which is unlikely
+        # but happens with recently created repos.
+        if (card_data := model_info.cardData) is not None:
+            metadata = {
+                k: v
+                for k, v in card_data.to_dict().items()
+                # TODO: (#151) preserve tags, possibly other complex metadata
+                if isinstance(v, get_args(ScalarType))
+            }
+            if not description:
+                raw_readme = hf_hub_download(
+                    repo, "README.md", revision=git_ref, repo_type=ModelCard.repo_type
+                )
+                description = ModelCard.load(raw_readme).text
+        elif not description:
+            warnings.warn(f"Could not find README.md in {repo}", stacklevel=2)
+            metadata = {}
+        else:
+            metadata = {}
+
+        metadata["repo"] = repo
+        metadata["model_author"] = model_author
+        return self.register_model(
+            model_name or model_info.id,
+            hf_hub_url(repo, path, revision=git_ref),
+            author=author or model_author,
+            version=version,
+            model_format_name=model_format_name,
+            model_format_version=model_format_version,
+            description=description,
+            storage_path=path,
+            metadata=metadata,
+        )
+
+    def get_registered_model(self, name: str) -> RegisteredModel | None:
         """Get a registered model.
 
         Args:
-            name (str): Name of the model.
+            name: Name of the model.
 
         Returns:
-            RegisteredModel: Registered model.
+            Registered model.
         """
         return self._api.get_registered_model_by_params(name)
 
-    def get_model_version(self, name: str, version: str) -> ModelVersion:
+    def get_model_version(self, name: str, version: str) -> ModelVersion | None:
         """Get a model version.
 
         Args:
-            name (str): Name of the model.
-            version (str): Version of the model.
+            name: Name of the model.
+            version: Version of the model.
 
         Returns:
-            ModelVersion: Model version.
+            Model version.
+
+        Raises:
+            StoreException: If the model does not exist.
         """
-        rm = self._api.get_registered_model_by_params(name)
+        if not (rm := self._api.get_registered_model_by_params(name)):
+            msg = f"Model {name} does not exist"
+            raise StoreException(msg)
         return self._api.get_model_version_by_params(rm.id, version)
 
-    def get_model_artifact(self, name: str, version: str) -> ModelArtifact:
+    def get_model_artifact(self, name: str, version: str) -> ModelArtifact | None:
         """Get a model artifact.
 
         Args:
-            name (str): Name of the model.
-            version (str): Version of the model.
+            name: Name of the model.
+            version: Version of the model.
 
         Returns:
-            ModelArtifact: Model artifact.
+            Model artifact.
+
+        Raises:
+            StoreException: If either the model or the version don't exist.
         """
-        mv = self.get_model_version(name, version)
+        if not (mv := self.get_model_version(name, version)):
+            msg = f"Version {version} does not exist"
+            raise StoreException(msg)
         return self._api.get_model_artifact_by_params(mv.id)

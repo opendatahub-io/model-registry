@@ -111,6 +111,9 @@ class ModelRegistryAPIClient:
 
         Returns:
             Registered model.
+
+        Raises:
+            StoreException: If neither name nor external ID is provided.
         """
         if name is None and external_id is None:
             msg = "Either name or external_id must be provided"
@@ -157,11 +160,10 @@ class ModelRegistryAPIClient:
         Returns:
             ID of the model version.
         """
-        rm_id = int(registered_model_id)
         # this is not ideal but we need this info for the prefix
-        model_version._registered_model_id = rm_id
+        model_version._registered_model_id = registered_model_id
         id = self._store.put_context(self._map(model_version))
-        self._store.put_context_parent(rm_id, id)
+        self._store.put_context_parent(int(registered_model_id), id)
         new_py_mv = ModelVersion.unmap(
             self._store.get_context(ModelVersion.get_proto_type_name(), id)
         )
@@ -173,7 +175,7 @@ class ModelRegistryAPIClient:
         )
         return id
 
-    def get_model_version_by_id(self, model_version_id: str) -> ModelVersion:
+    def get_model_version_by_id(self, model_version_id: str) -> ModelVersion | None:
         """Fetch a model version by its ID.
 
         Args:
@@ -192,7 +194,7 @@ class ModelRegistryAPIClient:
 
     def get_model_versions(
         self, registered_model_id: str, options: ListOptions | None = None
-    ) -> list[ModelVersion]:
+    ) -> Sequence[ModelVersion]:
         """Fetch model versions by registered model ID.
 
         Args:
@@ -228,6 +230,9 @@ class ModelRegistryAPIClient:
 
         Returns:
             Model version.
+
+        Raises:
+            StoreException: If neither external ID nor registered model ID and version is provided.
         """
         if external_id is not None:
             proto_mv = self._store.get_context(
@@ -262,17 +267,17 @@ class ModelRegistryAPIClient:
 
         Returns:
             ID of the model artifact.
+
+        Raises:
+            StoreException: If the model version already has a model artifact.
         """
         mv_id = int(model_version_id)
-        try:
-            self._store.get_attributed_artifact(
-                ModelArtifact.get_proto_type_name(), mv_id
-            )
+        if self._store.get_attributed_artifact(
+            ModelArtifact.get_proto_type_name(), mv_id
+        ):
             msg = f"Model version with ID {mv_id} already has a model artifact"
             raise StoreException(msg)
-        except StoreException as e:
-            if "found" not in str(e).lower():
-                raise
+
         model_artifact._model_version_id = model_version_id
         id = self._store.put_artifact(self._map(model_artifact))
         self._store.put_attribution(mv_id, id)
@@ -315,6 +320,9 @@ class ModelRegistryAPIClient:
 
         Returns:
             Model artifact.
+
+        Raises:
+            StoreException: If neither external ID nor model version ID is provided.
         """
         if external_id:
             proto_ma = self._store.get_artifact(
