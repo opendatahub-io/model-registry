@@ -1,6 +1,7 @@
 """Standard client for the model registry."""
 from __future__ import annotations
 
+import warnings
 from typing import get_args
 
 from .core import ModelRegistryAPIClient
@@ -150,14 +151,20 @@ class ModelRegistry:
             model_format_version: Version of the model format.
             author: Author of the model. Defaults to repo owner.
             model_name: Name of the model. Defaults to the repo name.
-            description: Description of the model.
+            description: Description of the model. Defaults to repo README.md text.
             git_ref: Git reference to use. Defaults to `main`.
 
         Returns:
             Registered model.
         """
         try:
-            from huggingface_hub import HfApi, hf_hub_url, utils
+            from huggingface_hub import (
+                HfApi,
+                ModelCard,
+                hf_hub_download,
+                hf_hub_url,
+                utils,
+            )
         except ImportError as e:
             msg = "huggingface_hub is not installed"
             raise StoreException(msg) from e
@@ -177,15 +184,26 @@ class ModelRegistry:
         # model author can be None if the repo is in a "global" namespace (i.e. no / in repo).
         model_author = model_info.author or "huggingface"
         # card_data is the new field, but let's use the old one for backwards compatibility.
-        if card_data := model_info.cardData:
+        # As the card is built from the README.md, cardData is only None if the file doesn't exist, which is unlikely
+        # but happens with recently created repos.
+        if (card_data := model_info.cardData) is not None:
             metadata = {
                 k: v
                 for k, v in card_data.to_dict().items()
                 # TODO: (#151) preserve tags, possibly other complex metadata
                 if isinstance(v, get_args(ScalarType))
             }
+            if not description:
+                raw_readme = hf_hub_download(
+                    repo, "README.md", revision=git_ref, repo_type=ModelCard.repo_type
+                )
+                description = ModelCard.load(raw_readme).text
+        elif not description:
+            warnings.warn(f"Could not find README.md in {repo}", stacklevel=2)
+            metadata = {}
         else:
             metadata = {}
+
         metadata["repo"] = repo
         metadata["model_author"] = model_author
         return self.register_model(
