@@ -10,6 +10,7 @@ OPENDATAHUB_CRDS="datascienceclusters.datasciencecluster.opendatahub.io,dsciniti
 DATA_SCIENCE_CLUSTER_CRDS="acceleratorprofiles.dashboard.opendatahub.io,datasciencepipelinesapplications.datasciencepipelinesapplications.opendatahub.io,odhapplications.dashboard.opendatahub.io,odhdashboardconfigs.opendatahub.io,odhdocuments.dashboard.opendatahub.io"
 MODEL_REGISTRY_CRDS="modelregistries.modelregistry.opendatahub.io"
 source "openshift-ci/scripts/colour_text_variables.sh"
+source "openshift-ci/scripts/install_kustomize.sh"
 
 # Function to monitor CRDS creation and deployment.
 # The function takes two arguments, reference to manifest and a wait time in seconds.
