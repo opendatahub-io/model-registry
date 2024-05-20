@@ -35,9 +35,6 @@ install_kustomize() {
   echo "Downloading Kustomize from ${url}..."
   curl -LO "${url}"
 
-  echo "Extracting Kustomize..."
-  tar -zxvf "kustomize_${version}_${os}_${arch}.tar.gz"
-
   echo "Installing Kustomize..."
   chmod +x kustomize
   sudo mv kustomize /usr/local/bin/kustomize
