@@ -1,13 +1,7 @@
 #!/bin/bash
 
 set -e
-
-# Function to get the latest Kustomize version from GitHub API
-get_latest_version() {
-  curl -s "https://api.github.com/repos/kubernetes-sigs/kustomize/releases/latest" |
-    grep '"tag_name"' |
-    sed -E 's/.*"([^"]+)".*/\1/'
-}
+version="v3.2.3"
 
 # Function to detect the operating system
 detect_os() {
@@ -33,11 +27,10 @@ detect_arch() {
 
 # Function to download and install Kustomize
 install_kustomize() {
-  local version=$1
-  local os=$2
-  local arch=$3
+  os=$1
+  arch=$2
 
-  local url="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv3.2.3/kustomize_kustomize.v3.2.3_linux_amd64"
+  local url="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F$version/kustomize_kustomize.v3.2.3_$os_$arch"
 
   echo "Downloading Kustomize from ${url}..."
   curl -LO "${url}"
@@ -61,11 +54,7 @@ main() {
   echo "OS: ${os}"
   echo "Architecture: ${arch}"
 
-  echo "Fetching the latest Kustomize version..."
-  latest_version=$(get_latest_version)
-  echo "Latest Kustomize version is ${latest_version}"
-
-  install_kustomize "${latest_version}" "${os}" "${arch}"
+  install_kustomize "${os}" "${arch}"
 
   echo "Kustomize installation completed."
 }
