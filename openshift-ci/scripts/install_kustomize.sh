@@ -37,7 +37,7 @@ install_kustomize() {
   local os=$2
   local arch=$3
 
-  local url="https://github.com/kubernetes-sigs/kustomize/releases/download/${version}/kustomize_${version}_${os}_${arch}.tar.gz"
+  local url="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv3.2.3/kustomize_kustomize.v3.2.3_linux_amd64"
 
   echo "Downloading Kustomize from ${url}..."
   curl -LO "${url}"
