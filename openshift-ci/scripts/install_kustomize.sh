@@ -25,6 +25,18 @@ detect_arch() {
   echo "${arch}"
 }
 
+# Function to check if Kustomize is installed
+check_kustomize_installed() {
+  # Check if kustomize command exists and can run 'kustomize version'
+  if kustomize version &> /dev/null; then
+    echo "Success: Kustomize is installed."
+    return 0
+  else
+    echo "Fail: Kustomize is not installed."
+    exit 1
+  fi
+}
+
 # Function to download and install Kustomize
 install_kustomize() {
   os=$1
@@ -60,7 +72,7 @@ main() {
 
   install_kustomize "${os}" "${arch}"
 
-  echo "Kustomize installation completed."
+  check_kustomize_installed
 }
 
 # Run the main function
