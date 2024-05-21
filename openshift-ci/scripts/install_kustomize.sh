@@ -44,7 +44,7 @@ install_kustomize() {
 
   echo "Installing Kustomize..."
   chmod +x kustomize
-  sudo mv kustomize /usr/local/bin/kustomize
+  mv kustomize /usr/local/bin/kustomize
 
   echo "Kustomize installed successfully!"
 }
