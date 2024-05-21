@@ -35,6 +35,13 @@ install_kustomize() {
   echo "Downloading Kustomize from ${url}..."
   curl -LO "${url}"
 
+  echo "Extracting Kustomize..."
+  
+  output=$(ls | grep kustomize)
+  echo "${output}"
+
+  mv "kustomize_${version}_${os}_${arch}" kustomize
+
   echo "Installing Kustomize..."
   chmod +x kustomize
   sudo mv kustomize /usr/local/bin/kustomize
