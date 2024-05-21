@@ -44,7 +44,7 @@ install_kustomize() {
 
   echo "Installing Kustomize..."
   chmod +x kustomize
-  mv kustomize /usr/local/bin/kustomize
+  export PATH=`pwd`:$PATH
 
   echo "Kustomize installed successfully!"
 }
