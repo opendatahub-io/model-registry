@@ -40,7 +40,7 @@ install_kustomize() {
   output=$(ls | grep kustomize)
   echo "${output}"
 
-  mv "kustomize_${version}_${os}_${arch}" kustomize
+  mv "${output}" kustomize
 
   echo "Installing Kustomize..."
   chmod +x kustomize
