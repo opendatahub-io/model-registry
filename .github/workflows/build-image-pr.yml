@@ -41,6 +41,7 @@ jobs:
           IMG: "quay.io/${{ env.IMG_ORG }}/${{ env.IMG_REPO }}:${{ steps.tags.outputs.tag }}"
         run: |
           kind load docker-image -n chart-testing ${IMG}
+          kubectl cluster-info --context kind-chart-testing
       - name: Deploy Operator With Test Image
         env:
           IMG: "quay.io/${{ env.IMG_ORG }}/${{ env.IMG_REPO }}:${{ steps.tags.outputs.tag }}"
@@ -55,6 +56,7 @@ jobs:
       - name: Wait for Test Registry Deployment
         run: |
           kubectl wait --for=condition=Available=true modelregistries/modelregistry-sample --timeout=5m
+          kubectl describe svc modelregistry-sample
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
