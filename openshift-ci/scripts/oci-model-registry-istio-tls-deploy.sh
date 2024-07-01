@@ -251,7 +251,7 @@ check_route_status() {
         fi
 
         # Test if the route is live
-        local response=$(curl -v -H "Authorization: Bearer $TOKEN" --cacert certs/domain.crt -o /dev/null -s -w "%{http_code}" "https://modelregistry-sample-rest.$DOMAIN/api/model_registry/v1alpha3/registered_models")
+        local response=$(curl -k -v -H "Authorization: Bearer $TOKEN" --cacert certs/domain.crt -o /dev/null -s -w "%{http_code}" "https://modelregistry-sample-rest.$DOMAIN/api/model_registry/v1alpha3/registered_models")
 
         # Check if the response status code is 200 OK or 404 Not Found
         if [[ "$response" == "200" ]]; then

@@ -8,7 +8,7 @@ MR_HOSTNAME="https://$(oc get route odh-model-registries-modelregistry-sample-re
 make_post_extract_id() {
 	local url="$1"
 	local data="$2"
-	local id=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" --cacert certs/domain.crt "$url" \
+	local id=$(curl -k -s -X POST -H "Authorization: Bearer $TOKEN" --cacert certs/domain.crt "$url" \
 		-H 'accept: application/json' \
 		-H 'Content-Type: application/json' \
 		-d "$data" | jq -r '.id')
