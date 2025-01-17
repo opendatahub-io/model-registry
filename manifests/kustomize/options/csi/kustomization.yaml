@@ -4,3 +4,7 @@ namespace: kubeflow
 
 resources:
 - clusterstoragecontainer.yaml
+images:
+- name: quay.io/opendatahub/model-registry-storage-initializer
+  newName: quay.io/opendatahub/model-registry-storage-initializer
+  newTag: v0.2.12
