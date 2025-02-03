@@ -5,3 +5,7 @@ resources:
 - model-registry-deployment.yaml
 - model-registry-service.yaml
 - model-registry-sa.yaml
+images:
+- name: quay.io/opendatahub/model-registry
+  newName: quay.io/opendatahub/model-registry
+  newTag: v0.2.13
