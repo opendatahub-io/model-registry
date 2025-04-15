@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Check if required tools are installed
+for cmd in yq jq; do
+    if ! command -v $cmd >/dev/null 2>&1; then
+        echo "Error: $cmd is not installed. Please install it first."
+        exit 1
+    fi
+done
+
 # Check if logged into a cluster
 if ! oc whoami >/dev/null 2>&1; then
     echo "Error: Not logged into a cluster. Please run 'oc login' first."
