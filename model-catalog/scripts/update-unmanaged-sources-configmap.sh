@@ -25,6 +25,12 @@ INPUT_YAML=$1
 # Default to redhat-ods-applications, can be overridden by second argument
 NAMESPACE=${2:-redhat-ods-applications}
 
+# Check if namespace exists
+if ! oc get namespace "$NAMESPACE" >/dev/null 2>&1; then
+    echo "Error: Namespace '$NAMESPACE' does not exist in the cluster"
+    exit 1
+fi
+
 # Check if input file exists
 if [ ! -f "$INPUT_YAML" ]; then
     echo "Error: Input file $INPUT_YAML does not exist"

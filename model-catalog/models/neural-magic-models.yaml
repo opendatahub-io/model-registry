@@ -604,7 +604,7 @@ models:
   artifacts: 
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic/granite-3.1-8b-base-quantized.w4a16
 - repository: neuralmagic-ent
   name: Llama-3.1-8B-Instruct-quantized.w4a16
@@ -1236,7 +1236,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic-ent/Llama-3.1-8B-Instruct-quantized.w4a16
 - repository: neuralmagic-ent
   name: Qwen2.5-7B-Instruct-quantized.w8a8
@@ -1488,7 +1488,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic-ent/Qwen2.5-7B-Instruct-quantized.w8a8
 - repository: neuralmagic-ent
   name: Mistral-Small-24B-Instruct-2501-FP8-dynamic
@@ -1719,7 +1719,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic-ent/Mistral-Small-24B-Instruct-2501-FP8-dynamic
 - repository: neuralmagic-ent
   name: phi-4-quantized.w4a16
@@ -1969,7 +1969,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic-ent/phi-4-quantized.w4a16/commits/main
 - repository: neuralmagic
   name: Mistral-7B-Instruct-v0.3-quantized.w4a16
@@ -2225,7 +2225,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic/Mistral-7B-Instruct-v0.3-quantized.w4a16/commits/main
 - repository: neuralmagic
   name: DeepSeek-R1-Distill-Llama-8B-FP8-dynamic
@@ -2996,7 +2996,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic/commits/main
 - repository: neuralmagic
   name: Qwen2.5-VL-72B-Instruct-quantized.w8a8
@@ -3499,7 +3499,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic/Qwen2.5-VL-72B-Instruct-quantized.w8a8/commits/main
 - repository: neuralmagic-ent
   name: Mixtral-8x22B-v0.1-quantized.w4a16
@@ -3713,7 +3713,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic-ent/Mixtral-8x22B-v0.1-quantized.w4a16/commits/main
 - repository: neuralmagic
   name: Pixtral-Large-Instruct-2411-hf-quantized.w8a8
@@ -4185,7 +4185,7 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w8a8
 - repository: neuralmagic
   name: whisper-large-v2-W4A16-G128
@@ -4358,5 +4358,5 @@ models:
   artifacts:
     - protocol: NOT YET IN REGISTRY
       createTimeSinceEpoch: 
-      tags: 
+      tags: ["0.0.1"]
       uri: https://huggingface.co/neuralmagic/whisper-large-v2-W4A16-G128
