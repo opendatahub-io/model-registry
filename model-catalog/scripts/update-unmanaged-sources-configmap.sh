@@ -15,12 +15,15 @@ if ! oc whoami >/dev/null 2>&1; then
 fi
 
 # Check if input file is provided
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <input-yaml-file>"
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: $0 <input-yaml-file> [namespace]"
+    echo "  namespace: Optional. Defaults to redhat-ods-applications. Can be changed to opendatahub if needed."
     exit 1
 fi
 
 INPUT_YAML=$1
+# Default to redhat-ods-applications, can be overridden by second argument
+NAMESPACE=${2:-redhat-ods-applications}
 
 # Check if input file exists
 if [ ! -f "$INPUT_YAML" ]; then
@@ -33,11 +36,11 @@ export WRAPPED_JSON=$(yq -o=json "$INPUT_YAML" | jq -c '{sources: [.]}')
 
 # Grab the existing configmap and update the modelCatalogSources field with the new content
 mkdir tmp
-oc get configmap model-catalog-unmanaged-sources -n opendatahub -o yaml > tmp/model-catalog-unmanaged-sources.yaml
+oc get configmap model-catalog-unmanaged-sources -n "$NAMESPACE" -o yaml > tmp/model-catalog-unmanaged-sources.yaml
 yq -i '.data.modelCatalogSources = strenv(WRAPPED_JSON)' tmp/model-catalog-unmanaged-sources.yaml
 
 # Update the configmap with the new content
-oc apply -f tmp/model-catalog-unmanaged-sources.yaml -n opendatahub
+oc apply -f tmp/model-catalog-unmanaged-sources.yaml -n "$NAMESPACE"
 
 # Clean up
 rm tmp/model-catalog-unmanaged-sources.yaml
