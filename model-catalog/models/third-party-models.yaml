@@ -3342,3 +3342,1884 @@ models:
     - protocol: oci
       tags: ["1.5"]
       uri: oci://registry.redhat.io/rhelai1/modelcar-mistral-small-3-1-24b-instruct-2503-quantized-w4a16:1.5
+- repository: RedHatAI
+  name: Mistral-7B-Instruct-v0.3-quantized.w4a16
+  provider: Red Hat AI
+  description: Intended for commercial and research use in English.
+  longDescription: |-
+    Similarly to Mistral-7B-Instruct-v0.3, this models is intended for assistant-like chat. Quantized 
+      version of Mistral-7B-Instruct-v0.3. It achieves an average score of 65.08 on the OpenLLM benchmark 
+      (version 1), whereas the unquantized model achieves 66.42.
+  readme: |-
+    # Mistral-7B-Instruct-v0.3-quantized.w4a16
+
+    ## Model Overview
+    - **Model Architecture:** Mistral-v0.3
+      - **Input:** Text
+      - **Output:** Text
+    - **Model Optimizations:**
+      - **Weight quantization:** INT4
+    - **Intended Use Cases:** Intended for commercial and research use in English. Similarly to [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3), this models is intended for assistant-like chat.
+    - **Out-of-scope:** Use in any manner that violates applicable laws or regulations (including trade compliance laws). Use in languages other than English.
+    - **Release Date:** 7/11/2024
+    - **Version:** 1.0
+    - **License(s):** [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+    - **Model Developers:** Neural Magic
+
+    Quantized version of [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3).
+    It achieves an average score of 65.08 on the [OpenLLM](https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard) benchmark (version 1), whereas the unquantized model achieves 66.42.
+
+    ### Model Optimizations
+
+    This model was obtained by quantizing the weights of [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3) to INT4 data type.
+    This optimization reduces the number of bits per parameter from 16 to 4, reducing the disk size and GPU memory requirements by approximately 25%.
+
+    Only the weights of the linear operators within transformers blocks are quantized. Symmetric group-wise quantization is applied, in which a linear scaling per group maps the INT4 and floating point representations of the quantized weights.
+    [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) is used for quantization with 1% damping factor, group-size as 128 and 512 sequences sampled from [Open-Platypus](https://huggingface.co/datasets/garage-bAInd/Open-Platypus).
+
+
+    ## Deployment
+
+    ### Use with vLLM
+
+    This model can be deployed efficiently using the [vLLM](https://docs.vllm.ai/en/latest/) backend, as shown in the example below.
+
+    ```python
+    from vllm import LLM, SamplingParams
+    from transformers import AutoTokenizer
+    model_id = "neuralmagic/Mistral-7B-Instruct-v0.3-quantized.w4a16"
+    sampling_params = SamplingParams(temperature=0.6, top_p=0.9, max_tokens=256)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    messages = [
+        {"role": "user", "content": "Who are you? Please reply in pirate speak!"},
+    ]
+    prompts = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    llm = LLM(model=model_id, tensor_parallel_size=2)
+    outputs = llm.generate(prompts, sampling_params)
+    generated_text = outputs[0].outputs[0].text
+    print(generated_text)
+    ```
+
+    vLLM aslo supports OpenAI-compatible serving. See the [documentation](https://docs.vllm.ai/en/latest/) for more details.
+
+    ### Use with transformers
+
+    This model is supported by Transformers leveraging the integration with the [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) data format.
+    The following example contemplates how the model can be used using the `generate()` function.
+
+    ```python
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    model_id = "neuralmagic/Mistral-7B-Instruct-v0.3-quantized.w4a16"
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        torch_dtype="auto",
+        device_map="auto",
+    )
+    messages = [
+        {"role": "user", "content": "Who are you? Please reply in pirate speak!"},
+    ]
+    input_ids = tokenizer.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        return_tensors="pt"
+    ).to(model.device)
+    terminators = [
+        tokenizer.eos_token_id,
+        tokenizer.convert_tokens_to_ids("<|eot_id|>")
+    ]
+    outputs = model.generate(
+        input_ids,
+        max_new_tokens=256,
+        eos_token_id=terminators,
+        do_sample=True,
+        temperature=0.6,
+        top_p=0.9,
+    )
+    response = outputs[0][input_ids.shape[-1]:]
+    print(tokenizer.decode(response, skip_special_tokens=True))
+    ```
+
+    ## Creation
+
+    This model was created by applying the [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) library as presented in the code snipet below.
+    Although AutoGPTQ was used for this particular model, Neural Magic is transitioning to using [llm-compressor](https://github.com/vllm-project/llm-compressor) which supports several quantization schemes and models not supported by AutoGPTQ.
+
+    ```python
+    from transformers import AutoTokenizer
+    from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+    from datasets import load_dataset
+    import random
+    model_id = "mistralai/Mistral-7B-Instruct-v0.3"
+    num_samples = 512
+    max_seq_len = 4096
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    preprocess_fn = lambda example: {"text": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n{text}".format_map(example)}
+    dataset_name = "neuralmagic/LLM_compression_calibration"
+    dataset = load_dataset(dataset_name, split="train")
+    ds = dataset.shuffle().select(range(num_samples))
+    ds = ds.map(preprocess_fn)
+    examples = [
+        tokenizer(
+            example["text"], padding=False, max_length=max_seq_len, truncation=True,
+        ) for example in ds
+    ]
+    quantize_config = BaseQuantizeConfig(
+      bits=4,
+      group_size=128,
+      desc_act=True,
+      model_file_base_name="model",
+      damp_percent=0.1,
+    )
+    model = AutoGPTQForCausalLM.from_pretrained(
+      model_id,
+      quantize_config,
+      device_map="auto",
+    )
+    model.quantize(examples)
+    model.save_pretrained("Mistral-7B-Instruct-v0.3-quantized.w4a16")
+    ```
+
+
+
+    ## Evaluation
+
+    The model was evaluated on the [OpenLLM](https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard) leaderboard tasks (version 1) with the [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness/tree/383bbd54bc621086e05aa1b030d8d4d5635b25e6) (commit 383bbd54bc621086e05aa1b030d8d4d5635b25e6) and the [vLLM](https://docs.vllm.ai/en/stable/) engine, using the following command:
+    ```
+    lm_eval \
+      --model vllm \
+      --model_args pretrained="neuralmagic/Mistral-7B-Instruct-v0.3-quantized.w4a16",dtype=auto,tensor_parallel_size=2,gpu_memory_utilization=0.4,add_bos_token=True,max_model_len=4096 \
+      --tasks openllm \
+      --batch_size auto
+    ```
+
+    ### Accuracy
+
+    #### Open LLM Leaderboard evaluation scores
+    <table>
+      <tr>
+      <td><strong>Benchmark</strong>
+      </td>
+      <td><strong>Mistral-7B-Instruct-v0.3 </strong>
+      </td>
+      <td><strong>Mistral-7B-Instruct-v0.3-quantized.w4a16(this model)</strong>
+      </td>
+      <td><strong>Recovery</strong>
+      </td>
+      </tr>
+      <tr>
+      <td>MMLU (5-shot)
+      </td>
+      <td>61.84
+      </td>
+      <td>60.83
+      </td>
+      <td>98.36%
+      </td>
+      </tr>
+      <tr>
+      <td>ARC Challenge (25-shot)
+      </td>
+      <td>63.73
+      </td>
+      <td>63.90
+      </td>
+      <td>100.28%
+      </td>
+      </tr>
+      <tr>
+      <td>GSM-8K (5-shot, strict-match)
+      </td>
+      <td>49.27
+      </td>
+      <td>43.36
+      </td>
+      <td>88.01%
+      </td>
+      </tr>
+      <tr>
+      <td>Hellaswag (10-shot)
+      </td>
+      <td>84.84
+      </td>
+      <td>84.07
+      </td>
+      <td>99.10%
+      </td>
+      </tr>
+      <tr>
+      <td>Winogrande (5-shot)
+      </td>
+      <td>79.55
+      </td>
+      <td>79.87
+      </td>
+      <td>100.40%
+      </td>
+      </tr>
+      <tr>
+      <td>TruthfulQA (0-shot)
+      </td>
+      <td>59.33
+      </td>
+      <td>58.47
+      </td>
+      <td>98.56%
+      </td>
+      </tr>
+      <tr>
+      <td><strong>Average</strong>
+      </td>
+      <td><strong>66.42</strong>
+      </td>
+      <td><strong>65.08</strong>
+      </td>
+      <td><strong>97.98%</strong>
+      </td>
+      </tr>
+    </table>   
+  logo: data:image/png;base64,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
+  language: ["en"]
+  license: apache-2.0
+  licenseLink: https://www.apache.org/licenses/LICENSE-2.0
+  maturity: Generally Available
+  libraryName: transformers
+  baseModel:
+    - repository: mistralai
+    - name: Mistral-7B-Instruct-v0.3
+  labels:
+    - inference
+  tasks:
+    - text-generation
+  createTimeSinceEpoch: 1720656000
+  lastUpdateTimeSinceEpoch: 1741824000
+  artifacts:
+    - protocol: oci
+      tags: ["1.5"]
+      uri: oci://registry.stage.redhat.io/rhelai1/modelcar-mistral-7b-instruct-v0-3-quantized-w4a16:1.5
+- repository: RedHatAI
+  name: DeepSeek-R1-Distill-Llama-8B-FP8-dynamic
+  provider: Red Hat AI
+  description: Quantized version of DeepSeek-R1-Distill-Llama-8B.
+  longDescription: |-
+    This model was obtained by quantizing the weights and activations of DeepSeek-R1-Distill-Llama-70B to 
+      FP8 data type. This optimization reduces the number of bits per parameter from 16 to 8, reducing the 
+      disk size and GPU memory requirements by approximately 50%.
+
+    Only the weights and activations of the linear operators within transformers blocks are quantized. Weights 
+      are quantized using a symmetric per-channel scheme, whereas quantizations are quantized using a symmetric 
+      per-token scheme. LLM Compressor is used for quantization.
+  readme: |-
+    # DeepSeek-R1-Distill-Llama-8B-FP8-dynamic
+
+    ## Model Overview
+    - **Model Architecture:** LlamaForCausalLM
+      - **Input:** Text
+      - **Output:** Text
+    - **Model Optimizations:**
+      - **Weight quantization:** FP8
+      - **Activation quantization:** FP8
+    - **Release Date:** 2/6/2025
+    - **Version:** 1.0
+    - **Model Developers:** Neural Magic
+
+    Quantized version of [DeepSeek-R1-Distill-Llama-8B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B).
+
+    ### Model Optimizations
+
+    This model was obtained by quantizing the weights and activations of [DeepSeek-R1-Distill-Llama-70B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B) to FP8 data type.
+    This optimization reduces the number of bits per parameter from 16 to 8, reducing the disk size and GPU memory requirements by approximately 50%.
+
+    Only the weights and activations of the linear operators within transformers blocks are quantized.
+    Weights are quantized using a symmetric per-channel scheme, whereas quantizations are quantized using a symmetric per-token scheme.
+    [LLM Compressor](https://github.com/vllm-project/llm-compressor) is used for quantization.
+
+
+    ## Use with vLLM
+
+    This model can be deployed efficiently using the [vLLM](https://docs.vllm.ai/en/latest/) backend, as shown in the example below.
+
+    ```python
+    from transformers import AutoTokenizer
+    from vllm import LLM, SamplingParams
+    number_gpus = 1
+    model_name = "neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    sampling_params = SamplingParams(temperature=0.6, max_tokens=256, stop_token_ids=[tokenizer.eos_token_id])
+    llm = LLM(model=model_name, tensor_parallel_size=number_gpus, trust_remote_code=True)
+    messages_list = [
+        [{"role": "user", "content": "Who are you? Please respond in pirate speak!"}],
+    ]
+    prompt_token_ids = [tokenizer.apply_chat_template(messages, add_generation_prompt=True) for messages in messages_list]
+    outputs = llm.generate(prompt_token_ids=prompt_token_ids, sampling_params=sampling_params)
+    generated_text = [output.outputs[0].text for output in outputs]
+    print(generated_text)
+    ```
+
+    vLLM also supports OpenAI-compatible serving. See the [documentation](https://docs.vllm.ai/en/latest/) for more details.
+
+    ## Creation
+
+    This model was created with [llm-compressor](https://github.com/vllm-project/llm-compressor) by running the code snippet below. 
+
+
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from llmcompressor.modifiers.quantization import QuantizationModifier
+    from llmcompressor.transformers import oneshot
+    import os
+    # Load model
+    model_stub = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+    model_name = model_stub.split("/")[-1]
+    model = AutoModelForCausalLM.from_pretrained(
+        model_stub,
+        torch_dtype="auto",
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_stub)
+    # Configure the quantization algorithm and scheme
+    recipe = QuantizationModifier(
+        targets="Linear",
+        scheme="FP8_DYNAMIC",
+        ignore=["lm_head"],
+    )
+    # Apply quantization
+    oneshot(
+        model=model,
+        recipe=recipe,
+    )
+    # Save to disk in compressed-tensors format
+    save_path = model_name + "-FP8-dynamic
+    model.save_pretrained(save_path)
+    tokenizer.save_pretrained(save_path)
+    print(f"Model and tokenizer saved to: {save_path}")
+    ```
+
+    ## Evaluation
+
+    The model was evaluated on OpenLLM Leaderboard [V1](https://huggingface.co/spaces/open-llm-leaderboard-old/open_llm_leaderboard) and [V2](https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard#/), using the following commands:
+
+    OpenLLM Leaderboard V1:
+    ```
+    lm_eval \
+      --model vllm \
+      --model_args pretrained="neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic",dtype=auto,max_model_len=4096,enable_chunked_prefill=True \
+      --tasks openllm \
+      --write_out \
+      --batch_size auto \
+      --output_path output_dir \
+      --show_config
+    ```
+
+    OpenLLM Leaderboard V2:
+    ```
+    lm_eval \
+      --model vllm \
+      --model_args pretrained="neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic",dtype=auto,max_model_len=4096,enable_chunked_prefill=True \
+      --apply_chat_template \
+      --fewshot_as_multiturn \
+      --tasks leaderboard \
+      --write_out \
+      --batch_size auto \
+      --output_path output_dir \
+      --show_config
+    ```
+
+    ### Accuracy
+
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Metric</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic</th>
+          <th>Recovery</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="4"><b>Reasoning</b></td>
+          <td>AIME 2024 (pass@1)</td>
+          <td>49.25</td>
+          <td>50.83</td>
+          <td>103.21%</td>
+        </tr>
+        <tr>
+          <td>MATH-500 (pass@1)</td>
+          <td>90.18</td>
+          <td>90.24</td>
+          <td>100.07%</td>
+        </tr>
+        <tr>
+          <td>GPQA Diamond (pass@1)</td>
+          <td>49.27</td>
+          <td>48.71</td>
+          <td>98.86%</td>
+        </tr>
+        <tr>
+          <td><b>Average Score</b></td>
+          <td><b>62.9</b></td>
+          <td><b>63.26</b></td>
+          <td><b>100.57%</b></td>
+        </tr>
+        <tr>
+          <td rowspan="7"><b>OpenLLM V1</b></td>
+          <td>ARC-Challenge (Acc-Norm, 25-shot)</td>
+          <td>45.05</td>
+          <td>44.88</td>
+          <td>99.6%</td>
+        </tr>
+        <tr>
+          <td>GSM8K (Strict-Match, 5-shot)</td>
+          <td>62.77</td>
+          <td>61.49</td>
+          <td>98.0%</td>
+        </tr>
+        <tr>
+          <td>HellaSwag (Acc-Norm, 10-shot)</td>
+          <td>76.78</td>
+          <td>76.68</td>
+          <td>99.9%</td>
+        </tr>
+        <tr>
+          <td>MMLU (Acc, 5-shot)</td>
+          <td>55.65</td>
+          <td>55.82</td>
+          <td>100.3%</td>
+        </tr>
+        <tr>
+          <td>TruthfulQA (MC2, 0-shot)</td>
+          <td>50.55</td>
+          <td>49.92</td>
+          <td>98.8%</td>
+        </tr>
+        <tr>
+          <td>Winogrande (Acc, 5-shot)</td>
+          <td>68.51</td>
+          <td>67.72</td>
+          <td>98.8%</td>
+        </tr>
+        <tr>
+          <td><b>Average Score</b></td>
+          <td><b>58.88</b></td>
+          <td><b>59.42</b></td>
+          <td><b>99.2</b></td>
+        </tr>
+        <tr>
+          <td rowspan="7"><b>OpenLLM V2</b></td>
+          <td>IFEval (Inst Level Strict Acc, 0-shot)</td>
+          <td>38.37</td>
+          <td>38.67</td>
+          <td>100.8%</td>
+        </tr>
+        <tr>
+          <td>BBH (Acc-Norm, 3-shot)</td>
+          <td>7.43</td>
+          <td>7.48</td>
+          <td>---</td>
+        </tr>
+        <tr>
+          <td>Math-Hard (Exact-Match, 4-shot)</td>
+          <td>0.00</td>
+          <td>0.00</td>
+          <td>---</td>
+        </tr>
+        <tr>
+          <td>GPQA (Acc-Norm, 0-shot)</td>
+          <td>1.51</td>
+          <td>0.94</td>
+          <td>---</td>
+        </tr>
+        <tr>
+          <td>MUSR (Acc-Norm, 0-shot)</td>
+          <td>1.86</td>
+          <td>1.27</td>
+          <td>---</td>
+        </tr>
+        <tr>
+          <td>MMLU-Pro (Acc, 5-shot)</td>
+          <td>1.61</td>
+          <td>1.60</td>
+          <td>---</td>
+        </tr>
+        <tr>
+          <td><b>Average Score</b></td>
+          <td><b>8.47</b></td>
+          <td><b>8.33</b></td>
+          <td><b>---</b></td>
+        </tr>
+        <tr>
+          <td rowspan="4"><b>Coding</b></td>
+          <td>HumanEval (pass@1)</td>
+          <td>49.90</td>
+          <td>51.20</td>
+          <td><b>102.6%</b></td>
+        </tr>
+        <tr>
+          <td>HumanEval (pass@10)</td>
+          <td>68.90</td>
+          <td>68.20</td>
+          <td>99.0%</td>
+        </tr>
+        <tr>
+          <td>HumanEval+ (pass@10)</td>
+          <td>44.10</td>
+          <td>46.60</td>
+          <td>105.7%</td>
+        </tr>
+        <tr>
+          <td>HumanEval+ (pass@10)</td>
+          <td>62.90</td>
+          <td>62.70</td>
+          <td>99.7%</td>
+        </tr>
+      </tbody>
+    </table>
+    ## Inference Performance
+
+
+    This model achieves up to 1.4x speedup in single-stream deployment and up to 1.3x speedup in multi-stream asynchronous deployment, depending on hardware and use-case scenario.
+    The following performance benchmarks were conducted with [vLLM](https://docs.vllm.ai/en/latest/) version 0.7.2, and [GuideLLM](https://github.com/neuralmagic/guidellm).
+
+    <details>
+    <summary>Benchmarking Command</summary>
+
+    ```
+    guidellm --model neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic --target "http://localhost:8000/v1" --data-type emulated --data "prompt_tokens=<prompt_tokens>,generated_tokens=<generated_tokens>" --max seconds 360 --backend aiohttp_server
+    ```
+    </details>
+
+    ### Single-stream performance (measured with vLLM version 0.7.2)
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th style="text-align: center;" colspan="2" >Instruction Following<br>256 / 128</th>
+          <th style="text-align: center;" colspan="2" >Multi-turn Chat<br>512 / 256</th>
+          <th style="text-align: center;" colspan="2" >Docstring Generation<br>768 / 128</th>
+          <th style="text-align: center;" colspan="2" >RAG<br>1024 / 128</th>
+          <th style="text-align: center;" colspan="2" >Code Completion<br>256 / 1024</th>
+          <th style="text-align: center;" colspan="2" >Code Fixing<br>1024 / 1024</th>
+          <th style="text-align: center;" colspan="2" >Large Summarization<br>4096 / 512</th>
+          <th style="text-align: center;" colspan="2" >Large RAG<br>10240 / 1536</th>
+        </tr>
+        <tr>
+          <th>Hardware</th>
+          <th>Model</th>
+          <th>Average cost reduction</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+          <th>Latency (s)</th>
+          <th>QPD</th>
+        </tr>
+      </thead>
+      <tbody style="text-align: center" >
+        <tr>
+          <th rowspan="3" valign="top">A6000x1</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <td>---</td>
+          <td>3.0</td>
+          <td>1511</td>
+          <td>6.0</td>
+          <td>755</td>
+          <td>3.0</td>
+          <td>1483</td>
+          <td>3.1</td>
+          <td>1462</td>
+          <td>23.6</td>
+          <td>191</td>
+          <td>24.0</td>
+          <td>188</td>
+          <td>12.7</td>
+          <td>353</td>
+          <td>41.1</td>
+          <td>110</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w8a8</th>
+          <td>1.53</td>
+          <td>1.9</td>
+          <td>2356</td>
+          <td>3.8</td>
+          <td>1175</td>
+          <td>2.0</td>
+          <td>2291</td>
+          <td>2.0</td>
+          <td>2207</td>
+          <td>15.2</td>
+          <td>297</td>
+          <td>15.5</td>
+          <td>290</td>
+          <td>8.5</td>
+          <td>531</td>
+          <td>28.6</td>
+          <td>157</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16</th>
+          <td>2.35</td>
+          <td>1.2</td>
+          <td>3870</td>
+          <td>2.3</td>
+          <td>1918</td>
+          <td>1.3</td>
+          <td>3492</td>
+          <td>1.3</td>
+          <td>3335</td>
+          <td>9.1</td>
+          <td>492</td>
+          <td>9.5</td>
+          <td>472</td>
+          <td>5.8</td>
+          <td>771</td>
+          <td>22.7</td>
+          <td>198</td>
+        </tr>
+        <tr>
+          <th rowspan="3" valign="top">A100x1</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <td>---</td>
+          <td>1.5</td>
+          <td>1308</td>
+          <td>3.1</td>
+          <td>657</td>
+          <td>1.6</td>
+          <td>1274</td>
+          <td>1.6</td>
+          <td>1263</td>
+          <td>12.1</td>
+          <td>166</td>
+          <td>12.4</td>
+          <td>162</td>
+          <td>6.5</td>
+          <td>308</td>
+          <td>25.6</td>
+          <td>78</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w8a8</th>
+          <td>1.30</td>
+          <td>1.1</td>
+          <td>1763</td>
+          <td>2.3</td>
+          <td>882</td>
+          <td>1.2</td>
+          <td>1716</td>
+          <td>1.2</td>
+          <td>1698</td>
+          <td>9.0</td>
+          <td>223</td>
+          <td>9.2</td>
+          <td>218</td>
+          <td>4.9</td>
+          <td>409</td>
+          <td>25.7</td>
+          <td>78</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16</th>
+          <td>1.76</td>
+          <td>0.8</td>
+          <td>2501</td>
+          <td>1.6</td>
+          <td>1236</td>
+          <td>0.9</td>
+          <td>2350</td>
+          <td>0.9</td>
+          <td>2287</td>
+          <td>6.4</td>
+          <td>316</td>
+          <td>6.6</td>
+          <td>306</td>
+          <td>3.7</td>
+          <td>544</td>
+          <td>24.7</td>
+          <td>82</td>
+        </tr>
+        <tr>
+          <th rowspan="3" valign="top">H100x1</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <td>---</td>
+          <td>1.0</td>
+          <td>1146</td>
+          <td>1.9</td>
+          <td>574</td>
+          <td>1.0</td>
+          <td>1128</td>
+          <td>1.0</td>
+          <td>1111</td>
+          <td>7.6</td>
+          <td>144</td>
+          <td>7.7</td>
+          <td>142</td>
+          <td>4.1</td>
+          <td>266</td>
+          <td>16.3</td>
+          <td>67</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic</th>
+          <td>1.25</td>
+          <td>0.7</td>
+          <td>1567</td>
+          <td>1.4</td>
+          <td>758</td>
+          <td>0.7</td>
+          <td>1484</td>
+          <td>0.7</td>
+          <td>1462</td>
+          <td>5.7</td>
+          <td>191</td>
+          <td>5.8</td>
+          <td>189</td>
+          <td>3.2</td>
+          <td>347</td>
+          <td>22.5</td>
+          <td>49</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16</th>
+          <td>1.30</td>
+          <td>0.7</td>
+          <td>1527</td>
+          <td>1.4</td>
+          <td>768</td>
+          <td>0.7</td>
+          <td>1495</td>
+          <td>0.7</td>
+          <td>1463</td>
+          <td>5.6</td>
+          <td>194</td>
+          <td>5.7</td>
+          <td>190</td>
+          <td>3.1</td>
+          <td>350</td>
+          <td>14.7</td>
+          <td>74</td>
+        </tr>
+      </tbody>
+    </table>
+    **Use case profiles: prompt tokens / generation tokens
+    **QPD: Queries per dollar, based on on-demand cost at [Lambda Labs](https://lambdalabs.com/service/gpu-cloud) (observed on 2/18/2025).
+
+
+    ### Multi-stream asynchronous performance (measured with vLLM version 0.7.2)
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th style="text-align: center;" colspan="2" >Instruction Following<br>256 / 128</th>
+          <th style="text-align: center;" colspan="2" >Multi-turn Chat<br>512 / 256</th>
+          <th style="text-align: center;" colspan="2" >Docstring Generation<br>768 / 128</th>
+          <th style="text-align: center;" colspan="2" >RAG<br>1024 / 128</th>
+          <th style="text-align: center;" colspan="2" >Code Completion<br>256 / 1024</th>
+          <th style="text-align: center;" colspan="2" >Code Fixing<br>1024 / 1024</th>
+          <th style="text-align: center;" colspan="2" >Large Summarization<br>4096 / 512</th>
+          <th style="text-align: center;" colspan="2" >Large RAG<br>10240 / 1536</th>
+        </tr>
+        <tr>
+          <th>Hardware</th>
+          <th>Model</th>
+          <th>Average cost reduction</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>QPD</th>
+        </tr>
+      </thead>
+      <tbody style="text-align: center" >
+        <tr>
+          <th rowspan="3" valign="top">A6000x1</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <td>---</td>
+          <td>12.6</td>
+          <td>56742</td>
+          <td>5.7</td>
+          <td>25687</td>
+          <td>6.5</td>
+          <td>29349</td>
+          <td>5.2</td>
+          <td>23259</td>
+          <td>1.6</td>
+          <td>7250</td>
+          <td>1.2</td>
+          <td>5181</td>
+          <td>0.8</td>
+          <td>3445</td>
+          <td>0.1</td>
+          <td>616</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w8a8</th>
+          <td>1.34</td>
+          <td>17.4</td>
+          <td>78101</td>
+          <td>7.6</td>
+          <td>34351</td>
+          <td>8.8</td>
+          <td>39790</td>
+          <td>7.0</td>
+          <td>31532</td>
+          <td>2.3</td>
+          <td>10405</td>
+          <td>1.5</td>
+          <td>6960</td>
+          <td>1.0</td>
+          <td>4355</td>
+          <td>0.2</td>
+          <td>785</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16</th>
+          <td>0.91</td>
+          <td>10.9</td>
+          <td>48964</td>
+          <td>5.1</td>
+          <td>22989</td>
+          <td>4.8</td>
+          <td>21791</td>
+          <td>3.8</td>
+          <td>17039</td>
+          <td>2.2</td>
+          <td>9726</td>
+          <td>1.2</td>
+          <td>5434</td>
+          <td>0.6</td>
+          <td>2544</td>
+          <td>0.1</td>
+          <td>578</td>
+        </tr>
+        <tr>
+          <th rowspan="3" valign="top">A100x1</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <td>---</td>
+          <td>24.5</td>
+          <td>49296</td>
+          <td>11.3</td>
+          <td>22657</td>
+          <td>13.0</td>
+          <td>26047</td>
+          <td>10.5</td>
+          <td>21020</td>
+          <td>3.5</td>
+          <td>7029</td>
+          <td>2.5</td>
+          <td>4995</td>
+          <td>1.7</td>
+          <td>3503</td>
+          <td>0.3</td>
+          <td>659</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w8a8</th>
+          <td>1.27</td>
+          <td>30.8</td>
+          <td>62042</td>
+          <td>14.1</td>
+          <td>28419</td>
+          <td>17.2</td>
+          <td>34554</td>
+          <td>13.8</td>
+          <td>27719</td>
+          <td>4.6</td>
+          <td>9299</td>
+          <td>3.1</td>
+          <td>6215</td>
+          <td>2.2</td>
+          <td>4331</td>
+          <td>0.4</td>
+          <td>807</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16</th>
+          <td>0.97</td>
+          <td>22.7</td>
+          <td>45708</td>
+          <td>10.5</td>
+          <td>21216</td>
+          <td>11.1</td>
+          <td>22353</td>
+          <td>8.9</td>
+          <td>17939</td>
+          <td>3.9</td>
+          <td>7758</td>
+          <td>2.6</td>
+          <td>5241</td>
+          <td>1.6</td>
+          <td>3196</td>
+          <td>0.4</td>
+          <td>718</td>
+        </tr>
+        <tr>
+          <th rowspan="3" valign="top">H100x1</th>
+          <th>deepseek-ai/DeepSeek-R1-Distill-Llama-8B</th>
+          <td>---</td>
+          <td>49.0</td>
+          <td>53593</td>
+          <td>22.6</td>
+          <td>24750</td>
+          <td>28.3</td>
+          <td>30971</td>
+          <td>22.9</td>
+          <td>25035</td>
+          <td>7.2</td>
+          <td>7912</td>
+          <td>5.1</td>
+          <td>5561</td>
+          <td>3.6</td>
+          <td>3939</td>
+          <td>0.6</td>
+          <td>703</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-FP8-dynamic</th>
+          <td>1.14</td>
+          <td>57.1</td>
+          <td>62517</td>
+          <td>26.0</td>
+          <td>28440</td>
+          <td>34.5</td>
+          <td>37781</td>
+          <td>28.7</td>
+          <td>31360</td>
+          <td>7.2</td>
+          <td>7877</td>
+          <td>5.4</td>
+          <td>5923</td>
+          <td>4.3</td>
+          <td>4697</td>
+          <td>0.7</td>
+          <td>782</td>
+        </tr>
+        <tr>
+          <th>neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16</th>
+          <td>1.01</td>
+          <td>49.8</td>
+          <td>54452</td>
+          <td>22.9</td>
+          <td>25035</td>
+          <td>28.5</td>
+          <td>31162</td>
+          <td>23.0</td>
+          <td>25200</td>
+          <td>6.8</td>
+          <td>7493</td>
+          <td>5.0</td>
+          <td>5431</td>
+          <td>3.7</td>
+          <td>4079</td>
+          <td>0.7</td>
+          <td>787</td>
+        </tr>
+      </tbody>
+    </table>
+    **Use case profiles: prompt tokens / generation tokens
+    **QPS: Queries per second.
+
+    **QPD: Queries per dollar, based on on-demand cost at [Lambda Labs](https://lambdalabs.com/service/gpu-cloud) (observed on 2/18/2025).   
+  logo: data:image/png;base64,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
+  language: ["en"]
+  license: mit
+  licenseLink: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/mit.md
+  maturity: Generally Available
+  libraryName: transformers
+  baseModel:
+    - repository: deepseek-ai
+    - name: DeepSeek-R1-Distill-Llama-8B
+  labels:
+    - inference
+    - deepseek
+    - fp8
+    - vllm
+  tasks:
+    - text-generation
+  createTimeSinceEpoch: 1738368000
+  lastUpdateTimeSinceEpoch: 1740528000
+  artifacts:
+    - protocol: oci
+      tags: ["1.5"]
+      uri: oci://registry.stage.redhat.io/rhelai1/modelcar-deepseek-r1-distill-llama-8b-fp8-dynamic:1.5
+- repository: RedHatAI
+  name: Mixtral-8x22B-v0.1-quantized.w4a16
+  provider: Red Hat AI
+  description: Quantized version of Mixtral-8x22B-v0.1. It achieves an average score of 74.17 on the OpenLLM benchmark (version 1), whereas the unquantized model achieves 74.69.
+  longDescription: |-
+    This model was obtained by only quantizing the weights to INT4 data type, ready for inference with 
+      vLLM >= 0.5.2. This optimization reduces the number of bits per parameter from 16 to 4, reducing 
+      the disk size and GPU memory requirements by approximately 75%. Only the weights of the linear 
+      operators within transformers blocks are quantized, except the MLP routers.
+  readme: |-
+    # Mixtral-8x22B-v0.1-quantized.w4a16
+
+    ## Model Overview
+    - **Model Architecture:** Mixtral-8x22B-v0.1
+      - **Input:** Text
+      - **Output:** Text
+    - **Model Optimizations:**
+      - **Weight quantization:** INT4
+      - **Activation quantization:** None
+    - **Release Date:** 3/1/2025
+    - **Version:** 1.0
+    - **Model Developers:** Neural Magic
+
+    Quantized version of [Mixtral-8x22B-v0.1](https://huggingface.co/mistralai/Mixtral-8x22B-v0.1).
+    It achieves an average score of 74.17 on the [OpenLLM](https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard) benchmark (version 1), whereas the unquantized model achieves 74.69.
+
+    ### Model Optimizations
+
+    This model was obtained by only quantizing the weights to INT4 data type, ready for inference with vLLM >= 0.5.2.
+    This optimization reduces the number of bits per parameter from 16 to 4, reducing the disk size and GPU memory requirements by approximately 75%. Only the weights of the linear operators within transformers blocks are quantized, except the MLP routers. 
+
+    ## Deployment
+
+    ### Use with vLLM
+
+    This model can be deployed efficiently using the [vLLM](https://docs.vllm.ai/en/latest/) backend, as shown in the example below.
+
+    ```python
+    from transformers import AutoTokenizer
+    from vllm import LLM, SamplingParams
+    max_model_len, tp_size = 4096, 4
+    model_name = "neuralmagic-ent/Mixtral-8x22B-v0.1-quantized.w4a16"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    llm = LLM(model=model_name, tensor_parallel_size=tp_size, max_model_len=max_model_len, trust_remote_code=True)
+    sampling_params = SamplingParams(temperature=0.3, max_tokens=256, stop_token_ids=[tokenizer.eos_token_id])
+    messages_list = [
+        [{"role": "user", "content": "Who are you? Please respond in pirate speak!"}],
+    ]
+    prompt_token_ids = [tokenizer.apply_chat_template(messages, add_generation_prompt=True) for messages in messages_list]
+    outputs = llm.generate(prompt_token_ids=prompt_token_ids, sampling_params=sampling_params)
+    generated_text = [output.outputs[0].text for output in outputs]
+    print(generated_text)
+    ```
+
+    vLLM also supports OpenAI-compatible serving. See the [documentation](https://docs.vllm.ai/en/latest/) for more details.
+
+    ## Creation
+
+    This model was created with [llm-compressor](https://github.com/vllm-project/llm-compressor) by running the code snippet below with the following command:
+
+    ```bash
+    python quantize.py --model_path mistralai/Mixtral-8x22B-v0.1 --quant_path "output_dir" --calib_size 1024 --dampening_frac 0.1 --observer minmax --actorder False 
+    ```
+
+
+    ```python
+    from datasets import load_dataset
+    from transformers import AutoTokenizer
+    from llmcompressor.modifiers.quantization import GPTQModifier
+    from llmcompressor.transformers import SparseAutoModelForCausalLM, oneshot, apply
+    import argparse
+    from compressed_tensors.quantization import QuantizationScheme, QuantizationArgs, QuantizationType, QuantizationStrategy
+    from llmcompressor.transformers.compression.helpers import calculate_offload_device_map
+    import torch
+    def parse_actorder(value):
+        # Interpret the input value for --actorder
+        if value.lower() == "false":
+            return False
+        elif value.lower() == "group":
+            return "group"
+        else:
+            raise argparse.ArgumentTypeError("Invalid value for --actorder. Use 'group' or 'False'.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_path', type=str)
+    parser.add_argument('--quant_path', type=str)
+    parser.add_argument('--num_bits', type=int, default=4)
+    parser.add_argument('--sequential_update', type=bool, default=True)
+    parser.add_argument('--calib_size', type=int, default=256) 
+    parser.add_argument('--dampening_frac', type=float, default=0.05)
+    parser.add_argument('--observer', type=str, default="minmax") 
+    parser.add_argument(
+        '--actorder',
+        type=parse_actorder,
+        default=False,  # Default value is False
+        help="Specify actorder as 'group' (string) or False (boolean)."
+    )
+    args = parser.parse_args()
+    device_map = calculate_offload_device_map(
+        args.model_path,
+        reserve_for_hessians=True,
+        num_gpus=torch.cuda.device_count(),
+        torch_dtype=torch.bfloat16,
+        trust_remote_code=True,
+    )
+    model = SparseAutoModelForCausalLM.from_pretrained(
+        args.model_path,
+        device_map=device_map,
+        torch_dtype=torch.bfloat16,
+        use_cache=False,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    NUM_CALIBRATION_SAMPLES = args.calib_size
+    DATASET_ID = "garage-bAInd/Open-Platypus"
+    DATASET_SPLIT = "train"
+    ds = load_dataset(DATASET_ID, split=DATASET_SPLIT)
+    ds = ds.shuffle(seed=42).select(range(NUM_CALIBRATION_SAMPLES))
+    def preprocess(example):
+        concat_txt = example["instruction"] + "\n" + example["output"]
+        return {"text": concat_txt}
+    ds = ds.map(preprocess)
+    def tokenize(sample):
+        return tokenizer(
+            sample["text"],
+            padding=False,
+            truncation=False,
+            add_special_tokens=True,
+        )
+    ds = ds.map(tokenize, remove_columns=ds.column_names)
+    quant_scheme = QuantizationScheme(
+        targets=["Linear"],
+        weights=QuantizationArgs(
+            num_bits=args.num_bits,
+            type=QuantizationType.INT,
+            symmetric=True,
+            group_size=128,
+            strategy=QuantizationStrategy.GROUP,  
+            observer=args.observer,
+            actorder=args.actorder
+        ),
+        input_activations=None,
+        output_activations=None,
+    )
+    recipe = [
+        GPTQModifier(
+            targets=["Linear"],
+            ignore=["lm_head", "re:.*block_sparse_moe.gate"],
+            sequential_update=args.sequential_update,
+            dampening_frac=args.dampening_frac,
+            config_groups={"group_0": quant_scheme},
+        )
+    ]
+    oneshot(
+        model=model,
+        dataset=ds,
+        recipe=recipe,
+        num_calibration_samples=args.calib_size,
+    )
+    # Save to disk compressed.
+    SAVE_DIR = args.quant_path
+    model.save_pretrained(SAVE_DIR, save_compressed=True)
+    tokenizer.save_pretrained(SAVE_DIR)
+    ```
+
+    ## Evaluation
+
+    The model was evaluated on OpenLLM Leaderboard [V1](https://huggingface.co/spaces/open-llm-leaderboard-old/open_llm_leaderboard) using the following command:
+
+    OpenLLM Leaderboard V1:
+    ```
+    lm_eval \
+      --model vllm \
+      --model_args pretrained="neuralmagic-ent/Mixtral-8x22B-v0.1-quantized.w4a16",dtype=auto,add_bos_token=True,max_model_len=4096,tensor_parallel_size=4,gpu_memory_utilization=0.8,enable_chunked_prefill=True,trust_remote_code=True \
+      --tasks openllm \
+      --write_out \
+      --batch_size auto \
+      --output_path output_dir \
+      --show_config
+    ```
+
+
+    ### Accuracy
+
+    #### OpenLLM Leaderboard V1 evaluation scores
+
+    | Metric                                   | mistralai/Mixtral-8x22B-v0.1             | neuralmagic-ent/Mixtral-8x22B-v0.1-quantized.w4a16 |
+    |-----------------------------------------|:---------------------------------:|:-------------------------------------------:|
+    | ARC-Challenge (Acc-Norm, 25-shot)       | 70.39                            | 69.88                                       |
+    | GSM8K (Strict-Match, 5-shot)            | 76.42                            | 74.68                                        |
+    | HellaSwag (Acc-Norm, 10-shot)           | 88.31                            | 87.94                                       |
+    | MMLU (Acc, 5-shot)                      | 77.40                            | 76.21                                       |
+    | TruthfulQA (MC2, 0-shot)                | 51.17                            | 51.15                                       |
+    | Winogrande (Acc, 5-shot)                | 84.45                            | 85.16                                       |
+    | **Average Score**                       | **74.69**                        | **74.17**                                   |
+    | **Recovery**                            | **100.00**                       | **99.30**                                   |
+  logo: data:image/png;base64,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
+  language: ["en"]
+  license: apache-2.0
+  licenseLink: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+  maturity: Generally Available
+  libraryName: transformers
+  baseModel:
+    - repository: mistralai
+    - name: Mixtral-8x22B-v0.1
+  labels:
+    - inference
+  tasks:
+    - text-generation
+  createTimeSinceEpoch: 1735862400
+  lastUpdateTimeSinceEpoch: 1735862400
+  artifacts:
+    - protocol: oci
+      tags: ["1.5"]
+      uri: oci//registry.stage.redhat.io/rhelai1/modelcar-mixtral-8x22b-v0-1-quantized-w4a16:1.5
+- repository: RedHatAI
+  name: Pixtral-Large-Instruct-2411-hf-quantized.w8a8
+  provider: Red Hat AI
+  description: Quantized version of neuralmagic/Pixtral-Large-Instruct-2411-hf.
+  longDescription: |-
+    This model was obtained by quantizing the weights of neuralmagic/Pixtral-Large-Instruct-2411-hf to 
+      INT8 data type, ready for inference with vLLM >= 0.5.2.
+  readme: |-
+    # Pixtral-Large-Instruct-2411-hf-quantized.w8a8
+
+    ## Model Overview
+    - **Model Architecture:** neuralmagic/Pixtral-Large-Instruct-2411-hf
+      - **Input:** Vision-Text
+      - **Output:** Text
+    - **Model Optimizations:**
+      - **Weight quantization:** INT8
+      - **Activation quantization:** INT8
+    - **Release Date:** 2/24/2025
+    - **Version:** 1.0
+    - **Model Developers:** Neural Magic
+
+    Quantized version of [neuralmagic/Pixtral-Large-Instruct-2411-hf](https://huggingface.co/neuralmagic/Pixtral-Large-Instruct-2411-hf/tree/main).
+
+    ### Model Optimizations
+
+    This model was obtained by quantizing the weights of [neuralmagic/Pixtral-Large-Instruct-2411-hf](https://huggingface.co/neuralmagic/Pixtral-Large-Instruct-2411-hf/tree/main) to INT8 data type, ready for inference with vLLM >= 0.5.2.
+
+    ## Deployment
+
+    ### Use with vLLM
+
+    This model can be deployed efficiently using the [vLLM](https://docs.vllm.ai/en/latest/) backend, as shown in the example below.
+
+    ```python
+    from vllm.assets.image import ImageAsset
+    from vllm import LLM, SamplingParams
+    # prepare model
+    llm = LLM(
+        model="neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w8a8",
+        trust_remote_code=True,
+        max_model_len=4096,
+        max_num_seqs=2,
+    )
+    # prepare inputs
+    question = "What is the content of this image?"
+    inputs = {
+        "prompt": f"<|user|>\n<|image_1|>\n{question}<|end|>\n<|assistant|>\n",
+        "multi_modal_data": {
+            "image": ImageAsset("cherry_blossom").pil_image.convert("RGB")
+        },
+    }
+    # generate response
+    print("========== SAMPLE GENERATION ==============")
+    outputs = llm.generate(inputs, SamplingParams(temperature=0.2, max_tokens=64))
+    print(f"PROMPT  : {outputs[0].prompt}")
+    print(f"RESPONSE: {outputs[0].outputs[0].text}")
+    print("==========================================")
+    ```
+
+    vLLM also supports OpenAI-compatible serving. See the [documentation](https://docs.vllm.ai/en/latest/) for more details.
+
+    ## Creation
+
+    This model was created with [llm-compressor](https://github.com/vllm-project/llm-compressor) by running the code snippet below as part a multimodal announcement blog.
+
+    <details>
+      <summary>Model Creation Code</summary>
+      
+    ```python
+    import requests
+    import torch
+    from PIL import Image
+    from transformers import AutoProcessor
+    from llmcompressor.modifiers.quantization import GPTQModifier
+    from llmcompressor.transformers import oneshot
+    from llmcompressor.transformers.tracing import TraceableLlavaForConditionalGeneration
+            
+    # Load model.
+    model_id = "neuralmagic/Pixtral-Large-Instruct-2411-hf"
+    model = TraceableLlavaForConditionalGeneration.from_pretrained(
+        model_id, device_map="auto", torch_dtype="auto"
+    )
+    processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+    # Oneshot arguments
+    DATASET_ID = "flickr30k"
+    DATASET_SPLIT = {"calibration": "test[:512]"}
+    NUM_CALIBRATION_SAMPLES = 512
+    MAX_SEQUENCE_LENGTH = 2048
+    # Define a oneshot data collator for multimodal inputs.
+    def data_collator(batch):
+        assert len(batch) == 1
+        return {
+            "input_ids": torch.LongTensor(batch[0]["input_ids"]),
+            "attention_mask": torch.tensor(batch[0]["attention_mask"]),
+            "pixel_values": torch.tensor(batch[0]["pixel_values"]),
+        }
+    # Recipe
+    recipe = [
+        GPTQModifier(
+            targets="Linear",
+            scheme="W8A8",
+            sequential_targets=["MistralDecoderLayer"],
+            ignore=["re:.*lm_head", "re:vision_tower.*", "re:multi_modal_projector.*"],
+        ),
+    ]
+    SAVE_DIR==f"{model_id.split('/')[1]}-quantized.w8a8"
+    # Perform oneshot
+    oneshot(
+        model=model,
+        tokenizer=model_id,
+        dataset=DATASET_ID,
+        splits=DATASET_SPLIT,
+        recipe=recipe,
+        max_seq_length=MAX_SEQUENCE_LENGTH,
+        num_calibration_samples=NUM_CALIBRATION_SAMPLES,
+        trust_remote_code_model=True,
+        data_collator=data_collator,
+        output_dir=SAVE_DIR
+    )
+    ```
+    </details>
+
+    ## Evaluation
+
+    The model was evaluated using [mistral-evals](https://github.com/neuralmagic/mistral-evals) for vision-related tasks and using [lm_evaluation_harness](https://github.com/neuralmagic/lm-evaluation-harness) for select text-based benchmarks. The evaluations were conducted using the following commands:
+
+    <details>
+    <summary>Evaluation Commands</summary>
+      
+    ### Vision Tasks
+    - vqav2
+    - docvqa
+    - mathvista
+    - mmmu
+    - chartqa
+
+    ```
+    vllm serve neuralmagic/pixtral-12b-quantized.w8a8 --tensor_parallel_size 1 --max_model_len 25000 --trust_remote_code --max_num_seqs 8 --gpu_memory_utilization 0.9 --dtype float16 --limit_mm_per_prompt image=7
+    python -m eval.run eval_vllm \
+            --model_name neuralmagic/pixtral-12b-quantized.w8a8 \
+            --url http://0.0.0.0:8000 \
+            --output_dir ~/tmp \
+            --eval_name <vision_task_name>
+    ```
+
+    ### Text-based Tasks
+    #### MMLU
+      
+    ```
+    lm_eval \
+      --model vllm \
+      --model_args pretrained="<model_name>",dtype=auto,add_bos_token=True,max_model_len=4096,tensor_parallel_size=<n>,gpu_memory_utilization=0.8,enable_chunked_prefill=True,trust_remote_code=True \
+      --tasks mmlu \
+      --num_fewshot 5 \
+      --batch_size auto \
+      --output_path output_dir
+    ```
+
+    #### MGSM
+
+    ```
+    lm_eval \
+      --model vllm \
+      --model_args pretrained="<model_name>",dtype=auto,max_model_len=4096,max_gen_toks=2048,max_num_seqs=128,tensor_parallel_size=<n>,gpu_memory_utilization=0.9 \
+      --tasks mgsm_cot_native \
+      --num_fewshot 0 \
+      --batch_size auto \
+      --output_path output_dir
+    ```
+    </details>
+
+
+    ### Accuracy
+
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Metric</th>
+          <th>neuralmagic/Pixtral-Large-Instruct-2411-hf</th>
+          <th>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w8a8</th>
+          <th>Recovery (%)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="6"><b>Vision</b></td>
+          <td>MMMU (val, CoT)<br><i>explicit_prompt_relaxed_correctness</i></td>
+          <td>63.56</td>
+          <td>63.89</td>
+          <td>100.52%</td>
+        </tr>
+        <tr>
+          <td>VQAv2 (val)<br><i>vqa_match</i></td>
+          <td>79.03</td>
+          <td>79.12</td>
+          <td>100.11%</td>
+        </tr>
+        <tr>
+          <td>DocVQA (val)<br><i>anls</i></td>
+          <td>89.55</td>
+          <td>89.80</td>
+          <td>100.28%</td>
+        </tr>
+        <tr>
+          <td>ChartQA (test, CoT)<br><i>anywhere_in_answer_relaxed_correctness</i></td>
+          <td>82.24</td>
+          <td>80.44</td>
+          <td>97.81%</td>
+        </tr>
+        <tr>
+          <td>Mathvista (testmini, CoT)<br><i>explicit_prompt_relaxed_correctness</i></td>
+          <td>67.3</td>
+          <td>66.50</td>
+          <td>98.81%</td>
+        </tr>
+        <tr>
+          <td><b>Average Score</b></td>
+          <td><b>76.34</b></td>
+          <td><b>75.95</b></td>
+          <td><b>99.49%</b></td>
+        </tr>
+        <tr>
+          <td rowspan="2"><b>Text</b></td>
+          <td>MGSM (CoT)</td>
+          <td>76.05</td>
+          <td>74.76</td>
+          <td>98.30%</td>
+        </tr>
+        <tr>
+          <td>MMLU (5-shot)</td>
+          <td>82.8</td>
+          <td>82.9</td>
+          <td>100.12%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    ## Inference Performance
+
+
+    This model achieves up to 1.87x speedup in single-stream deployment and up to 2.0x speedup in multi-stream asynchronous deployment, depending on hardware and use-case scenario.
+    The following performance benchmarks were conducted with [vLLM](https://docs.vllm.ai/en/latest/) version 0.7.2, and [GuideLLM](https://github.com/neuralmagic/guidellm).
+
+    <details>
+    <summary>Benchmarking Command</summary>
+    ```
+      guidellm --model neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w8a8 --target "http://localhost:8000/v1" --data-type emulated --data prompt_tokens=<prompt_tokens>,generated_tokens=<generated_tokens>,images=<num_images>,width=<image_width>,height=<image_height> --max seconds 120 --backend aiohttp_server
+    ```
+
+    </details>
+
+    ### Single-stream performance (measured with vLLM version 0.7.2)
+
+    <table border="1" class="dataframe">
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th style="text-align: center;" colspan="2" >Document Visual Question Answering<br>1680W x 2240H<br>64/128</th>
+          <th style="text-align: center;" colspan="2" >Visual Reasoning <br>640W x 480H<br>128/128</th>
+          <th style="text-align: center;" colspan="2" >Image Captioning<br>480W x 360H<br>0/128</th>
+        </tr>
+        <tr>
+          <th>Hardware</th>
+          <th>Number of GPUs</th>
+          <th>Model</th>
+          <th>Average Cost Reduction</th>
+          <th>Latency (s)</th>
+          <th>Queries Per Dollar</th>
+          <th>Latency (s)</th>
+          <th>Queries Per Dollar</th>
+          <th>Latency (s)</th>
+          <th>Queries Per Dollar</th>
+        </tr>
+      </thead>
+      <tbody style="text-align: center">
+        <tr>
+          <th rowspan="3" valign="top">A100</th>
+          <td>4</td>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf</td>
+          <td></td>
+          <td>7.5</td>
+          <td>67</td>
+          <td>6.5</td>
+          <td>77</td>
+          <td>6.4</td>
+          <td>79</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w8a8</td>
+          <td>1.86</td>
+          <td>8.1</td>
+          <td>124</td>
+          <td>7.1</td>
+          <td>142</td>
+          <td>6.8</td>
+          <td>148</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w4a16</td>
+          <td>2.52</td>
+          <td>6.9</td>
+          <td>147</td>
+          <td>5.1</td>
+          <td>199</td>
+          <td>4.5</td>
+          <td>221</td>
+        </tr>
+        <tr>
+          <th rowspan="3" valign="top">H100</th>
+          <td>4</td>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf</td>
+          <td></td>
+          <td>4.4</td>
+          <td>67</td>
+          <td>3.9</td>
+          <td>74</td>
+          <td>3.7</td>
+          <td>79</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-FP8-Dynamic</td>
+          <td>1.82</td>
+          <td>4.7</td>
+          <td>120</td>
+          <td>4.1</td>
+          <td>137</td>
+          <td>3.9</td>
+          <td>145</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w4a16</td>
+          <td>1.87</td>
+          <td>4.7</td>
+          <td>120</td>
+          <td>3.9</td>
+          <td>144</td>
+          <td>3.8</td>
+          <td>149</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    **Use case profiles: Image Size (WxH) / prompt tokens / generation tokens
+    **QPD: Queries per dollar, based on on-demand cost at [Lambda Labs](https://lambdalabs.com/service/gpu-cloud) (observed on 2/18/2025).
+    ### Multi-stream asynchronous performance (measured with vLLM version 0.7.2)
+    <table border="1" class="dataframe">
+      <thead>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th style="text-align: center;" colspan="2" >Document Visual Question Answering<br>1680W x 2240H<br>64/128</th>
+          <th style="text-align: center;" colspan="2" >Visual Reasoning <br>640W x 480H<br>128/128</th>
+          <th style="text-align: center;" colspan="2" >Image Captioning<br>480W x 360H<br>0/128</th>
+        </tr>
+        <tr>
+          <th>Hardware</th>
+          <th>Model</th>
+          <th>Average Cost Reduction</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>Queries Per Dollar</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>Queries Per Dollar</th>
+          <th>Maximum throughput (QPS)</th>
+          <th>Queries Per Dollar</th>
+        </tr>
+      </thead>
+      <tbody style="text-align: center">
+      <tr>
+          <th rowspan="3" valign="top">A100x4</th>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf</td>
+          <td></td>
+          <td>0.4</td>
+          <td>222</td>
+          <td>0.7</td>
+          <td>341</td>
+          <td>0.8</td>
+          <td>399</td>
+        </tr>
+        <tr>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w8a8</td>
+          <td>1.70</td>
+          <td>0.8</td>
+          <td>383</td>
+          <td>1.1</td>
+          <td>571</td>
+          <td>1.3</td>
+          <td>674</td>
+        </tr>
+        <tr>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w4a16</td>
+          <td>1.48</td>
+          <td>0.5</td>
+          <td>276</td>
+          <td>1.0</td>
+          <td>505</td>
+          <td>1.4</td>
+          <td>680</td>
+        </tr>
+        <tr>
+          <<th rowspan="3" valign="top">H100x4</th>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf</td>
+          <td></td>
+          <td>1.0</td>
+          <td>284</td>
+          <td>1.6</td>
+          <td>465</td>
+          <td>1.8</td>
+          <td>511</td>
+        </tr>
+        <tr>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-FP8-Dynamic</td>
+          <td>1.61</td>
+          <td>1.7</td>
+          <td>467</td>
+          <td>2.6</td>
+          <td>726</td>
+          <td>3.2</td>
+          <td>908</td>
+        </tr>
+        <tr>
+          <td>neuralmagic/Pixtral-Large-Instruct-2411-hf-quantized.w4a16</td>
+          <td>1.33</td>
+          <td>1.4</td>
+          <td>393</td>
+          <td>2.2</td>
+          <td>726</td>
+          <td>2.7</td>
+          <td>764</td>
+        </tr>
+      </tbody>
+    </table>
+    **Use case profiles: Image Size (WxH) / prompt tokens / generation tokens
+
+    **QPS: Queries per second.
+    **QPD: Queries per dollar, based on on-demand cost at [Lambda Labs](https://lambdalabs.com/service/gpu-cloud) (observed on 2/18/2025).
+
+    ## The Mistral AI Team
+
+    Albert Jiang, Alexandre Sablayrolles, Alexis Tacnet, Alok Kothari, Antoine Roux, Arthur Mensch, Audrey Herblin-Stoop, Augustin Garreau, Austin Birky, Bam4d, Baptiste Bout, Baudouin de Monicault, Blanche Savary, Carole Rambaud, Caroline Feldman, Devendra Singh Chaplot, Diego de las Casas, Diogo Costa, Eleonore Arcelin, Emma Bou Hanna, Etienne Metzger, Gaspard Blanchet, Gianna Lengyel, Guillaume Bour, Guillaume Lample, Harizo Rajaona, Henri Roussez, Hichem Sattouf, Ian Mack, Jean-Malo Delignon, Jessica Chudnovsky, Justus Murke, Kartik Khandelwal, Lawrence Stewart, Louis Martin, Louis Ternon, Lucile Saulnier, Lélio Renard Lavaud, Margaret Jennings, Marie Pellat, Marie Torelli, Marie-Anne Lachaux, Marjorie Janiewicz, Mickaël Seznec, Nicolas Schuhl, Niklas Muhs, Olivier de Garrigues, Patrick von Platen, Paul Jacob, Pauline Buche, Pavan Kumar Reddy, Perry Savas, Pierre Stock, Romain Sauvestre, Sagar Vaze, Sandeep Subramanian, Saurabh Garg, Sophia Yang, Szymon Antoniak, Teven Le Scao, Thibault Schueller, Thibaut Lavril, Thomas Wang, Théophile Gervet, Timothée Lacroix, Valera Nemychnikova, Wendy Shang, William El Sayed, William Marshall
+  logo: data:image/png;base64,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
+  language: ["en", "fr", "de", "es", "it", "pt", "zh", "ja", "ru", "ko"]
+  license: mrl
+  licenseLink: https://mistral.ai/licenses/MRL-0.1.md
+  maturity: Generally Available
+  libraryName: transformers
+  baseModel:
+    - repository: neuralmagic
+    - name: Pixtral-Large-Instruct-2411-hf
+  labels:
+    - inference
+    - w8a8
+    - int8
+    - vllm
+    - vision
+  tasks:
+    - image-text-to-text
+  createTimeSinceEpoch: 1738886400
+  lastUpdateTimeSinceEpoch: 1741046400
+  artifacts:
+    - protocol: oci
+      tags: ["1.5"]
+      uri: oci://registry.stage.redhat.io/rhelai1/modelcar-pixtral-large-instruct-2411-hf-quantized-w8a8:1.5
+- repository: RedHatAI
+  name: whisper-large-v2-W4A16-G128
+  provider: Red Hat AI
+  description: Quantized version of openai/whisper-large-v2.
+  longDescription: |-
+    This model was obtained by quantizing the weights of openai/whisper-large-v2 to INT4 data type, 
+      ready for inference with vLLM >= 0.5.2.
+  readme: |-
+    # whisper-large-v2-quantized.w4a16
+
+    ## Model Overview
+    - **Model Architecture:** whisper-large-v2
+      - **Input:** Audio-Text
+      - **Output:** Text
+    - **Model Optimizations:**
+      - **Weight quantization:** INT4
+      - **Activation quantization:** FP16
+    - **Release Date:** 1/31/2025
+    - **Version:** 1.0
+    - **Model Developers:** Neural Magic
+
+    Quantized version of [openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2).
+
+    ### Model Optimizations
+
+    This model was obtained by quantizing the weights of [openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2) to INT4 data type, ready for inference with vLLM >= 0.5.2.
+
+    ## Deployment
+
+    ### Use with vLLM
+
+    This model can be deployed efficiently using the [vLLM](https://docs.vllm.ai/en/latest/) backend, as shown in the example below.
+
+    ```python
+    from vllm.assets.audio import AudioAsset
+    from vllm import LLM, SamplingParams
+    # prepare model
+    llm = LLM(
+        model="neuralmagic/whisper-large-v2-W4A16-G128",
+        max_model_len=448,
+        max_num_seqs=400,
+        limit_mm_per_prompt={"audio": 1},
+    )
+    # prepare inputs
+    inputs = {  # Test explicit encoder/decoder prompt
+        "encoder_prompt": {
+            "prompt": "",
+            "multi_modal_data": {
+                "audio": AudioAsset("winning_call").audio_and_sample_rate,
+            },
+        },
+        "decoder_prompt": "<|startoftranscript|>",
+    }
+    # generate response
+    print("========== SAMPLE GENERATION ==============")
+    outputs = llm.generate(inputs, SamplingParams(temperature=0.0, max_tokens=64))
+    print(f"PROMPT  : {outputs[0].prompt}")
+    print(f"RESPONSE: {outputs[0].outputs[0].text}")
+    print("==========================================")
+    ```
+
+    vLLM also supports OpenAI-compatible serving. See the [documentation](https://docs.vllm.ai/en/latest/) for more details.
+
+    ## Creation
+
+    This model was created with [llm-compressor](https://github.com/vllm-project/llm-compressor) by running the code snippet below as part a multimodal announcement blog.
+
+    ```python
+    import torch
+    from datasets import load_dataset
+    from transformers import WhisperProcessor
+    from llmcompressor.modifiers.quantization import GPTQModifier
+    from llmcompressor.transformers import oneshot
+    from llmcompressor.transformers.tracing import TraceableWhisperForConditionalGeneration
+    # Select model and load it.
+    model_id = "openai/whisper-large-v2"
+    model = TraceableWhisperForConditionalGeneration.from_pretrained(
+        model_id,
+        device_map="auto",
+        torch_dtype="auto",
+    )
+    processor = WhisperProcessor.from_pretrained(model_id)
+    # Configure processor the dataset task.
+    processor.tokenizer.set_prefix_tokens(language="en", task="transcribe")
+    # Select calibration dataset.
+    DATASET_ID = "MLCommons/peoples_speech"
+    DATASET_SUBSET = "test"
+    DATASET_SPLIT = "test"
+    # Select number of samples. 512 samples is a good place to start.
+    # Increasing the number of samples can improve accuracy.
+    NUM_CALIBRATION_SAMPLES = 512
+    MAX_SEQUENCE_LENGTH = 2048
+    # Load dataset and preprocess.
+    ds = load_dataset(
+        DATASET_ID,
+        DATASET_SUBSET,
+        split=f"{DATASET_SPLIT}[:{NUM_CALIBRATION_SAMPLES}]",
+        trust_remote_code=True,
+    )
+    # Preprocess and Tokenize inputs.
+    def preprocess_and_tokenize(example):
+        audio = example["audio"]["array"]
+        sampling_rate = example["audio"]["sampling_rate"]
+        text = " " + example["text"].capitalize()
+        audio_inputs = processor(
+            audio=audio,
+            sampling_rate=sampling_rate,
+            return_tensors="pt",
+        )
+        text_inputs = processor(
+            text=text,
+            add_special_tokens=True,
+            return_tensors="pt"
+        )
+        text_inputs["decoder_input_ids"] = text_inputs["input_ids"]
+        del text_inputs["input_ids"]
+        return dict(**audio_inputs, **text_inputs)
+    ds = ds.map(preprocess_and_tokenize, remove_columns=ds.column_names)
+    # Define a oneshot data collator for multimodal inputs.
+    def data_collator(batch):
+        assert len(batch) == 1
+        return {key: torch.tensor(value) for key, value in batch[0].items()}
+    # Recipe
+    recipe = GPTQModifier(targets="Linear", scheme="W4A16", ignore=["lm_head"])
+    # Apply algorithms.
+    SAVE_DIR = model_id.split("/")[1] + "-W4A16-G128"
+    oneshot(
+        model=model,
+        dataset=ds,
+        recipe=recipe,
+        max_seq_length=MAX_SEQUENCE_LENGTH,
+        num_calibration_samples=NUM_CALIBRATION_SAMPLES,
+        data_collator=data_collator,
+        output_dir=SAVE_DIR,
+    )
+    ```
+
+
+    ### BibTeX entry and citation info
+    ```bibtex
+    @misc{radford2022whisper,
+      doi = {10.48550/ARXIV.2212.04356},
+      url = {https://arxiv.org/abs/2212.04356},
+      author = {Radford, Alec and Kim, Jong Wook and Xu, Tao and Brockman, Greg and McLeavey, Christine and Sutskever, Ilya},
+      title = {Robust Speech Recognition via Large-Scale Weak Supervision},
+      publisher = {arXiv},
+      year = {2022},
+      copyright = {arXiv.org perpetual, non-exclusive license}
+    }   
+  logo: data:image/png;base64,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
+  language: ["en"]
+  license: apache-2.0
+  licenseLink: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+  maturity: Generally Available
+  libraryName: transformers
+  baseModel:
+    - repository: openai
+    - name: whisper-large-v2
+  labels:
+    - inference
+    - w4a16
+    - int4
+    - vllm
+    - audio
+  tasks:
+    - automatic-speech-recognition
+  createTimeSinceEpoch: 1738281600
+  lastUpdateTimeSinceEpoch: 1738281600
+  artifacts:
+    - protocol: oci
+      tags: ["1.5"]
+      uri: oci://registry.stage.redhat.io/rhelai1/modelcar-whisper-large-v2-w4a16-g128:1.5
