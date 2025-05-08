@@ -1,5 +1,5 @@
 # Build the model-registry binary
-FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi8/go-toolset:1.23 AS common
+FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi8/go-toolset:1.23.6-2 AS common
 ARG TARGETOS
 ARG TARGETARCH
 
