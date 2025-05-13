@@ -581,6 +581,7 @@ models:
     - repository: mistralai
     - name: Mistral-Small-24B-Base-2501
   labels:
+    - validated
     - inference
     - transformers
     - neuralmagic
@@ -995,6 +996,7 @@ models:
     - repository: meta-llama
     - name: Llama-4-Scout-17B-16E
   labels:
+    - validated
     - facebook
     - meta
     - pytorch
@@ -1104,6 +1106,7 @@ models:
     - repository: meta-llama
     - name: Llama-3.1-70B
   labels:
+    - validated
     - facebook
     - meta
     - pytorch
@@ -1248,6 +1251,7 @@ models:
     - repository: mistralai
     - name: Mixtral-8x7B-v0.1
   labels:
+    - validated
     - teacher
   tasks:
     - text-generation
@@ -1611,6 +1615,7 @@ models:
     - repository: mistralai
     - name: Mistral-Small-3.1-24B-Base-2503
   labels:
+    - validated
     - neuralmagic
     - redhat
     - llmcompressor
