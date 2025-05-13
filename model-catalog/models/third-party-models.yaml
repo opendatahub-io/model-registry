@@ -1004,7 +1004,7 @@ models:
     - llama
     - llama-3
     - inference
-    - teacher
+    - lab-teacher
   tasks:
     - text-generation
     - validated
@@ -1143,7 +1143,7 @@ models:
     - repository: mistralai
     - name: Mixtral-8x7B-v0.1
   labels:
-    - teacher
+    - lab-teacher
   tasks:
     - text-generation
   createTimeSinceEpoch: 1702252800
