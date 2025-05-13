@@ -574,6 +574,7 @@ models:
   language: ["en", "fr", "de", "es", "it", "pt", "zh", "ja", "ru", "ko"]
   license: apache-2.0
   licenseLink: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+  modelValidationLink: https://oa.jounce.io/mc/model/88ca670f-2c41-44b3-942e-8cf43a059fcd
   maturity: Generally Availaible
   libraryName: transformers
   baseModel:
@@ -987,6 +988,7 @@ models:
   language: ["ar","de","en","es","fr","hi","id","it","pt","th","tl","vi"]
   license: llama4
   licenseLink: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct/blob/main/LICENSE
+  modelValidationLink: https://oa.jounce.io/mc/model/ee2e3c43-9b5c-45b1-bade-704a9fbc0e44
   maturity: Generally Available
   libraryName: transformers
   baseModel:
@@ -1095,6 +1097,7 @@ models:
   language: ["en","fr","it","pt","hi","es","th","de"]
   license: llama3.3
   licenseLink: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/LICENSE
+  modelValidationLink: https://oa.jounce.io/mc/model/4ca530c4-5967-4e80-b5bd-6f2cb289194a
   maturity: Generally Available
   libraryName: transformers
   baseModel:
@@ -1238,6 +1241,7 @@ models:
   language: ["fr","it","de","es","en"]
   license: apache-2.0
   licenseLink: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+  modelValidationLink: https://oa.jounce.io/mc/model/3ff8f36d-b848-473a-9e24-036452298edd
   maturity: Generally Available
   libraryName: transformers
   baseModel:
@@ -1600,6 +1604,7 @@ models:
   language: ["en","fr","de","es","pt","it","ja","ko","ru","zh","ar","fa","id","ms","ne","pl","ro","sr","sv","tr","uk","vi","hi","bn"]
   license: apache-2.0
   licenseLink: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+  modelValidationLink: https://oa.jounce.io/mc/model/6b562afd-0920-4503-b720-90bb0fb84347
   maturity: Generally Available
   libraryName: Transformers
   baseModel:
