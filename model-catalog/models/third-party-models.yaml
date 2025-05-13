@@ -1146,6 +1146,7 @@ models:
     - lab-teacher
   tasks:
     - text-generation
+    - validated
   createTimeSinceEpoch: 1702252800
   lastUpdateTimeSinceEpoch: 1724025600
   artifacts: 
