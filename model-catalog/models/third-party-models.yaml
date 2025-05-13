@@ -1837,7 +1837,7 @@ models:
   artifacts:
     - protocol: oci
       tags: ["1.5.0"]
-      uri: oci//registry.redhat.io/rhelai1/modelcar-mixtral-8x22b-v0-1-quantized-w4a16:1.5
+      uri: oci://registry.redhat.io/rhelai1/modelcar-mixtral-8x22b-v0-1-quantized-w4a16:1.5
 - repository: RedHatAI
   name: Pixtral-Large-Instruct-2411-hf-quantized.w8a8
   provider: Red Hat AI
