@@ -86,7 +86,6 @@ jobs:
           kubectl port-forward service/modelregistry-sample 8080:8080 &
           sleep 5
           python test/python/test_mr_conn.py http://localhost 8080
-
       - name: Check Pod Logs
         if: always()
         run: |
