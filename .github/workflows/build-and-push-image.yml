@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - 'main'
-    tags:
-      - 'v*'
     paths-ignore:
       - 'LICENSE*'
       - '**.gitignore'
@@ -13,6 +11,9 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/dependabot.yml'
       - 'docs/**'
+    tags-ignore:
+      - '**-odh'
+      - 'py-**'
 env:
   IMG_REGISTRY: quay.io
   IMG_ORG: opendatahub
