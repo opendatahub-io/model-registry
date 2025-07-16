@@ -23,7 +23,7 @@ generatorOptions:
 images:
 - name: mysql
   newName: mysql
-  newTag: "8.3"
+  newTag: "9.3"
 
 patches:
 - path: patches/model-registry-deployment.yaml
