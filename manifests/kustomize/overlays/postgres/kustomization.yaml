@@ -22,7 +22,7 @@ generatorOptions:
 images:
 - name: postgres
   newName: postgres
-  newTag: 14.7-alpine3.17
+  newTag: 16.1-alpine3.17
 
 patches:
 - path: patches/model-registry-deployment.yaml
