@@ -108,7 +108,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.63.0 // indirect
+	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
@@ -131,7 +131,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/oauth2 v0.29.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
