@@ -51,8 +51,6 @@ spec:
         modelregistry.kubeflow.org/model-sync-model-version-id: "3"
         modelregistry.kubeflow.org/model-sync-model-artifact-id: "6"
     spec:
-      securityContext:
-        runAsNonRoot: true
       volumes:
         - name: source-credentials
           secret:
