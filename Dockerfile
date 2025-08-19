@@ -68,7 +68,7 @@ FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 WORKDIR /
 # copy the registry binary
 COPY --from=builder /workspace/model-registry .
-COPY --from=builder /workspace/model-registry/manifests/kustomize/options/catalog/default-catalog.yaml /default-catalog.yaml
+COPY manifests/kustomize/options/catalog/default-catalog.yaml /default-catalog.yaml
 USER 65532:65532
 
 ENTRYPOINT ["/model-registry"]
