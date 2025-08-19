@@ -66,20 +66,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: async-upload
-          image: ghcr.io/kubeflow/model-registry/job/async-upload:latest
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            capabilities:
-              drop: ["ALL"]
-            seccompProfile:
-              type: RuntimeDefault
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              memory: "512Mi"
+          image: quay.io/opendatahub/model-registry-job-async-upload
           volumeMounts:
             - name: source-credentials
               readOnly: true
