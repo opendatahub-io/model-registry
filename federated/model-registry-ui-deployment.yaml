@@ -1,0 +1,7 @@
+- op: add
+  path: /spec/template/spec/containers/0/args
+  value: 
+    - "--deployment-mode=federated"
+    - "--port=8080"
+    - "--log-level=debug"
+    - "--auth-method=user_token_red_hat"
