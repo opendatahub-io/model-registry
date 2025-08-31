@@ -8,7 +8,7 @@ require (
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/driver/sqlite v1.5.6
 	gorm.io/gen v0.3.26
-	gorm.io/gorm v1.26.0
+	gorm.io/gorm v1.30.2
 )
 
 exclude gorm.io/plugin/dbresolver v1.5.0
