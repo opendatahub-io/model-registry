@@ -5,14 +5,14 @@ on:
       - ".github/workflows/**"
       - "api/openapi/model-registry.yaml"
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5.0.0
       - name: Validate OpenAPI spec
         run: |
           make openapi/validate

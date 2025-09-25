@@ -21,8 +21,19 @@ type ModelCatalogPageProps = {
 
 const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
   const { selectedSource } = React.useContext(ModelCatalogContext);
-  const [catalogModels, catalogModelsLoaded, catalogModelsLoadError, refresh] =
-    useCatalogModelsBySources(selectedSource?.id || '', 10, searchTerm);
+  const { catalogModels, catalogModelsLoaded, catalogModelsLoadError } = useCatalogModelsBySources(
+    selectedSource?.id || '',
+    10,
+    searchTerm,
+  );
+
+  if (catalogModelsLoadError) {
+    return (
+      <Alert variant="danger" title="Failed to load model catalog" isInline>
+        {catalogModelsLoadError.message}
+      </Alert>
+    );
+  }
 
   if (!catalogModelsLoaded) {
     return (
@@ -35,17 +46,6 @@ const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
     );
   }
 
-  if (catalogModelsLoadError) {
-    return (
-      <Alert variant="danger" title="Failed to load model catalog" isInline>
-        {catalogModelsLoadError.message}
-        <Button variant="link" onClick={refresh}>
-          Try again
-        </Button>
-      </Alert>
-    );
-  }
-
   if (catalogModels.items.length === 0) {
     return (
       <EmptyModelCatalogState
@@ -55,7 +55,7 @@ const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
         description={
           <>
             No models from the <b>{selectedSource?.name}</b> source match the search criteria.
-            Adjust your seach, or select a differenct source
+            Adjust your search, or select a different source
           </>
         }
       />
