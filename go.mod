@@ -12,7 +12,7 @@ require (
 	github.com/golang/glog v1.2.5
 	github.com/kserve/kserve v0.15.2
 	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
-	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
+	github.com/kubeflow/model-registry/pkg/openapi v0.3.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.25.2
 	github.com/onsi/gomega v1.38.2
