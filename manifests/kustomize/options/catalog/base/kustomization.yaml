@@ -13,3 +13,7 @@ configMapGenerator:
   name: model-catalog-sources
   options:
     disableNameSuffixHash: true
+images:
+- name: quay.io/opendatahub/model-registry
+  newName: quay.io/opendatahub/model-registry
+  newTag: v0.3.1
