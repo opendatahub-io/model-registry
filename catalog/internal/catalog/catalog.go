@@ -14,9 +14,19 @@ import (
 )
 
 type ListModelsParams struct {
-	Query     string
-	OrderBy   model.OrderByField
-	SortOrder model.SortOrder
+	Query         string
+	SourceIDs     []string
+	PageSize      int32
+	OrderBy       model.OrderByField
+	SortOrder     model.SortOrder
+	NextPageToken *string
+}
+
+type ListArtifactsParams struct {
+	PageSize      int32
+	OrderBy       model.OrderByField
+	SortOrder     model.SortOrder
+	NextPageToken *string
 }
 
 // CatalogSourceProvider is implemented by catalog source types, e.g. YamlCatalog
@@ -24,16 +34,17 @@ type CatalogSourceProvider interface {
 	// GetModel returns model metadata for a single model by its name. If
 	// nothing is found with the name provided it returns nil, without an
 	// error.
-	GetModel(ctx context.Context, name string) (*model.CatalogModel, error)
+	GetModel(ctx context.Context, modelName string, sourceID string) (*model.CatalogModel, error)
 
 	// ListModels returns all models according to the parameters. If
 	// nothing suitable is found, it returns an empty list.
+	// If sourceIDs is provided, filter models by source IDs. If not provided, return all models.
 	ListModels(ctx context.Context, params ListModelsParams) (model.CatalogModelList, error)
 
 	// GetArtifacts returns all artifacts for a particular model. If no
 	// model is found with that name, it returns nil. If the model is
 	// found, but has no artifacts, an empty list is returned.
-	GetArtifacts(ctx context.Context, name string) (*model.CatalogModelArtifactList, error)
+	GetArtifacts(ctx context.Context, modelName string, sourceID string, params ListArtifactsParams) (model.CatalogArtifactList, error)
 }
 
 // CatalogSourceConfig is a single entry from the catalog sources YAML file.
@@ -52,7 +63,7 @@ type sourceConfig struct {
 	Catalogs []CatalogSourceConfig `json:"catalogs"`
 }
 
-type CatalogTypeRegisterFunc func(source *CatalogSourceConfig) (CatalogSourceProvider, error)
+type CatalogTypeRegisterFunc func(source *CatalogSourceConfig, reldir string) (CatalogSourceProvider, error)
 
 var registeredCatalogTypes = make(map[string]CatalogTypeRegisterFunc, 0)
 
@@ -103,24 +114,6 @@ func (sc *SourceCollection) load(path string) error {
 	// Get the directory of the config file to resolve relative paths
 	configDir := filepath.Dir(absConfigPath)
 
-	// Save current working directory
-	originalWd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %v", err)
-	}
-
-	// Change to the config directory to make relative paths work
-	if err := os.Chdir(configDir); err != nil {
-		return fmt.Errorf("failed to change to config directory %s: %v", configDir, err)
-	}
-
-	// Ensure we restore the original working directory when we're done
-	defer func() {
-		if err := os.Chdir(originalWd); err != nil {
-			glog.Errorf("failed to restore original working directory %s: %v", originalWd, err)
-		}
-	}()
-
 	config := sourceConfig{}
 	bytes, err := os.ReadFile(absConfigPath)
 	if err != nil {
@@ -157,12 +150,13 @@ func (sc *SourceCollection) load(path string) error {
 		if _, exists := sources[id]; exists {
 			return fmt.Errorf("duplicate catalog id %s", id)
 		}
+
 		labels := make([]string, 0)
 		if catalogConfig.GetLabels() != nil {
 			labels = catalogConfig.GetLabels()
 		}
 		catalogConfig.CatalogSource.Labels = labels
-		provider, err := registerFunc(&catalogConfig)
+		provider, err := registerFunc(&catalogConfig, configDir)
 		if err != nil {
 			return fmt.Errorf("error reading catalog type %s with id %s: %v", catalogType, id, err)
 		}
@@ -182,29 +176,32 @@ func (sc *SourceCollection) load(path string) error {
 	return nil
 }
 
-func LoadCatalogSources(path string) (*SourceCollection, error) {
+func LoadCatalogSources(paths []string) (*SourceCollection, error) {
 	sc := &SourceCollection{}
-	err := sc.load(path)
-	if err != nil {
-		return nil, err
-	}
 
-	go func() {
-		changes, err := getMonitor().Path(path)
+	for _, path := range paths {
+		err := sc.load(path)
 		if err != nil {
-			glog.Errorf("unable to watch sources file: %v", err)
-			// Not fatal, we just won't get automatic updates.
+			return nil, err
 		}
 
-		for range changes {
-			glog.Infof("Reloading sources %s", path)
-
-			err = sc.load(path)
+		go func(path string) {
+			changes, err := getMonitor().Path(path)
 			if err != nil {
-				glog.Errorf("unable to load sources: %v", err)
+				glog.Errorf("unable to watch sources file (%s): %v", path, err)
+				// Not fatal, we just won't get automatic updates.
 			}
-		}
-	}()
+
+			for range changes {
+				glog.Infof("Reloading sources %s", path)
+
+				err = sc.load(path)
+				if err != nil {
+					glog.Errorf("unable to load sources: %v", err)
+				}
+			}
+		}(path)
+	}
 
 	return sc, nil
 }

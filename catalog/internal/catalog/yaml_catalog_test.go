@@ -12,20 +12,20 @@ func TestYAMLCatalogGetModel(t *testing.T) {
 	assert := assert.New(t)
 	provider := testYAMLProvider(t, "testdata/test-yaml-catalog.yaml")
 
-	model, err := provider.GetModel(context.Background(), "rhelai1/granite-8b-code-base")
+	model, err := provider.GetModel(context.Background(), "rhelai1/granite-8b-code-base", "")
 	if assert.NoError(err) {
 		assert.Equal("rhelai1/granite-8b-code-base", model.Name)
 
 		newLogo := "foobar"
 		model.Logo = &newLogo
 
-		model2, err := provider.GetModel(context.Background(), "rhelai1/granite-8b-code-base")
+		model2, err := provider.GetModel(context.Background(), "rhelai1/granite-8b-code-base", "")
 		if assert.NoError(err) {
 			assert.NotEqual(model2.Logo, model.Logo, "changes to one returned object should not affect other return values")
 		}
 	}
 
-	notFound, err := provider.GetModel(context.Background(), "foo")
+	notFound, err := provider.GetModel(context.Background(), "foo", "")
 	assert.NoError(err)
 	assert.Nil(notFound)
 }
@@ -35,17 +35,24 @@ func TestYAMLCatalogGetArtifacts(t *testing.T) {
 	provider := testYAMLProvider(t, "testdata/test-yaml-catalog.yaml")
 
 	// Test case 1: Model with artifacts
-	artifacts, err := provider.GetArtifacts(context.Background(), "rhelai1/granite-8b-code-base")
+	artifacts, err := provider.GetArtifacts(context.Background(), "rhelai1/granite-8b-code-base", "", ListArtifactsParams{})
 	if assert.NoError(err) {
 		assert.NotNil(artifacts)
-		assert.Equal(int32(1), artifacts.Size)
-		assert.Equal(int32(1), artifacts.PageSize)
-		assert.Len(artifacts.Items, 1)
-		assert.Equal("oci://registry.redhat.io/rhelai1/granite-8b-code-base:1.3-1732870892", artifacts.Items[0].Uri)
+		assert.Equal(int32(2), artifacts.Size)
+		assert.Equal(int32(2), artifacts.PageSize)
+		assert.Len(artifacts.Items, 2)
+		if assert.NotNil(artifacts.Items[0].CatalogModelArtifact) {
+			assert.Equal("model-artifact", artifacts.Items[0].CatalogModelArtifact.ArtifactType)
+			assert.Equal("oci://registry.redhat.io/rhelai1/granite-8b-code-base:1.3-1732870892", artifacts.Items[0].CatalogModelArtifact.Uri)
+		}
+		if assert.NotNil(artifacts.Items[1].CatalogMetricsArtifact) {
+			assert.Equal("metrics-artifact", artifacts.Items[1].CatalogMetricsArtifact.ArtifactType)
+			assert.NotNil(artifacts.Items[1].CatalogMetricsArtifact.CustomProperties)
+		}
 	}
 
 	// Test case 2: Model with no artifacts
-	noArtifactsModel, err := provider.GetArtifacts(context.Background(), "model-with-no-artifacts")
+	noArtifactsModel, err := provider.GetArtifacts(context.Background(), "model-with-no-artifacts", "", ListArtifactsParams{})
 	if assert.NoError(err) {
 		assert.NotNil(noArtifactsModel)
 		assert.Equal(int32(0), noArtifactsModel.Size)
@@ -54,9 +61,9 @@ func TestYAMLCatalogGetArtifacts(t *testing.T) {
 	}
 
 	// Test case 3: Model not found
-	notFoundArtifacts, err := provider.GetArtifacts(context.Background(), "non-existent-model")
+	notFoundArtifacts, err := provider.GetArtifacts(context.Background(), "non-existent-model", "", ListArtifactsParams{})
 	assert.NoError(err)
-	assert.Nil(notFoundArtifacts)
+	assert.Equal(int32(0), notFoundArtifacts.Size)
 }
 
 func TestYAMLCatalogListModels(t *testing.T) {
@@ -199,7 +206,7 @@ func testYAMLProviderWithExclusions(t *testing.T, path string, excludedModels []
 	}
 	provider, err := newYamlCatalog(&CatalogSourceConfig{
 		Properties: properties,
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("newYamlCatalog(%s) with exclusions failed: %v", path, err)
 	}
