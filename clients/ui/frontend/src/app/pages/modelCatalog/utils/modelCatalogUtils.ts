@@ -1,4 +1,19 @@
-import { CatalogModelDetailsParams, CatalogSourceList } from '~/app/modelCatalogTypes';
+import { isEnumMember } from 'mod-arch-core';
+import React from 'react';
+import { ModelCatalogContext } from '~/app/context/modelCatalog/ModelCatalogContext';
+import {
+  CatalogArtifacts,
+  CatalogArtifactType,
+  CatalogFilterOptions,
+  CatalogFilterOptionsList,
+  CatalogModel,
+  CatalogModelDetailsParams,
+  CatalogSourceList,
+  ModelCatalogFilterStates,
+  ModelCatalogStringFilterValueType,
+} from '~/app/modelCatalogTypes';
+import { getLabels } from '~/app/pages/modelRegistry/screens/utils';
+import { ModelCatalogStringFilterKey } from '~/concepts/modelCatalog/const';
 
 export const extractVersionTag = (tags?: string[]): string | undefined =>
   tags?.find((tag) => /^\d+\.\d+\.\d+$/.test(tag));
@@ -44,4 +59,139 @@ export const filterEnabledCatalogSources = (
     items: filteredItems,
     size: filteredItems.length,
   };
+};
+
+export const getModelArtifactUri = (artifacts: CatalogArtifacts[]): string => {
+  const modelArtifact = artifacts.find(
+    (artifact) => artifact.artifactType === CatalogArtifactType.modelArtifact,
+  );
+
+  if (modelArtifact) {
+    return modelArtifact.uri || '';
+  }
+
+  return '';
+};
+
+export const hasModelArtifacts = (artifacts: CatalogArtifacts[]): boolean =>
+  artifacts.some((artifact) => artifact.artifactType === CatalogArtifactType.modelArtifact);
+
+// Utility function to check if a model is validated
+export const isModelValidated = (model: CatalogModel): boolean => {
+  if (!model.customProperties) {
+    return false;
+  }
+  const labels = getLabels(model.customProperties);
+  return labels.includes('validated');
+};
+
+const isStringFilterValid = <K extends ModelCatalogStringFilterKey>(
+  filterKey: K,
+  value: ModelCatalogStringFilterValueType[ModelCatalogStringFilterKey][],
+): value is ModelCatalogFilterStates[K] => isEnumMember(filterKey, ModelCatalogStringFilterKey);
+
+export const useCatalogStringFilterState = (
+  filterKey: ModelCatalogStringFilterKey,
+): {
+  isSelected: (value: ModelCatalogStringFilterValueType[ModelCatalogStringFilterKey]) => boolean;
+  setSelected: (
+    value: ModelCatalogStringFilterValueType[ModelCatalogStringFilterKey],
+    selected: boolean,
+  ) => void;
+} => {
+  type Value = ModelCatalogStringFilterValueType[ModelCatalogStringFilterKey];
+  const { filterData, setFilterData } = React.useContext(ModelCatalogContext);
+  const selections: Value[] = filterData[filterKey];
+  const isSelected = React.useCallback((value: Value) => selections.includes(value), [selections]);
+  const setSelected = (value: Value, selected: boolean) => {
+    const nextState: Value[] = selected
+      ? [...selections, value]
+      : selections.filter((item) => item !== value);
+    if (isStringFilterValid(filterKey, nextState)) {
+      setFilterData(filterKey, nextState);
+    }
+  };
+  return { isSelected, setSelected };
+};
+
+const isArrayOfSelections = (
+  filterOption: CatalogFilterOptions[keyof CatalogFilterOptions],
+  data: unknown,
+): data is string[] =>
+  filterOption.type === 'string' && Array.isArray(filterOption.values) && Array.isArray(data);
+
+// TODO: Implement performance filters.
+// type FilterId = keyof CatalogFilterOptionsList['filters'];
+// const KNOWN_LESS_THAN_IDS: FilterId[] = [ModelCatalogNumberFilterKey.TTFT_MEAN]; // TODO: populate with filters that need to talk about "less" values
+// const isKnownLessThanValue = (
+//   filterOption: CatalogFilterOptions[keyof CatalogFilterOptions],
+//   filterId: FilterId,
+//   data: unknown,
+// ): data is number =>
+//   filterOption.type === 'number' &&
+//   KNOWN_LESS_THAN_IDS.includes(filterId) &&
+//   typeof data === 'number';
+
+// const KNOWN_MORE_THAN_IDS: FilterId[] = [ModelCatalogNumberFilterKey.RPS_MEAN]; // TODO: populate with filters that need to talk about "more" values
+// const isKnownMoreThanValue = (
+//   filterOption: CatalogFilterOptions[keyof CatalogFilterOptions],
+//   filterId: FilterId,
+//   data: unknown,
+// ): data is number =>
+//   filterOption.type === 'number' &&
+//   KNOWN_MORE_THAN_IDS.includes(filterId) &&
+//   typeof data === 'number';
+
+const isFilterIdInMap = (
+  filterId: unknown,
+  filters: CatalogFilterOptions,
+): filterId is keyof CatalogFilterOptions => typeof filterId === 'string' && filterId in filters;
+
+const wrapInQuotes = (v: string): string => `'${v}'`;
+const inSpacer = `,`;
+
+export const filtersToFilterQuery = (
+  filterData: ModelCatalogFilterStates,
+  options: CatalogFilterOptionsList,
+): string => {
+  const serializedFilters: string[] = Object.entries(filterData).map(([filterId, data]) => {
+    if (!isFilterIdInMap(filterId, options.filters) || typeof data === 'undefined') {
+      // Unhandled key or no data
+      return '';
+    }
+
+    const filterOption = options.filters[filterId];
+
+    if (isArrayOfSelections(filterOption, data)) {
+      switch (data.length) {
+        case 0:
+          return '';
+        case 1:
+          return `${filterId} = ${wrapInQuotes(data[0])}`;
+        default:
+          // 2 or more
+          return `${filterId} IN (${data.map(wrapInQuotes).join(inSpacer)})`;
+      }
+    }
+
+    // TODO: Implement performance filters.
+    // if (isKnownLessThanValue(filterOption, filterId, data)) {
+    //   return `${filterId} < ${data}`;
+    // }
+
+    // if (isKnownMoreThanValue(filterOption, filterId, data)) {
+    //   return `${filterId} > ${data}`;
+    // }
+
+    // TODO: Implement more data transforms
+    // Shouldn't reach this far, but if it does, log & ignore the case
+    // eslint-disable-next-line no-console
+    console.warn('Unhandled option', filterId, data, filterOption);
+    return '';
+  });
+
+  const nonEmptyFilters = serializedFilters.filter((v) => !!v);
+
+  // eg. filterQuery=rps_mean+>1+AND+license+IN+('mit','apache-2.0')+AND+ttft_mean+<+10
+  return nonEmptyFilters.length === 0 ? '' : `${nonEmptyFilters.join(' AND ')}`.replace(/\s/g, '+');
 };

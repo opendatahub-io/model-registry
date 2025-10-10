@@ -3,6 +3,7 @@ import {
   Bullseye,
   Button,
   EmptyState,
+  Flex,
   Gallery,
   Spinner,
   Title,
@@ -13,6 +14,9 @@ import { ModelCatalogContext } from '~/app/context/modelCatalog/ModelCatalogCont
 import { useCatalogModelsBySources } from '~/app/hooks/modelCatalog/useCatalogModelsBySource';
 import { CatalogModel } from '~/app/modelCatalogTypes';
 import ModelCatalogCard from '~/app/pages/modelCatalog/components/ModelCatalogCard';
+import { isModelValidated } from '~/app/pages/modelCatalog/utils/modelCatalogUtils';
+import { mockPerformanceMetricsArtifacts } from '~/app/pages/modelCatalog/mocks/hardwareConfigurationMock';
+import { mockAccuracyMetricsArtifacts } from '~/app/pages/modelCatalog/mocks/accuracyMetricsMock';
 import EmptyModelCatalogState from '~/app/pages/modelCatalog/EmptyModelCatalogState';
 
 type ModelCatalogPageProps = {
@@ -20,11 +24,28 @@ type ModelCatalogPageProps = {
 };
 
 const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
-  const { selectedSource } = React.useContext(ModelCatalogContext);
-  const [catalogModels, catalogModelsLoaded, catalogModelsLoadError, refresh] =
-    useCatalogModelsBySources(selectedSource?.id || '', 10, searchTerm);
+  const { selectedSource, filterData, filterOptions, filterOptionsLoaded, filterOptionsLoadError } =
+    React.useContext(ModelCatalogContext);
+  const { catalogModels, catalogModelsLoaded, catalogModelsLoadError } = useCatalogModelsBySources(
+    selectedSource?.id || '',
+    10,
+    searchTerm,
+    filterData,
+    filterOptions,
+  );
 
-  if (!catalogModelsLoaded) {
+  const loaded = catalogModelsLoaded && filterOptionsLoaded;
+  const loadError = catalogModelsLoadError || filterOptionsLoadError;
+
+  if (loadError) {
+    return (
+      <Alert variant="danger" title="Failed to load model catalog" isInline>
+        {loadError.message}
+      </Alert>
+    );
+  }
+
+  if (!loaded) {
     return (
       <EmptyState>
         <Spinner />
@@ -32,17 +53,6 @@ const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
           Loading model catalog...
         </Title>
       </EmptyState>
-    );
-  }
-
-  if (catalogModelsLoadError) {
-    return (
-      <Alert variant="danger" title="Failed to load model catalog" isInline>
-        {catalogModelsLoadError.message}
-        <Button variant="link" onClick={refresh}>
-          Try again
-        </Button>
-      </Alert>
     );
   }
 
@@ -55,7 +65,7 @@ const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
         description={
           <>
             No models from the <b>{selectedSource?.name}</b> source match the search criteria.
-            Adjust your seach, or select a differenct source
+            Adjust your search, or select a different source
           </>
         }
       />
@@ -67,29 +77,35 @@ const ModelCatalogPage: React.FC<ModelCatalogPageProps> = ({ searchTerm }) => {
       <Gallery hasGutter minWidths={{ default: '300px' }}>
         {catalogModels.items.map((model: CatalogModel) => (
           <ModelCatalogCard
+            key={`${model.name}/${model.source_id}`}
             model={model}
             source={selectedSource}
-            key={`${model.name}/${model.source_id}`}
+            performanceMetrics={
+              isModelValidated(model) ? mockPerformanceMetricsArtifacts : undefined
+            }
+            accuracyMetrics={isModelValidated(model) ? mockAccuracyMetricsArtifacts : undefined}
           />
         ))}
       </Gallery>
       {catalogModels.hasMore && (
-        <div style={{ marginTop: '2rem' }}>
-          <Bullseye>
-            {catalogModels.isLoadingMore ? (
-              <>
-                <Spinner size="lg" className="pf-v5-u-mb-md" />
-                <Title size="lg" headingLevel="h5">
-                  Loading more catalog models...
-                </Title>
-              </>
-            ) : (
-              <Button variant="tertiary" onClick={catalogModels.loadMore} size="lg">
-                Load more models
-              </Button>
-            )}
-          </Bullseye>
-        </div>
+        <Bullseye className="pf-v6-u-mt-lg">
+          {catalogModels.isLoadingMore ? (
+            <Flex
+              direction={{ default: 'column' }}
+              alignItems={{ default: 'alignItemsCenter' }}
+              gap={{ default: 'gapMd' }}
+            >
+              <Spinner size="lg" />
+              <Title size="lg" headingLevel="h5">
+                Loading more catalog models...
+              </Title>
+            </Flex>
+          ) : (
+            <Button variant="tertiary" onClick={catalogModels.loadMore} size="lg">
+              Load more models
+            </Button>
+          )}
+        </Bullseye>
       )}
     </>
   );

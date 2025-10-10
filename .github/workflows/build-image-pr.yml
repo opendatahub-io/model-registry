@@ -12,7 +12,7 @@ on:
       - "docs/**"
       - "clients/python/**"
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 env:
@@ -25,7 +25,7 @@ jobs:
   build-and-test-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5.0.0
       - name: Generate Tag
         shell: bash
         id: tags

@@ -7,6 +7,7 @@ import {
 } from '~/__mocks__';
 import type { CatalogSource } from '~/app/modelCatalogTypes';
 import { MODEL_CATALOG_API_VERSION } from '~/__tests__/cypress/cypress/support/commands/api';
+import { mockCatalogFilterOptionsList } from '~/__mocks__/mockCatalogFilterOptionsList';
 
 type HandlersProps = {
   sources?: CatalogSource[];
@@ -34,6 +35,15 @@ const initIntercepts = ({
     mockCatalogModelList({
       items: [mockCatalogModel({})],
     }),
+  );
+
+  cy.interceptApi(
+    `GET /api/:apiVersion/model_catalog/models/filter_options`,
+    {
+      path: { apiVersion: MODEL_CATALOG_API_VERSION },
+      query: { namespace: 'kubeflow' },
+    },
+    mockCatalogFilterOptionsList(),
   );
 };
 
@@ -79,11 +89,10 @@ describe('ModelCatalogCard Component', () => {
   });
 
   describe('Navigation and Interaction', () => {
-    it('should show all model metadata correctly', () => {
+    it('should show model metadata correctly', () => {
       modelCatalog.findFirstModelCatalogCard().within(() => {
         modelCatalog.findModelCatalogDetailLink().should('contain.text', 'model1');
         modelCatalog.findTaskLabel().should('exist');
-        modelCatalog.findLicenseLabel().should('exist');
         modelCatalog.findProviderLabel().should('exist');
       });
     });
