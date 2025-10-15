@@ -63,7 +63,7 @@ jobs:
         if: always()
         run: |
           kubectl get deployments -n model-registry-operator-system -o wide
-          kubectl get pods -n model-registry-operator-system -o wide
+          kubectl get pods -n model-registry-operator-system -o wide --show-labels
           kubectl events -A
           kubectl describe -n model-registry-operator-system deployment/model-registry-operator-controller-manager
           kubectl logs -n model-registry-operator-system deployment/model-registry-operator-controller-manager
