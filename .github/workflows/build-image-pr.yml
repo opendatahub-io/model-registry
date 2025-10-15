@@ -58,6 +58,7 @@ jobs:
           echo "Deploying operator from model-registry-operator branch ${BRANCH}"
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/default?ref=${BRANCH}"
           kubectl set env -n model-registry-operator-system deployment/model-registry-operator-controller-manager REST_IMAGE="${IMG}"
+          kubectl wait --for=condition=Available=true -n model-registry-operator-system deployment/model-registry-operator-controller-manager --timeout=5m
       - name: Display about MR Operator in KinD cluster status in any case
         if: always()
         run: |
