@@ -73,6 +73,7 @@ jobs:
           kubectl get pods -o wide
           kubectl events
           kubectl get modelregistries/modelregistry-sample -o wide
+          kubectl describe modelregistries/modelregistry-sample
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
