@@ -68,7 +68,7 @@ jobs:
           kubectl describe -n model-registry-operator-system deployment/model-registry-operator-controller-manager
           for p in $(kubectl get pods -n model-registry-operator-system -o name); do
             echo "===== Logs for $p ====="
-            kubectl logs -n model-registry-operator-system $p --all-containers=true --prefix=true
+            kubectl logs -n model-registry-operator-system $p
           done
       - name: Create Test Registry
         run: |
