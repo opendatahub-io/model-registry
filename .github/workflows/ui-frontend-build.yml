@@ -19,14 +19,14 @@ on:
       - "!**.gitignore"
       - "!**.md"
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5.0.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v5

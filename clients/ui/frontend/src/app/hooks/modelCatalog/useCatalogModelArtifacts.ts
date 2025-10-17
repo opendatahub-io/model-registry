@@ -1,15 +1,17 @@
 import { FetchState, FetchStateCallbackPromise, NotReadyError, useFetchState } from 'mod-arch-core';
 import React from 'react';
-import { CatalogModelArtifactList } from '~/app/modelCatalogTypes';
+import { CatalogArtifactList } from '~/app/modelCatalogTypes';
 import { useModelCatalogAPI } from './useModelCatalogAPI';
 
 export const useCatalogModelArtifacts = (
   sourceId: string,
   modelName: string,
-): FetchState<CatalogModelArtifactList> => {
+  isValidated?: boolean,
+  onlyFetchIfValidated = false,
+): FetchState<CatalogArtifactList> => {
   const { api, apiAvailable } = useModelCatalogAPI();
 
-  const call = React.useCallback<FetchStateCallbackPromise<CatalogModelArtifactList>>(
+  const call = React.useCallback<FetchStateCallbackPromise<CatalogArtifactList>>(
     (opts) => {
       if (!apiAvailable) {
         return Promise.reject(new Error('API not yet available'));
@@ -20,9 +22,12 @@ export const useCatalogModelArtifacts = (
       if (!modelName) {
         return Promise.reject(new NotReadyError('No model name'));
       }
+      if (onlyFetchIfValidated && !isValidated) {
+        return Promise.reject(new NotReadyError('Model is not validated'));
+      }
       return api.getListCatalogModelArtifacts(opts, sourceId, modelName);
     },
-    [api, apiAvailable, sourceId, modelName],
+    [apiAvailable, sourceId, modelName, isValidated, api, onlyFetchIfValidated],
   );
   return useFetchState(
     call,

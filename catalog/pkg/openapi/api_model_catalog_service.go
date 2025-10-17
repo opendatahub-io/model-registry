@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 )
 
@@ -25,16 +26,18 @@ type ModelCatalogServiceAPIService service
 type ApiFindModelsRequest struct {
 	ctx           context.Context
 	ApiService    *ModelCatalogServiceAPIService
-	source        *string
+	source        *[]string
 	q             *string
+	sourceLabel   *[]string
+	filterQuery   *string
 	pageSize      *string
 	orderBy       *OrderByField
 	sortOrder     *SortOrder
 	nextPageToken *string
 }
 
-// Filter models by source. This parameter is currently required and may only be specified once.
-func (r ApiFindModelsRequest) Source(source string) ApiFindModelsRequest {
+// Filter models by source. Multiple values can be separated by commas to filter by multiple sources (OR logic). For example: ?source&#x3D;huggingface,local will return models from either huggingface OR local sources.
+func (r ApiFindModelsRequest) Source(source []string) ApiFindModelsRequest {
 	r.source = &source
 	return r
 }
@@ -42,6 +45,18 @@ func (r ApiFindModelsRequest) Source(source string) ApiFindModelsRequest {
 // Free-form keyword search used to filter the response.
 func (r ApiFindModelsRequest) Q(q string) ApiFindModelsRequest {
 	r.q = &q
+	return r
+}
+
+// Filter models by the label associated with the source. Multiple values can be separated by commas. If one of the values is the string &#x60;null&#x60;, then models from every source without a label will be returned.
+func (r ApiFindModelsRequest) SourceLabel(sourceLabel []string) ApiFindModelsRequest {
+	r.sourceLabel = &sourceLabel
+	return r
+}
+
+// A SQL-like query string to filter the list of entities. The query supports rich filtering capabilities with automatic type inference.  **Supported Operators:** - Comparison: &#x60;&#x3D;&#x60;, &#x60;!&#x3D;&#x60;, &#x60;&lt;&gt;&#x60;, &#x60;&gt;&#x60;, &#x60;&lt;&#x60;, &#x60;&gt;&#x3D;&#x60;, &#x60;&lt;&#x3D;&#x60; - Pattern matching: &#x60;LIKE&#x60;, &#x60;ILIKE&#x60; (case-insensitive) - Set membership: &#x60;IN&#x60; - Logical: &#x60;AND&#x60;, &#x60;OR&#x60; - Grouping: &#x60;()&#x60; for complex expressions  **Data Types:** - Strings: &#x60;\&quot;value\&quot;&#x60; or &#x60;&#39;value&#39;&#x60; - Numbers: &#x60;42&#x60;, &#x60;3.14&#x60;, &#x60;1e-5&#x60; - Booleans: &#x60;true&#x60;, &#x60;false&#x60; (case-insensitive)  **Property Access:** - Standard properties: &#x60;name&#x60;, &#x60;id&#x60;, &#x60;state&#x60;, &#x60;createTimeSinceEpoch&#x60; - Custom properties: Any user-defined property name - Escaped properties: Use backticks for special characters: &#x60;&#x60; &#x60;custom-property&#x60; &#x60;&#x60; - Type-specific access: &#x60;property.string_value&#x60;, &#x60;property.double_value&#x60;, &#x60;property.int_value&#x60;, &#x60;property.bool_value&#x60;  **Examples:** - Basic: &#x60;name &#x3D; \&quot;my-model\&quot;&#x60; - Comparison: &#x60;accuracy &gt; 0.95&#x60; - Pattern: &#x60;name LIKE \&quot;%tensorflow%\&quot;&#x60; - Complex: &#x60;(name &#x3D; \&quot;model-a\&quot; OR name &#x3D; \&quot;model-b\&quot;) AND state &#x3D; \&quot;LIVE\&quot;&#x60; - Custom property: &#x60;framework.string_value &#x3D; \&quot;pytorch\&quot;&#x60; - Escaped property: &#x60;&#x60; &#x60;mlflow.source.type&#x60; &#x3D; \&quot;notebook\&quot; &#x60;&#x60;
+func (r ApiFindModelsRequest) FilterQuery(filterQuery string) ApiFindModelsRequest {
+	r.filterQuery = &filterQuery
 	return r
 }
 
@@ -107,13 +122,34 @@ func (a *ModelCatalogServiceAPIService) FindModelsExecute(r ApiFindModelsRequest
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
-	if r.source == nil {
-		return localVarReturnValue, nil, reportError("source is required and must be specified")
-	}
 
-	parameterAddToHeaderOrQuery(localVarQueryParams, "source", r.source, "")
+	if r.source != nil {
+		t := *r.source
+		if reflect.TypeOf(t).Kind() == reflect.Slice {
+			s := reflect.ValueOf(t)
+			for i := 0; i < s.Len(); i++ {
+				parameterAddToHeaderOrQuery(localVarQueryParams, "source", s.Index(i).Interface(), "multi")
+			}
+		} else {
+			parameterAddToHeaderOrQuery(localVarQueryParams, "source", t, "multi")
+		}
+	}
 	if r.q != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "q", r.q, "")
+	}
+	if r.sourceLabel != nil {
+		t := *r.sourceLabel
+		if reflect.TypeOf(t).Kind() == reflect.Slice {
+			s := reflect.ValueOf(t)
+			for i := 0; i < s.Len(); i++ {
+				parameterAddToHeaderOrQuery(localVarQueryParams, "sourceLabel", s.Index(i).Interface(), "multi")
+			}
+		} else {
+			parameterAddToHeaderOrQuery(localVarQueryParams, "sourceLabel", t, "multi")
+		}
+	}
+	if r.filterQuery != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "filterQuery", r.filterQuery, "")
 	}
 	if r.pageSize != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "pageSize", r.pageSize, "")
@@ -189,6 +225,136 @@ func (a *ModelCatalogServiceAPIService) FindModelsExecute(r ApiFindModelsRequest
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 404 {
+			var v Error
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 500 {
+			var v Error
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
+type ApiFindModelsFilterOptionsRequest struct {
+	ctx        context.Context
+	ApiService *ModelCatalogServiceAPIService
+}
+
+func (r ApiFindModelsFilterOptionsRequest) Execute() (*FilterOptionsList, *http.Response, error) {
+	return r.ApiService.FindModelsFilterOptionsExecute(r)
+}
+
+/*
+FindModelsFilterOptions Lists fields and available options that can be used in `filterQuery` on the list models endpoint.
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@return ApiFindModelsFilterOptionsRequest
+*/
+func (a *ModelCatalogServiceAPIService) FindModelsFilterOptions(ctx context.Context) ApiFindModelsFilterOptionsRequest {
+	return ApiFindModelsFilterOptionsRequest{
+		ApiService: a,
+		ctx:        ctx,
+	}
+}
+
+// Execute executes the request
+//
+//	@return FilterOptionsList
+func (a *ModelCatalogServiceAPIService) FindModelsFilterOptionsExecute(r ApiFindModelsFilterOptionsRequest) (*FilterOptionsList, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodGet
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue *FilterOptionsList
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "ModelCatalogServiceAPIService.FindModelsFilterOptions")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/model_catalog/v1alpha1/models/filter_options"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 400 {
+			var v Error
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 401 {
 			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
@@ -418,18 +584,53 @@ func (a *ModelCatalogServiceAPIService) FindSourcesExecute(r ApiFindSourcesReque
 }
 
 type ApiGetAllModelArtifactsRequest struct {
-	ctx        context.Context
-	ApiService *ModelCatalogServiceAPIService
-	sourceId   string
-	modelName  string
+	ctx           context.Context
+	ApiService    *ModelCatalogServiceAPIService
+	sourceId      string
+	modelName     string
+	artifactType  *string
+	pageSize      *string
+	orderBy       *OrderByField
+	sortOrder     *SortOrder
+	nextPageToken *string
 }
 
-func (r ApiGetAllModelArtifactsRequest) Execute() (*CatalogModelArtifactList, *http.Response, error) {
+// Filter artifacts by type.
+func (r ApiGetAllModelArtifactsRequest) ArtifactType(artifactType string) ApiGetAllModelArtifactsRequest {
+	r.artifactType = &artifactType
+	return r
+}
+
+// Number of entities in each page.
+func (r ApiGetAllModelArtifactsRequest) PageSize(pageSize string) ApiGetAllModelArtifactsRequest {
+	r.pageSize = &pageSize
+	return r
+}
+
+// Specifies the order by criteria for listing entities.
+func (r ApiGetAllModelArtifactsRequest) OrderBy(orderBy OrderByField) ApiGetAllModelArtifactsRequest {
+	r.orderBy = &orderBy
+	return r
+}
+
+// Specifies the sort order for listing entities, defaults to ASC.
+func (r ApiGetAllModelArtifactsRequest) SortOrder(sortOrder SortOrder) ApiGetAllModelArtifactsRequest {
+	r.sortOrder = &sortOrder
+	return r
+}
+
+// Token to use to retrieve next page of results.
+func (r ApiGetAllModelArtifactsRequest) NextPageToken(nextPageToken string) ApiGetAllModelArtifactsRequest {
+	r.nextPageToken = &nextPageToken
+	return r
+}
+
+func (r ApiGetAllModelArtifactsRequest) Execute() (*CatalogArtifactList, *http.Response, error) {
 	return r.ApiService.GetAllModelArtifactsExecute(r)
 }
 
 /*
-GetAllModelArtifacts List CatalogModelArtifacts.
+GetAllModelArtifacts List CatalogArtifacts.
 
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@param sourceId A unique identifier for a `CatalogSource`.
@@ -447,13 +648,13 @@ func (a *ModelCatalogServiceAPIService) GetAllModelArtifacts(ctx context.Context
 
 // Execute executes the request
 //
-//	@return CatalogModelArtifactList
-func (a *ModelCatalogServiceAPIService) GetAllModelArtifactsExecute(r ApiGetAllModelArtifactsRequest) (*CatalogModelArtifactList, *http.Response, error) {
+//	@return CatalogArtifactList
+func (a *ModelCatalogServiceAPIService) GetAllModelArtifactsExecute(r ApiGetAllModelArtifactsRequest) (*CatalogArtifactList, *http.Response, error) {
 	var (
 		localVarHTTPMethod  = http.MethodGet
 		localVarPostBody    interface{}
 		formFiles           []formFile
-		localVarReturnValue *CatalogModelArtifactList
+		localVarReturnValue *CatalogArtifactList
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "ModelCatalogServiceAPIService.GetAllModelArtifacts")
@@ -469,6 +670,21 @@ func (a *ModelCatalogServiceAPIService) GetAllModelArtifactsExecute(r ApiGetAllM
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.artifactType != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "artifact_type", r.artifactType, "")
+	}
+	if r.pageSize != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "pageSize", r.pageSize, "")
+	}
+	if r.orderBy != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "orderBy", r.orderBy, "")
+	}
+	if r.sortOrder != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "sortOrder", r.sortOrder, "")
+	}
+	if r.nextPageToken != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "nextPageToken", r.nextPageToken, "")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 

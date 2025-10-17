@@ -12,8 +12,9 @@ import type {
   RegisteredModelList,
 } from '~/app/types';
 import type {
+  CatalogFilterOptionsList,
+  CatalogArtifactList,
   CatalogModel,
-  CatalogModelArtifactList,
   CatalogModelList,
   CatalogSourceList,
 } from '~/app/modelCatalogTypes';
@@ -141,7 +142,15 @@ declare global {
         ) => Cypress.Chainable<null>) &
         ((
           type: 'GET /api/:apiVersion/model_catalog/models',
-          options: { path: { apiVersion: string }; query: { source: string } },
+          options: {
+            path: { apiVersion: string };
+            query: {
+              source?: string;
+              filterQuery?: string;
+              sourceLabel?: string;
+              searchKeyword?: string;
+            };
+          },
           response: ApiResponse<CatalogModelList>,
         ) => Cypress.Chainable<null>) &
         ((
@@ -157,7 +166,12 @@ declare global {
         ((
           type: 'GET /api/:apiVersion/model_catalog/sources/:sourceId/artifacts/:modelName',
           options: { path: { apiVersion: string; sourceId: string; modelName: string } },
-          response: ApiResponse<CatalogModelArtifactList>,
+          response: ApiResponse<CatalogArtifactList>,
+        ) => Cypress.Chainable<null>) &
+        ((
+          type: 'GET /api/:apiVersion/model_catalog/models/filter_options',
+          options: { path: { apiVersion: string }; query: { namespace: string } },
+          response: ApiResponse<CatalogFilterOptionsList>,
         ) => Cypress.Chainable<null>);
     }
   }

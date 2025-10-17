@@ -8,15 +8,15 @@ undeploy-mr-odh:
 
 .PHONY: test-e2e-odh
 test-e2e-odh:
-	@echo "Ensuring all extras are installed..."
-	poetry install --all-extras
 	@echo "Running tests..."
 	@set -a; . ../../scripts/manifests/minio/.env; set +a; \
-	export AUTH_TOKEN=$$(kubectl config view --raw -o jsonpath="{.users[?(@.name==\"$$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$$(kubectl config current-context 2>/dev/null)\")].context.user}" 2>/dev/null)\")].user.token}" 2>/dev/null) && \
+	mkdir -p ../../results; \
+	export AUTH_TOKEN=$$(kubectl config view --raw -o jsonpath="{.users[?(@.name==\"$$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$$(kubectl config current-context)\")].context.user}")\")].user.token}") && \
 	export VERIFY_SSL=False && \
-	export MR_NAMESPACE=$$(kubectl get datasciencecluster default-dsc -o jsonpath='{.spec.components.modelregistry.registriesNamespace}' 2>/dev/null) && \
-    export MR_URL="https://$$(kubectl get service -n "$$MR_NAMESPACE" model-registry -o jsonpath='{.metadata.annotations.routing\.opendatahub\.io\/external-address-rest}' 2>/dev/null)" && poetry run pytest --e2e -s -rA \
-	&& rm -f ../../scripts/manifests/minio/.env
+	export MR_NAMESPACE=$$(kubectl get datasciencecluster default-dsc -o jsonpath='{.spec.components.modelregistry.registriesNamespace}') && \
+	export MR_URL="https://$$(kubectl get service -n "$$MR_NAMESPACE" model-registry -o jsonpath='{.metadata.annotations.routing\.opendatahub\.io\/external-address-rest}')" && \
+	poetry install --all-extras && poetry run pytest --e2e -svvv -rA --html=../../results/report.html --junit-xml=../../results/xunit_report.xml --self-contained-html && \
+	rm -f ../../scripts/manifests/minio/.env
 
 .PHONY: test-e2e-port-cleanup
 test-e2e-port-cleanup:
@@ -25,3 +25,15 @@ test-e2e-port-cleanup:
 		kill $$(cat .port-forwards.pid) || true; \
 		rm -f .port-forwards.pid; \
 	fi
+
+.PHONY: test-fuzz-odh
+test-fuzz-odh:
+	@echo "Starting test-fuzz"
+	poetry install --all-extras
+	@set -a; . ../../scripts/manifests/minio/.env; set +a; \
+	export VERIFY_SSL=False && \
+	export AUTH_TOKEN=$$(kubectl config view --raw -o jsonpath="{.users[?(@.name==\"$$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$$(kubectl config current-context)\")].context.user}")\")].user.token}") && \
+	export MR_NAMESPACE=$$(kubectl get datasciencecluster default-dsc -o jsonpath='{.spec.components.modelregistry.registriesNamespace}') && \
+	export MR_URL="https://$$(kubectl get service -n "$$MR_NAMESPACE" model-registry -o jsonpath='{.metadata.annotations.routing\.opendatahub\.io\/external-address-rest}')" && \
+	poetry run pytest --fuzz -svvv --hypothesis-show-statistics tests/fuzz_api -rA --html=../../results/report.html --junit-xml=../../results/xunit_report.xml --self-contained-html
+	@exit $$STATUS

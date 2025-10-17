@@ -44,7 +44,7 @@ type FilterApplier interface {
 
 // applyFilterQuery applies advanced filter query processing to a GORM query
 // This function encapsulates the common pattern used by both GenericRepository and custom repositories
-func applyFilterQuery(query *gorm.DB, listOptions any) (*gorm.DB, error) {
+func applyFilterQuery(query *gorm.DB, listOptions any, mappingFuncs filter.EntityMappingFunctions) (*gorm.DB, error) {
 	if filterQueryGetter, ok := listOptions.(interface{ GetFilterQuery() string }); ok {
 		if filterQuery := filterQueryGetter.GetFilterQuery(); filterQuery != "" {
 			if filterApplier, ok := listOptions.(FilterApplier); ok {
@@ -54,7 +54,7 @@ func applyFilterQuery(query *gorm.DB, listOptions any) (*gorm.DB, error) {
 				}
 
 				if filterExpr != nil {
-					queryBuilder := filter.NewQueryBuilderForRestEntity(filterApplier.GetRestEntityType())
+					queryBuilder := filter.NewQueryBuilderForRestEntity(filterApplier.GetRestEntityType(), mappingFuncs)
 					query = queryBuilder.BuildQuery(query, filterExpr)
 				}
 			}
@@ -77,6 +77,7 @@ type GenericRepositoryConfig[TEntity any, TSchema SchemaEntity, TProp PropertyEn
 	CreatePaginationToken func(TSchema, TListOpts) string // Optional - defaults to standard implementation
 	IsNewEntity           func(TEntity) bool
 	HasCustomProperties   func(TEntity) bool
+	EntityMappingFuncs    filter.EntityMappingFunctions // Optional - custom entity mappings for filtering
 }
 
 // Generic repository implementation
@@ -115,6 +116,29 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetByID(id int32
 	return r.config.SchemaToEntity(entity, properties), nil
 }
 
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetByName(name string) (TEntity, error) {
+	var entity TSchema
+	var properties []TProp
+	var zeroEntity TEntity
+
+	// Query main entity
+	if err := r.config.DB.Where("name = ? AND type_id = ?", name, r.config.TypeID).First(&entity).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return zeroEntity, fmt.Errorf("%w: %v", r.config.NotFoundError, err)
+		}
+		return zeroEntity, fmt.Errorf("error getting %s by name: %w", r.config.EntityName, err)
+	}
+
+	// Query properties
+	entityID := r.getEntityID(entity)
+	if err := r.config.DB.Where(r.config.PropertyFieldName+" = ?", entityID).Find(&properties).Error; err != nil {
+		return zeroEntity, fmt.Errorf("error getting properties by %s id: %w", r.config.EntityName, err)
+	}
+
+	// Map to domain model
+	return r.config.SchemaToEntity(entity, properties), nil
+}
+
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) List(listOptions TListOpts) (*models.ListWrapper[TEntity], error) {
 	pageSize := listOptions.GetPageSize()
 
@@ -134,7 +158,7 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) List(listOptions
 	}
 
 	// Apply advanced filter query if supported
-	query, err := applyFilterQuery(query, listOptions)
+	query, err := applyFilterQuery(query, listOptions, r.config.EntityMappingFuncs)
 	if err != nil {
 		return nil, err
 	}
@@ -431,15 +455,15 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) handleProperties
 			// Update existing property
 			r.copyPropertyValues(&prop, &existingProp)
 			if err := tx.Model(&existingProp).Updates(prop).Error; err != nil {
-				return fmt.Errorf("error updating property: %w", err)
+				return fmt.Errorf("error updating property %s: %w", r.getPropertyName(prop), err)
 			}
 		case gorm.ErrRecordNotFound:
 			// Create new property
 			if err := tx.Create(&prop).Error; err != nil {
-				return fmt.Errorf("error creating property: %w", err)
+				return fmt.Errorf("error creating property %s: %w", r.getPropertyName(prop), err)
 			}
 		default:
-			return fmt.Errorf("error checking existing property: %w", result.Error)
+			return fmt.Errorf("error checking existing property %s: %w", r.getPropertyName(prop), result.Error)
 		}
 	}
 
@@ -591,6 +615,10 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) getNonUpdatableF
 	}
 
 	return omitFields
+}
+
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetConfig() GenericRepositoryConfig[TEntity, TSchema, TProp, TListOpts] {
+	return r.config
 }
 
 // Shared mapping functions for common property conversions

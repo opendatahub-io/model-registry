@@ -1,13 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  Flex,
-  FlexItem,
-  Truncate,
-  Title,
-} from '@patternfly/react-core';
+import { Breadcrumb, BreadcrumbItem, Flex, FlexItem, Title } from '@patternfly/react-core';
 import { Link } from 'react-router-dom';
 import { ApplicationsPage } from 'mod-arch-shared';
 import { ModelRegistrySelectorContext } from '~/app/context/ModelRegistrySelectorContext';
@@ -17,6 +10,7 @@ import useModelArtifactsByVersionId from '~/app/hooks/useModelArtifactsByVersion
 import { ModelState } from '~/app/types';
 import {
   archiveModelVersionDetailsUrl,
+  modelRegistryUrl,
   modelVersionArchiveDetailsUrl,
   modelVersionUrl,
   registeredModelUrl,
@@ -39,18 +33,19 @@ const ModelVersionsDetails: React.FC<ModelVersionsDetailProps> = ({ tab, ...page
   const { preferredModelRegistry } = React.useContext(ModelRegistrySelectorContext);
 
   const { modelVersionId: mvId, registeredModelId: rmId } = useParams();
-  const [rm] = useRegisteredModelById(rmId);
+  const [rm, rmLoaded, rmLoadError, rmRefresh] = useRegisteredModelById(rmId);
   const [mv, mvLoaded, mvLoadError, refreshModelVersion] = useModelVersionById(mvId);
   const [modelArtifacts, modelArtifactsLoaded, modelArtifactsLoadError, refreshModelArtifacts] =
     useModelArtifactsByVersionId(mvId);
 
   const refresh = React.useCallback(() => {
+    rmRefresh();
     refreshModelVersion();
     refreshModelArtifacts();
-  }, [refreshModelVersion, refreshModelArtifacts]);
+  }, [refreshModelVersion, refreshModelArtifacts, rmRefresh]);
 
-  const loaded = mvLoaded && modelArtifactsLoaded;
-  const loadError = mvLoadError || modelArtifactsLoadError;
+  const loaded = mvLoaded && modelArtifactsLoaded && rmLoaded;
+  const loadError = mvLoadError || modelArtifactsLoadError || rmLoadError;
 
   useEffect(() => {
     if (rm?.state === ModelState.ARCHIVED && mv?.id) {
@@ -71,7 +66,7 @@ const ModelVersionsDetails: React.FC<ModelVersionsDetailProps> = ({ tab, ...page
         <Breadcrumb>
           <BreadcrumbItem
             render={() => (
-              <Link to="/model-registry">Model registry - {preferredModelRegistry?.name}</Link>
+              <Link to={modelRegistryUrl()}>Model registry - {preferredModelRegistry?.name}</Link>
             )}
           />
           <BreadcrumbItem
@@ -117,7 +112,6 @@ const ModelVersionsDetails: React.FC<ModelVersionsDetailProps> = ({ tab, ...page
           />
         )
       }
-      description={<Truncate content={mv?.description || ''} />}
       loadError={loadError}
       loaded={loaded}
       provideChildrenPadding
@@ -125,9 +119,12 @@ const ModelVersionsDetails: React.FC<ModelVersionsDetailProps> = ({ tab, ...page
       {mv !== null && (
         <ModelVersionDetailsTabs
           tab={tab}
+          registeredModel={rm}
           modelVersion={mv}
           refresh={refresh}
           modelArtifacts={modelArtifacts}
+          modelArtifactsLoaded={modelArtifactsLoaded}
+          modelArtifactsLoadError={modelArtifactsLoadError}
         />
       )}
     </ApplicationsPage>
