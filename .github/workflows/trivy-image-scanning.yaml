@@ -4,13 +4,15 @@ on:
   schedule:
     - cron: '0 0 * * 1' # Every Monday at 00:00
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
-  security-events: write
 
 jobs:
   image-scanning:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       matrix:
         IMAGE: [
@@ -22,7 +24,7 @@ jobs:
         ]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5.0.0
 
       - name: Sanitize image name for SARIF filename
         run: |
@@ -43,7 +45,7 @@ jobs:
           timeout: 30m0s
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results-${{ env.SANITIZED_IMAGE_NAME }}.sarif'

@@ -18,9 +18,9 @@ DST="$PROJECT_ROOT/${2:-internal/server/openapi}"
 function sed_inplace() {
     if [[ $(uname) == "Darwin" ]]; then
         # introduce -i parameter for Mac OSX sed compatibility
-        sed -i '' "$@"
+        sed -E -i '' "$@"
     else
-        sed -i "$@"
+        sed -E -i "$@"
     fi
 }
 
@@ -32,7 +32,13 @@ sed_inplace 's/"encoding\/json"//' "$PROJECT_ROOT"/internal/server/openapi/api_m
 sed_inplace 's/github.com\/kubeflow\/model-registry\/pkg\/openapi/github.com\/kubeflow\/model-registry\/catalog\/pkg\/openapi/' \
     "$PROJECT_ROOT"/internal/server/openapi/api_model_catalog_service.go \
     "$PROJECT_ROOT"/internal/server/openapi/api.go
-sed_inplace 's/{\?model_name+}\?/*/' "$PROJECT_ROOT"/internal/server/openapi/api_model_catalog_service.go
+sed_inplace 's/\{?model_name\+\}?/*/' "$PROJECT_ROOT"/internal/server/openapi/api_model_catalog_service.go
+
+echo "Applying patches to generated code"
+(
+    cd "$PROJECT_ROOT/.."
+    git apply patches/api_model_catalog_service.patch
+)
 
 echo "Assembling type_assert Go file"
 ./scripts/gen_type_asserts.sh "$DST"

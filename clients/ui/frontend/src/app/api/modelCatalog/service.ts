@@ -1,16 +1,20 @@
 import { APIOptions, handleRestFailures, isModArchResponse, restGET } from 'mod-arch-core';
 import {
+  CatalogArtifactList,
+  CatalogFilterOptionsList,
   CatalogModel,
-  CatalogModelArtifactList,
   CatalogModelList,
   CatalogSourceList,
+  ModelCatalogFilterStates,
 } from '~/app/modelCatalogTypes';
+import { filtersToFilterQuery } from '~/app/pages/modelCatalog/utils/modelCatalogUtils';
 
 export const getCatalogModelsBySource =
   (hostPath: string, queryParams: Record<string, unknown> = {}) =>
   (
     opts: APIOptions,
-    sourceId: string,
+    sourceId?: string,
+    sourceLabel?: string,
     paginationParams?: {
       pageSize?: string;
       nextPageToken?: string;
@@ -18,12 +22,17 @@ export const getCatalogModelsBySource =
       sortOrder?: string;
     },
     searchKeyword?: string,
+    filterData?: ModelCatalogFilterStates,
+    filterOptions?: CatalogFilterOptionsList | null,
   ): Promise<CatalogModelList> => {
     const allParams = {
       source: sourceId,
+      sourceLabel,
       ...paginationParams,
       ...(searchKeyword && { q: searchKeyword }),
       ...queryParams,
+      ...(filterData &&
+        filterOptions && { filterQuery: filtersToFilterQuery(filterData, filterOptions) }),
     };
     return handleRestFailures(restGET(hostPath, '/models', allParams, opts)).then((response) => {
       if (isModArchResponse<CatalogModelList>(response)) {
@@ -32,6 +41,18 @@ export const getCatalogModelsBySource =
       throw new Error('Invalid response format');
     });
   };
+
+export const getCatalogFilterOptionList =
+  (hostPath: string, queryParams: Record<string, unknown> = {}) =>
+  (opts: APIOptions): Promise<CatalogFilterOptionsList> =>
+    handleRestFailures(restGET(hostPath, '/models/filter_options', queryParams, opts)).then(
+      (response) => {
+        if (isModArchResponse<CatalogFilterOptionsList>(response)) {
+          return response.data;
+        }
+        throw new Error('Invalid response format');
+      },
+    );
 
 export const getListSources =
   (hostPath: string, queryParams: Record<string, unknown> = {}) =>
@@ -57,11 +78,11 @@ export const getCatalogModel =
 
 export const getListCatalogModelArtifacts =
   (hostPath: string, queryParams: Record<string, unknown> = {}) =>
-  (opts: APIOptions, sourceId: string, modelName: string): Promise<CatalogModelArtifactList> =>
+  (opts: APIOptions, sourceId: string, modelName: string): Promise<CatalogArtifactList> =>
     handleRestFailures(
       restGET(hostPath, `/sources/${sourceId}/artifacts/${modelName}`, queryParams, opts),
     ).then((response) => {
-      if (isModArchResponse<CatalogModelArtifactList>(response)) {
+      if (isModArchResponse<CatalogArtifactList>(response)) {
         return response.data;
       }
       throw new Error('Invalid response format');
