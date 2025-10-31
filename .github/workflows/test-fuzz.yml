@@ -7,7 +7,7 @@ on:
         required: true
         type: number
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 env:
@@ -19,10 +19,18 @@ env:
 
 jobs:
   test-fuzz:
+    name: Test Fuzz DB ${{ matrix.manifest-db }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: clients/python
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest-db: ["db", "postgres"] # subdirectory of manifests/kustomize/overlays to select which database: 'db' (MySQL) or 'postgres'
+        kubernetes-version: ["v1.31.0"]
+    env:
+      DEPLOY_MANIFEST_DB: "${{ matrix.manifest-db }}"
     steps:
       - name: Get PR details
         id: pr
@@ -57,13 +65,30 @@ jobs:
       - name: Install Poetry
         run: |
           pipx install poetry
+      - name: Start Kind Cluster
+        uses: helm/kind-action@v1.12.0
+        with:
+          node_image: kindest/node:${{ matrix.kubernetes-version }}
+          cluster_name: py-fuzz-${{ matrix.kubernetes-version }}
+          kubectl_version: ${{ matrix.kubernetes-version }}
 
       - name: Remove AppArmor profile for mysql in KinD on GHA # https://github.com/kubeflow/manifests/issues/2507
         run: |
           set -x
           sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
 
+      - name: Generate Tag
+        shell: bash
+        id: tags
+        run: |
+          commit_sha=${{ fromJson(steps.pr.outputs.result).sha }}
+          tag=fuzz-${commit_sha:0:7}
+          echo "tag=${tag}" | tee -a $GITHUB_OUTPUT
+
       - name: Run Fuzz Tests
+        env:
+          IMG_VERSION: ${{ steps.tags.outputs.tag }}
+          CLUSTER_NAME: py-fuzz-${{ matrix.kubernetes-version }}
         run: |
           echo "Starting fuzz tests..."
           make test-fuzz

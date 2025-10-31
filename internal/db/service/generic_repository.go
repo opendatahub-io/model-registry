@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kubeflow/model-registry/internal/db/dbutil"
 	"github.com/kubeflow/model-registry/internal/db/filter"
 	"github.com/kubeflow/model-registry/internal/db/models"
 	"github.com/kubeflow/model-registry/internal/db/schema"
@@ -44,7 +45,7 @@ type FilterApplier interface {
 
 // applyFilterQuery applies advanced filter query processing to a GORM query
 // This function encapsulates the common pattern used by both GenericRepository and custom repositories
-func applyFilterQuery(query *gorm.DB, listOptions any) (*gorm.DB, error) {
+func applyFilterQuery(query *gorm.DB, listOptions any, mappingFuncs filter.EntityMappingFunctions) (*gorm.DB, error) {
 	if filterQueryGetter, ok := listOptions.(interface{ GetFilterQuery() string }); ok {
 		if filterQuery := filterQueryGetter.GetFilterQuery(); filterQuery != "" {
 			if filterApplier, ok := listOptions.(FilterApplier); ok {
@@ -54,7 +55,7 @@ func applyFilterQuery(query *gorm.DB, listOptions any) (*gorm.DB, error) {
 				}
 
 				if filterExpr != nil {
-					queryBuilder := filter.NewQueryBuilderForRestEntity(filterApplier.GetRestEntityType())
+					queryBuilder := filter.NewQueryBuilderForRestEntity(filterApplier.GetRestEntityType(), mappingFuncs)
 					query = queryBuilder.BuildQuery(query, filterExpr)
 				}
 			}
@@ -66,7 +67,7 @@ func applyFilterQuery(query *gorm.DB, listOptions any) (*gorm.DB, error) {
 // Generic repository configuration
 type GenericRepositoryConfig[TEntity any, TSchema SchemaEntity, TProp PropertyEntity, TListOpts BaseListOptions] struct {
 	DB                    *gorm.DB
-	TypeID                int64
+	TypeID                int32
 	EntityToSchema        EntityToSchemaMapper[TEntity, TSchema]
 	SchemaToEntity        SchemaToEntityMapper[TSchema, TProp, TEntity]
 	EntityToProperties    EntityToPropertiesMapper[TEntity, TProp]
@@ -74,9 +75,11 @@ type GenericRepositoryConfig[TEntity any, TSchema SchemaEntity, TProp PropertyEn
 	EntityName            string
 	PropertyFieldName     string // "artifact_id", "context_id", or "execution_id"
 	ApplyListFilters      func(*gorm.DB, TListOpts) *gorm.DB
-	CreatePaginationToken func(TSchema, TListOpts) string // Optional - defaults to standard implementation
+	CreatePaginationToken func(TSchema, TListOpts) string    // Optional - defaults to standard implementation
+	ApplyCustomOrdering   func(*gorm.DB, TListOpts) *gorm.DB // Optional - custom ordering logic that bypasses standard pagination
 	IsNewEntity           func(TEntity) bool
 	HasCustomProperties   func(TEntity) bool
+	EntityMappingFuncs    filter.EntityMappingFunctions // Optional - custom entity mappings for filtering
 }
 
 // Generic repository implementation
@@ -115,6 +118,29 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetByID(id int32
 	return r.config.SchemaToEntity(entity, properties), nil
 }
 
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetByName(name string) (TEntity, error) {
+	var entity TSchema
+	var properties []TProp
+	var zeroEntity TEntity
+
+	// Query main entity
+	if err := r.config.DB.Where("name = ? AND type_id = ?", name, r.config.TypeID).First(&entity).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return zeroEntity, fmt.Errorf("%w: %v", r.config.NotFoundError, err)
+		}
+		return zeroEntity, fmt.Errorf("error getting %s by name: %w", r.config.EntityName, err)
+	}
+
+	// Query properties
+	entityID := r.getEntityID(entity)
+	if err := r.config.DB.Where(r.config.PropertyFieldName+" = ?", entityID).Find(&properties).Error; err != nil {
+		return zeroEntity, fmt.Errorf("error getting properties by %s id: %w", r.config.EntityName, err)
+	}
+
+	// Map to domain model
+	return r.config.SchemaToEntity(entity, properties), nil
+}
+
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) List(listOptions TListOpts) (*models.ListWrapper[TEntity], error) {
 	pageSize := listOptions.GetPageSize()
 
@@ -134,37 +160,19 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) List(listOptions
 	}
 
 	// Apply advanced filter query if supported
-	query, err := applyFilterQuery(query, listOptions)
+	query, err := applyFilterQuery(query, listOptions, r.config.EntityMappingFuncs)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply pagination
-	orderBy := listOptions.GetOrderBy()
-	sortOrder := listOptions.GetSortOrder()
-	nextPageToken := listOptions.GetNextPageToken()
-	pagination := &models.Pagination{
-		PageSize:      &pageSize,
-		OrderBy:       &orderBy,
-		SortOrder:     &sortOrder,
-		NextPageToken: &nextPageToken,
+	// Apply ordering and pagination
+	if r.config.ApplyCustomOrdering != nil {
+		// Use custom ordering logic if provided
+		query = r.config.ApplyCustomOrdering(query, listOptions)
+	} else {
+		// Apply standard pagination
+		query = r.ApplyStandardPagination(query, listOptions, entities)
 	}
-
-	// Use table prefix for pagination to handle JOINs properly
-	var tablePrefix string
-	var schemaEntity TSchema
-	switch any(schemaEntity).(type) {
-	case schema.Artifact:
-		tablePrefix = "Artifact"
-	case schema.Context:
-		tablePrefix = "Context"
-	case schema.Execution:
-		tablePrefix = "Execution"
-	default:
-		tablePrefix = ""
-	}
-
-	query = query.Scopes(scopes.PaginateWithTablePrefix(entities, pagination, r.config.DB, tablePrefix))
 
 	// Execute query
 	if err := query.Find(&schemaEntities).Error; err != nil {
@@ -199,7 +207,7 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) List(listOptions
 		if r.config.CreatePaginationToken != nil {
 			nextToken = r.config.CreatePaginationToken(lastEntity, listOptions)
 		} else {
-			nextToken = r.createDefaultPaginationToken(lastEntity, listOptions)
+			nextToken = r.CreateDefaultPaginationToken(lastEntity, listOptions)
 		}
 		listOptions.SetNextPageToken(&nextToken)
 	} else {
@@ -207,7 +215,7 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) List(listOptions
 	}
 
 	list.Items = entities
-	nextPageToken = listOptions.GetNextPageToken()
+	nextPageToken := listOptions.GetNextPageToken()
 	list.NextPageToken = nextPageToken
 	list.Size = int32(len(entities))
 
@@ -281,16 +289,29 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) Save(entity TEnt
 
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) buildBaseQuery() *gorm.DB {
 	var schemaEntity TSchema
+	var tableName string
+	var model interface{}
+
+	// Determine table name and model based on schema entity type
 	switch any(schemaEntity).(type) {
 	case schema.Artifact:
-		return r.config.DB.Model(&schema.Artifact{}).Where("type_id = ?", r.config.TypeID)
+		tableName = "Artifact"
+		model = &schema.Artifact{}
 	case schema.Context:
-		return r.config.DB.Model(&schema.Context{}).Where("type_id = ?", r.config.TypeID)
+		tableName = "Context"
+		model = &schema.Context{}
 	case schema.Execution:
-		return r.config.DB.Model(&schema.Execution{}).Where("type_id = ?", r.config.TypeID)
+		tableName = "Execution"
+		model = &schema.Execution{}
 	default:
 		panic(fmt.Sprintf("unsupported schema entity type: %T", schemaEntity))
 	}
+
+	// Quote table name based on database dialect and build WHERE clause
+	tableNameQuoted := dbutil.QuoteTableName(r.config.DB, tableName)
+	whereClause := fmt.Sprintf("%s.type_id = ?", tableNameQuoted)
+
+	return r.config.DB.Model(model).Where(whereClause, r.config.TypeID)
 }
 
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) getEntityID(entity TSchema) int32 {
@@ -431,15 +452,15 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) handleProperties
 			// Update existing property
 			r.copyPropertyValues(&prop, &existingProp)
 			if err := tx.Model(&existingProp).Updates(prop).Error; err != nil {
-				return fmt.Errorf("error updating property: %w", err)
+				return fmt.Errorf("error updating property %s: %w", r.getPropertyName(prop), err)
 			}
 		case gorm.ErrRecordNotFound:
 			// Create new property
 			if err := tx.Create(&prop).Error; err != nil {
-				return fmt.Errorf("error creating property: %w", err)
+				return fmt.Errorf("error creating property %s: %w", r.getPropertyName(prop), err)
 			}
 		default:
-			return fmt.Errorf("error checking existing property: %w", result.Error)
+			return fmt.Errorf("error checking existing property %s: %w", r.getPropertyName(prop), result.Error)
 		}
 	}
 
@@ -520,9 +541,9 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) copyPropertyValu
 	}
 }
 
-// createDefaultPaginationToken provides a standard implementation that works for all entities
+// CreateDefaultPaginationToken provides a standard implementation that works for all entities
 // with ID, CreateTimeSinceEpoch, and LastUpdateTimeSinceEpoch fields
-func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) createDefaultPaginationToken(entity TSchema, listOptions TListOpts) string {
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) CreateDefaultPaginationToken(entity TSchema, listOptions TListOpts) string {
 	entityID := r.getEntityID(entity)
 	orderBy := listOptions.GetOrderBy()
 	value := ""
@@ -591,6 +612,41 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) getNonUpdatableF
 	}
 
 	return omitFields
+}
+
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetConfig() GenericRepositoryConfig[TEntity, TSchema, TProp, TListOpts] {
+	return r.config
+}
+
+// ApplyStandardPagination applies the standard pagination logic using scopes.PaginateWithTablePrefix
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) ApplyStandardPagination(query *gorm.DB, listOptions TListOpts, entities any) *gorm.DB {
+	pageSize := listOptions.GetPageSize()
+	orderBy := listOptions.GetOrderBy()
+	sortOrder := listOptions.GetSortOrder()
+	nextPageToken := listOptions.GetNextPageToken()
+
+	pagination := &models.Pagination{
+		PageSize:      &pageSize,
+		OrderBy:       &orderBy,
+		SortOrder:     &sortOrder,
+		NextPageToken: &nextPageToken,
+	}
+
+	// Use table prefix for pagination to handle JOINs properly
+	var tablePrefix string
+	var schemaEntity TSchema
+	switch any(schemaEntity).(type) {
+	case schema.Artifact:
+		tablePrefix = "Artifact"
+	case schema.Context:
+		tablePrefix = "Context"
+	case schema.Execution:
+		tablePrefix = "Execution"
+	default:
+		tablePrefix = ""
+	}
+
+	return query.Scopes(scopes.PaginateWithTablePrefix(entities, pagination, r.config.DB, tablePrefix))
 }
 
 // Shared mapping functions for common property conversions

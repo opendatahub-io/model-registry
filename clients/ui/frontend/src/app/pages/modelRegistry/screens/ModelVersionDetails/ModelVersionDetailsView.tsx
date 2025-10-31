@@ -2,8 +2,6 @@ import * as React from 'react';
 import {
   DescriptionList,
   Divider,
-  Flex,
-  FlexItem,
   ContentVariants,
   Title,
   Bullseye,
@@ -14,6 +12,9 @@ import {
   Card,
   CardHeader,
   CardBody,
+  Sidebar,
+  SidebarPanel,
+  SidebarContent,
 } from '@patternfly/react-core';
 import {
   EditableLabelsDescriptionListGroup,
@@ -21,41 +22,40 @@ import {
   DashboardDescriptionListGroup,
   InlineTruncatedClipboardCopy,
 } from 'mod-arch-shared';
-import { ModelVersion, ModelArtifactList } from '~/app/types';
+import { ModelVersion, ModelArtifactList, RegisteredModel } from '~/app/types';
 import { ModelRegistryContext } from '~/app/context/ModelRegistryContext';
 import { getLabels, mergeUpdatedLabels } from '~/app/pages/modelRegistry/screens/utils';
 import ModelPropertiesDescriptionListGroup from '~/app/pages/modelRegistry/screens/ModelPropertiesDescriptionListGroup';
 import ModelTimestamp from '~/app/pages/modelRegistry/screens/components/ModelTimestamp';
 import { bumpBothTimestamps, bumpRegisteredModelTimestamp } from '~/app/api/updateTimestamps';
 import { uriToStorageFields } from '~/app/utils';
-import useRegisteredModelById from '~/app/hooks/useRegisteredModelById';
 import ModelDetailsCard from '~/app/pages/modelRegistry/screens/ModelVersions/ModelDetailsCard';
 import ModelVersionRegisteredFromLink from '~/app/pages/modelRegistry/screens/components/ModelVersionRegisteredFromLink';
 
 type ModelVersionDetailsViewProps = {
+  registeredModel: RegisteredModel | null;
   modelVersion: ModelVersion;
   isArchiveVersion?: boolean;
   refresh: () => void;
   modelArtifacts: ModelArtifactList;
+  modelArtifactsLoaded: boolean;
+  modelArtifactsLoadError: Error | undefined;
 };
 
 const ModelVersionDetailsView: React.FC<ModelVersionDetailsViewProps> = ({
+  registeredModel,
   modelVersion: mv,
   isArchiveVersion,
   refresh,
   modelArtifacts,
+  modelArtifactsLoaded,
+  modelArtifactsLoadError,
 }) => {
   const modelArtifact = modelArtifacts.items.length ? modelArtifacts.items[0] : null;
   const { apiState } = React.useContext(ModelRegistryContext);
   const storageFields = uriToStorageFields(modelArtifact?.uri || '');
-  const [registeredModel, registeredModelLoaded, registeredModelLoadError] = useRegisteredModelById(
-    mv.registeredModelId,
-  );
 
-  const loaded = registeredModelLoaded;
-  const loadError = registeredModelLoadError;
-
-  if (!loaded) {
+  if (!modelArtifactsLoaded) {
     return (
       <Bullseye>
         <Spinner size="xl" />
@@ -86,6 +86,7 @@ const ModelVersionDetailsView: React.FC<ModelVersionDetailsViewProps> = ({
       );
     }
   };
+
   return (
     <Stack hasGutter>
       {registeredModel && (
@@ -104,20 +105,16 @@ const ModelVersionDetailsView: React.FC<ModelVersionDetailsViewProps> = ({
             <Title headingLevel="h2">Version details</Title>
           </CardHeader>
           <CardBody>
-            <Flex
-              direction={{ default: 'column', md: 'row' }}
-              columnGap={{ default: 'columnGap4xl' }}
-              rowGap={{ default: 'rowGapLg' }}
-            >
-              <FlexItem flex={{ default: 'flex_1' }}>
-                <DescriptionList isFillColumns>
+            <Sidebar hasBorder hasGutter isPanelRight>
+              <SidebarContent>
+                <DescriptionList>
                   <EditableLabelsDescriptionListGroup
                     labels={getLabels(mv.customProperties)}
                     isArchive={isArchiveVersion}
                     allExistingKeys={Object.keys(mv.customProperties)}
                     title="Labels"
                     contentWhenEmpty="No labels"
-                    labelProps={{ variant: 'outline' }}
+                    labelProps={{ variant: 'outline', color: 'grey' }}
                     onLabelsChange={(editedLabels) =>
                       handleVersionUpdate(
                         apiState.api.patchModelVersion(
@@ -144,12 +141,6 @@ const ModelVersionDetailsView: React.FC<ModelVersionDetailsViewProps> = ({
                       )
                     }
                   />
-                  {modelArtifact && (
-                    <ModelVersionRegisteredFromLink
-                      modelArtifact={modelArtifact}
-                      isModelCatalogAvailable
-                    />
-                  )}
                   <ModelPropertiesDescriptionListGroup
                     isArchive={isArchiveVersion}
                     customProperties={mv.customProperties}
@@ -160,15 +151,20 @@ const ModelVersionDetailsView: React.FC<ModelVersionDetailsViewProps> = ({
                     }
                   />
                 </DescriptionList>
-              </FlexItem>
-              <Divider orientation={{ default: 'vertical' }} />
-              <FlexItem flex={{ default: 'flex_1' }}>
+              </SidebarContent>
+              <SidebarPanel width={{ default: 'width_33' }}>
+                {modelArtifact && (
+                  <ModelVersionRegisteredFromLink
+                    modelArtifact={modelArtifact}
+                    isModelCatalogAvailable
+                  />
+                )}
                 <Title style={{ margin: '1em 0' }} headingLevel={ContentVariants.h3}>
                   Model location
                 </Title>
-                {loadError ? (
-                  <Alert variant="danger" isInline title={loadError.name}>
-                    {loadError.message}
+                {modelArtifactsLoadError ? (
+                  <Alert variant="danger" isInline title={modelArtifactsLoadError.name}>
+                    {modelArtifactsLoadError.message}
                   </Alert>
                 ) : (
                   <>
@@ -301,8 +297,8 @@ const ModelVersionDetailsView: React.FC<ModelVersionDetailsViewProps> = ({
                     <ModelTimestamp timeSinceEpoch={mv.createTimeSinceEpoch} />
                   </DashboardDescriptionListGroup>
                 </DescriptionList>
-              </FlexItem>
-            </Flex>
+              </SidebarPanel>
+            </Sidebar>
           </CardBody>
         </Card>
       </StackItem>

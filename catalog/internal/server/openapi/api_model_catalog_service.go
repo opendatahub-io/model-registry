@@ -57,6 +57,11 @@ func (c *ModelCatalogServiceAPIController) Routes() Routes {
 			"/api/model_catalog/v1alpha1/models",
 			c.FindModels,
 		},
+		"FindModelsFilterOptions": Route{
+			strings.ToUpper("Get"),
+			"/api/model_catalog/v1alpha1/models/filter_options",
+			c.FindModelsFilterOptions,
+		},
 		"FindSources": Route{
 			strings.ToUpper("Get"),
 			"/api/model_catalog/v1alpha1/sources",
@@ -78,13 +83,27 @@ func (c *ModelCatalogServiceAPIController) Routes() Routes {
 // FindModels - Search catalog models across sources.
 func (c *ModelCatalogServiceAPIController) FindModels(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	sourceParam := query.Get("source")
+	sourceParam := strings.Split(query.Get("source"), ",")
 	qParam := query.Get("q")
+	sourceLabelParam := strings.Split(query.Get("sourceLabel"), ",")
+	filterQueryParam := query.Get("filterQuery")
 	pageSizeParam := query.Get("pageSize")
 	orderByParam := query.Get("orderBy")
 	sortOrderParam := query.Get("sortOrder")
 	nextPageTokenParam := query.Get("nextPageToken")
-	result, err := c.service.FindModels(r.Context(), sourceParam, qParam, pageSizeParam, model.OrderByField(orderByParam), model.SortOrder(sortOrderParam), nextPageTokenParam)
+	result, err := c.service.FindModels(r.Context(), sourceParam, qParam, sourceLabelParam, filterQueryParam, pageSizeParam, model.OrderByField(orderByParam), model.SortOrder(sortOrderParam), nextPageTokenParam)
+	// If an error occurred, encode the error with the status code
+	if err != nil {
+		c.errorHandler(w, r, err, &result)
+		return
+	}
+	// If no error, encode the body and the result code
+	EncodeJSONResponse(result.Body, &result.Code, w)
+}
+
+// FindModelsFilterOptions - Lists fields and available options that can be used in `filterQuery` on the list models endpoint.
+func (c *ModelCatalogServiceAPIController) FindModelsFilterOptions(w http.ResponseWriter, r *http.Request) {
+	result, err := c.service.FindModelsFilterOptions(r.Context())
 	// If an error occurred, encode the error with the status code
 	if err != nil {
 		c.errorHandler(w, r, err, &result)
@@ -116,6 +135,21 @@ func (c *ModelCatalogServiceAPIController) FindSources(w http.ResponseWriter, r 
 func (c *ModelCatalogServiceAPIController) GetModel(w http.ResponseWriter, r *http.Request) {
 	sourceIdParam := chi.URLParam(r, "source_id")
 	modelNameParam := chi.URLParam(r, "*")
+
+	// Special handling for getModel to delegate /artifacts requests to getAllModelArtifacts
+	// The wildcard /* pattern catches /artifacts requests, but we want those to go to GetAllModelArtifacts
+	if strings.HasSuffix(r.URL.Path, "/artifacts") {
+		// Extract the model name by removing the /artifacts suffix
+		modelName := strings.TrimSuffix(modelNameParam, "/artifacts")
+
+		// Add the model_name parameter to the route context so GetAllModelArtifacts can access it
+		chi.RouteContext(r.Context()).URLParams.Add("model_name", modelName)
+
+		// Call the GetAllModelArtifacts handler directly
+		c.GetAllModelArtifacts(w, r)
+		return
+	}
+
 	result, err := c.service.GetModel(r.Context(), sourceIdParam, modelNameParam)
 	// If an error occurred, encode the error with the status code
 	if err != nil {
@@ -126,11 +160,30 @@ func (c *ModelCatalogServiceAPIController) GetModel(w http.ResponseWriter, r *ht
 	EncodeJSONResponse(result.Body, &result.Code, w)
 }
 
-// GetAllModelArtifacts - List CatalogModelArtifacts.
+// GetAllModelArtifacts - List CatalogArtifacts.
 func (c *ModelCatalogServiceAPIController) GetAllModelArtifacts(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
 	sourceIdParam := chi.URLParam(r, "source_id")
 	modelNameParam := chi.URLParam(r, "model_name")
-	result, err := c.service.GetAllModelArtifacts(r.Context(), sourceIdParam, modelNameParam)
+	artifactTypeParam := make([]model.ArtifactTypeQueryParam, 0)
+	// Handle multiple artifactType parameters (camel case - preferred)
+	for _, v := range query["artifactType"] {
+		if v != "" {
+			artifactTypeParam = append(artifactTypeParam, model.ArtifactTypeQueryParam(v))
+		}
+	}
+	// Handle multiple artifact_type parameters (snake case - deprecated, will be removed in future)
+	for _, v := range query["artifact_type"] {
+		if v != "" {
+			artifactTypeParam = append(artifactTypeParam, model.ArtifactTypeQueryParam(v))
+		}
+	}
+	var artifactType2Param []model.ArtifactTypeQueryParam
+	pageSizeParam := query.Get("pageSize")
+	orderByParam := query.Get("orderBy")
+	sortOrderParam := query.Get("sortOrder")
+	nextPageTokenParam := query.Get("nextPageToken")
+	result, err := c.service.GetAllModelArtifacts(r.Context(), sourceIdParam, modelNameParam, artifactTypeParam, artifactType2Param, pageSizeParam, model.OrderByField(orderByParam), model.SortOrder(sortOrderParam), nextPageTokenParam)
 	// If an error occurred, encode the error with the status code
 	if err != nil {
 		c.errorHandler(w, r, err, &result)

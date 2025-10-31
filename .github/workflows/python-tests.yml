@@ -14,7 +14,7 @@ on:
       - ".github/dependabot.yml"
       - "docs/**"
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 jobs:
@@ -86,7 +86,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.nodejs }}
       - name: Upgrade pip
@@ -238,7 +238,7 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Nox test fuzz (main only)
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: clients/python
         run: |
           kubectl port-forward -n ${{ env.MR_NAMESPACE }} service/model-registry-service 8080:8080 &
@@ -293,12 +293,12 @@ jobs:
           nox --python=${{ matrix.python }}
           poetry build
       - name: Upload dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: py-dist
           path: clients/python/dist
       - name: Upload documentation
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: py-docs
           path: clients/python/docs/_build

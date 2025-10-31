@@ -13,9 +13,9 @@ from model_registry.types import ModelArtifact
 from model_registry.types.artifacts import DocArtifact
 
 
-def test_secure_client():
-    os.environ["CERT"] = ""
-    os.environ["KF_PIPELINES_SA_TOKEN_PATH"] = ""
+def test_secure_client(monkeypatch):
+    monkeypatch.delenv("CERT", raising=False)
+    monkeypatch.delenv("KF_PIPELINES_SA_TOKEN_PATH", raising=False)
     with pytest.raises(StoreError) as e:
         ModelRegistry("anything", author="test_author")
 
@@ -862,7 +862,7 @@ def test_nested_recursive_store_in_s3(
 
 @pytest.mark.e2e
 def test_custom_async_runner_with_ray(
-    client_attrs: dict[str, any], client: ModelRegistry, monkeypatch
+    client_attrs: dict[str, any], client: ModelRegistry, user_token: str, monkeypatch
 ):
     """Test Ray integration with uvloop event loop policy"""
     import asyncio
@@ -901,6 +901,7 @@ def test_custom_async_runner_with_ray(
                     author=client_attrs["author"],
                     is_secure=client_attrs["ssl"],
                     async_runner=atr.run,
+                    user_token=user_token,
                 )
                 client.register_model(
                     name="test_model",
