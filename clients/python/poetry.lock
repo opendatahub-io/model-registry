@@ -2631,14 +2631,14 @@ crt = ["botocore[crt] (>=1.37.4,<2.0a.0)"]
 
 [[package]]
 name = "schemathesis"
-version = "4.3.6"
+version = "4.3.14"
 description = "Property-based testing framework for Open API and GraphQL based apps"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "schemathesis-4.3.6-py3-none-any.whl", hash = "sha256:d4e926371efd4cae80ae36581e7a7a2abd2bf603c183f1c1205c7cfac7dfec79"},
-    {file = "schemathesis-4.3.6.tar.gz", hash = "sha256:240ebe8ed5531cc97ba4f3eddba1873e536b6f76f0f1857e174d616f0670ddce"},
+    {file = "schemathesis-4.3.14-py3-none-any.whl", hash = "sha256:30577d53200afb6c8929b00de1ce0a1a60c977ccebf5b440eb1c8de88a5c1ed0"},
+    {file = "schemathesis-4.3.14.tar.gz", hash = "sha256:435f240427081b30f9d12145a57a02a839934691040349f315fe37faa33e86be"},
 ]
 
 [package.dependencies]
@@ -2659,7 +2659,7 @@ pyyaml = ">=5.1,<7.0"
 requests = ">=2.22,<3"
 rich = ">=13.9.4"
 starlette-testclient = ">=0.4.1,<1"
-tomli = ">=2.2.1"
+tomli = {version = ">=2.2.1", markers = "python_version < \"3.11\""}
 typing-extensions = ">=4.12.2"
 werkzeug = ">=0.16.0,<4"
 
@@ -3016,7 +3016,7 @@ files = [
     {file = "tomli-2.2.1-py3-none-any.whl", hash = "sha256:cb55c73c5f4408779d0cf3eef9f762b9c9f147a77de7b258bef0a5628adc85cc"},
     {file = "tomli-2.2.1.tar.gz", hash = "sha256:cd45e1dc79c835ce60f7404ec8119f2eb06d38b1deba146f07ced3bbc44505ff"},
 ]
-markers = {docs = "python_version < \"3.11\""}
+markers = {dev = "python_full_version <= \"3.11.0a6\"", docs = "python_version < \"3.11\""}
 
 [[package]]
 name = "tqdm"
