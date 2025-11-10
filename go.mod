@@ -12,7 +12,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/golang/glog v1.2.5
 	github.com/kserve/kserve v0.15.2
-	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
+	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-20251107160432-e53099588772
 	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo v1.16.5
