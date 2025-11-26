@@ -6,20 +6,20 @@ import contextlib
 import inspect
 import logging
 import os
-from collections.abc import Awaitable, Coroutine, Mapping
+from collections.abc import Coroutine, Mapping
 from dataclasses import asdict
 from pathlib import Path
 from typing import (
     Any,
     Callable,
     TypeVar,
-    Union,
     get_args,
     overload,
 )
 from warnings import warn
 
 from model_registry.types.artifacts import ExperimentRunArtifact
+from model_registry.types.base import BaseResourceModel
 
 from ._experiments import ActiveExperimentRun, RunContext
 from .core import ModelRegistryAPIClient
@@ -46,8 +46,8 @@ from .utils import (
     save_to_oci_registry,
 )
 
-ModelTypes = Union[RegisteredModel, ModelVersion, ModelArtifact, Experiment]
-TModel = TypeVar("TModel", bound=ModelTypes)
+TModel = TypeVar("TModel", bound=BaseResourceModel)
+T = TypeVar("T")
 
 logging.basicConfig(
     format="%(asctime)s.%(msecs)03d - %(name)s:%(levelname)s: %(message)s",
@@ -72,7 +72,7 @@ logging.basicConfig(
 logger = logging.getLogger("model-registry")
 
 DEFAULT_USER_TOKEN_ENVVAR = "KF_PIPELINES_SA_TOKEN_PATH"  # noqa: S105
-DEFAULT_K8S_SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token" # noqa: S105
+DEFAULT_K8S_SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"  # noqa: S105
 
 
 class ModelRegistry:
@@ -86,11 +86,11 @@ class ModelRegistry:
         author: str,
         is_secure: bool = True,
         user_token: str | None = None,
-        user_token_envvar: str = DEFAULT_USER_TOKEN_ENVVAR,
+        user_token_envvar: str | None = None,
         custom_ca: str | None = None,
         custom_ca_envvar: str | None = None,
         log_level: int = logging.WARNING,
-        async_runner: Callable[[Coroutine[Any, Any, Any]], Any] = None,
+        async_runner: Callable[[Coroutine[Any, Any, T]], T] | None = None,
     ):
         """Constructor.
 
@@ -124,28 +124,14 @@ class ModelRegistry:
             logger.debug("Setting up reentrant async event loop")
             nest_asyncio.apply()
 
-        if not user_token and user_token_envvar:
-            logger.info("Reading user token from %s", user_token_envvar)
-            # /var/run/secrets/kubernetes.io/serviceaccount/token
-            if sa_token := os.environ.get(user_token_envvar):
-                if user_token_envvar == DEFAULT_USER_TOKEN_ENVVAR:
-                    logger.info(
-                        f"Sourcing user token from default envvar: {DEFAULT_USER_TOKEN_ENVVAR}"
-                    )
-                user_token = Path(sa_token).read_text()
-            elif Path(DEFAULT_K8S_SA_TOKEN_PATH).exists():
-                user_token = Path(DEFAULT_K8S_SA_TOKEN_PATH).read_text()
-                logger.info("Sourced user token from K8s default path: %s.", DEFAULT_K8S_SA_TOKEN_PATH)
-            else:
+        if not user_token:
+            user_token = self._get_user_token(user_token_envvar)
+            if not user_token:
                 warn("User access token is missing", stacklevel=2)
 
         self.hint_server_address_port(server_address, port)
         if is_secure:
-            if (
-                not custom_ca
-                and custom_ca_envvar
-                and (cert := os.getenv(custom_ca_envvar))
-            ):
+            if not custom_ca and custom_ca_envvar and (cert := os.getenv(custom_ca_envvar)):
                 logger.info(
                     "Using custom CA envvar %s",
                     custom_ca_envvar,
@@ -161,12 +147,47 @@ class ModelRegistry:
                 server_address, port, user_token=user_token, custom_ca=custom_ca
             )
         else:
-            self._api = ModelRegistryAPIClient.insecure_connection(
-                server_address, port, user_token
-            )
+            self._api = ModelRegistryAPIClient.insecure_connection(server_address, port, user_token)
         self._active_experiment_context = ThreadSafeVariable(value=RunContext())
         self.get_registered_models().page_size(1)._next_page()
 
+    @staticmethod
+    def _get_user_token(user_token_envvar: str | None = None) -> str | None:
+        sa_token_path: str
+        user_provided: bool = True
+        if user_token_envvar:
+            try:
+                sa_token_path = os.environ[user_token_envvar]
+            except KeyError:
+                msg = f"user_token_envvar is {user_token_envvar!r} but no such env var is set"
+                raise ValueError(msg) from None
+            logger.info(
+                "Reading user token from path: user_token_envvar %r specifies path %r",
+                user_token_envvar,
+                sa_token_path,
+            )
+        elif DEFAULT_USER_TOKEN_ENVVAR in os.environ:
+            sa_token_path = os.environ[DEFAULT_USER_TOKEN_ENVVAR]
+            logger.info(
+                "Reading user token from path: The default user token env var value %r specifies path %r",
+                DEFAULT_USER_TOKEN_ENVVAR,
+                sa_token_path,
+            )
+        else:
+            sa_token_path = DEFAULT_K8S_SA_TOKEN_PATH
+            user_provided = False
+            logger.info(
+                "Reading user token from path: No user_token_envvar. Attempting to read from default K8s service account path %r",
+                DEFAULT_K8S_SA_TOKEN_PATH,
+            )
+        try:
+            return Path(sa_token_path).read_text()
+        except OSError as exc:
+            msg = f"Unable read user token from {sa_token_path!r}"
+            if user_provided:
+                raise StoreError(msg) from exc
+            logger.info(msg)
+        return None
 
     @staticmethod
     def hint_server_address_port(server_address: str, port: int) -> None:
@@ -180,8 +201,16 @@ class ModelRegistry:
                 "Server address protocol is http://, but port is not 80 or ending with 80. You may want to verify the configuration is correct."
             )
 
+    @overload
+    def async_runner(self, coro: Coroutine[Any, Any, TModel]) -> TModel: ...
 
-    def async_runner(self, coro: Awaitable[TModel]) -> TModel:
+    @overload
+    def async_runner(self, coro: Coroutine[Any, Any, list[TModel]]) -> list[TModel]: ...
+
+    @overload
+    def async_runner(self, coro: Coroutine[Any, Any, TModel | None]) -> TModel | None: ...
+
+    def async_runner(self, coro: Coroutine[Any, Any, T]) -> T:
         if hasattr(self, "_user_async_runner"):
             return self._user_async_runner(coro)
 
@@ -198,29 +227,19 @@ class ModelRegistry:
         if rm := await self._api.get_registered_model_by_params(name):
             return rm
 
-        return await self._api.upsert_registered_model(
-            RegisteredModel(name=name, **kwargs)
-        )
+        return await self._api.upsert_registered_model(RegisteredModel(name=name, **kwargs))
 
-    async def _register_new_version(
-        self, rm: RegisteredModel, version: str, author: str, /, **kwargs
-    ) -> ModelVersion:
+    async def _register_new_version(self, rm: RegisteredModel, version: str, author: str, /, **kwargs) -> ModelVersion:
         assert rm.id is not None, "Registered model must have an ID"
         if await self._api.get_model_version_by_params(rm.id, version):
             msg = f"Version {version} already exists"
             raise StoreError(msg)
 
-        return await self._api.upsert_model_version(
-            ModelVersion(name=version, author=author, **kwargs), rm.id
-        )
+        return await self._api.upsert_model_version(ModelVersion(name=version, author=author, **kwargs), rm.id)
 
-    async def _register_model_artifact(
-        self, mv: ModelVersion, name: str, uri: str, /, **kwargs
-    ) -> ModelArtifact:
+    async def _register_model_artifact(self, mv: ModelVersion, name: str, uri: str, /, **kwargs) -> ModelArtifact:
         assert mv.id is not None, "Model version must have an ID"
-        return await self._api.upsert_model_version_artifact(
-            ModelArtifact(name=name, uri=uri, **kwargs), mv.id
-        )
+        return await self._api.upsert_model_version_artifact(ModelArtifact(name=name, uri=uri, **kwargs), mv.id)
 
     def upload_artifact_and_register_model(
         self,
@@ -276,9 +295,7 @@ class ModelRegistry:
             raise StoreError(msg)
 
         if isinstance(upload_params, S3Params):
-            destination_uri = self.save_to_s3(
-                **asdict(upload_params), path=model_files_path
-            )
+            destination_uri = self.save_to_s3(**asdict(upload_params), path=model_files_path)
         elif isinstance(upload_params, OCIParams):
             dict_params = asdict(upload_params)
             del dict_params["custom_oci_backend"]
@@ -396,14 +413,14 @@ class ModelRegistry:
         if not model.id:
             msg = "Model must have an ID"
             raise StoreError(msg)
-        if not isinstance(model, get_args(ModelTypes)):
-            msg = f"Model must be one of {get_args(ModelTypes)}"
+        if not isinstance(model, BaseResourceModel):
+            msg = f"Model must be an instance of {BaseResourceModel.__name__} or a subclass"
             raise StoreError(msg)
         if isinstance(model, RegisteredModel):
-            return self.async_runner(self._api.upsert_registered_model(model))
+            return self.async_runner(self._api.upsert_registered_model(model))  # type: ignore[return-value]
         if isinstance(model, ModelVersion):
-            return self.async_runner(self._api.upsert_model_version(model, None))
-        return self.async_runner(self._api.upsert_model_artifact(model))
+            return self.async_runner(self._api.upsert_model_version(model, None))  # type: ignore[return-value]
+        return self.async_runner(self._api.upsert_model_artifact(model))  # type: ignore[arg-type,return-value]
 
     def register_hf_model(
         self,
@@ -690,26 +707,18 @@ class ModelRegistry:
         self._validate_nested_run(active_ctx, nested)
 
         # Resolve experiment details
-        exp_name, exp_id = self._resolve_experiment_info(
-            experiment_name, experiment_id, active_ctx, nested
-        )
+        exp_name, exp_id = self._resolve_experiment_info(experiment_name, experiment_id, active_ctx, nested)
 
         # Get or create experiment
-        experiment = self._get_or_create_experiment(
-            exp_name, exp_id, owner, description
-        )
+        experiment = self._get_or_create_experiment(exp_name, exp_id, owner, description)
 
         # Get or create run
-        parent_props = (
-            self._get_parent_properties(active_ctx, nested_tag) if nested else {}
-        )
-        exp_run = self._get_or_create_run(
-            experiment, run_name, run_id, run_description, parent_props, nested
-        )
+        parent_props = self._get_parent_properties(active_ctx, nested_tag) if nested else {}  # type: ignore[arg-type]
+        exp_run = self._get_or_create_run(experiment, run_name, run_id, run_description, parent_props, nested)
 
         # Update context if not nested
         if not active_ctx.active:
-            self._set_active_context(experiment.id, exp_name, exp_run.id)
+            self._set_active_context(experiment.id, exp_name, exp_run.id)  # type: ignore[arg-type]
 
         return ActiveExperimentRun(
             thread_safe_ctx=self._active_experiment_context,
@@ -768,7 +777,7 @@ class ModelRegistry:
             exp = self.async_runner(
                 self._api.upsert_experiment(
                     Experiment(
-                        name=exp_name,
+                        name=exp_name,  # type: ignore[arg-type]
                         owner=owner,
                         description=description,
                     )
@@ -801,8 +810,8 @@ class ModelRegistry:
         if run_name:
             exp_run = self.async_runner(
                 self._api.get_experiment_run_by_experiment_and_run_name(
-                    run_id=run_id,
-                    **exp_run_args,
+                    run_name=run_name,
+                    **exp_run_args,  # type: ignore[arg-type]
                 )
             )
         elif run_id:
@@ -817,7 +826,7 @@ class ModelRegistry:
             exp_run = self.async_runner(
                 self._api.upsert_experiment_run(
                     ExperimentRun(
-                        experiment_id=experiment.id,
+                        experiment_id=experiment.id,  # type: ignore[arg-type]
                         name=generate_name("run"),
                         description=run_description,
                         custom_properties=parent_props,
@@ -825,9 +834,7 @@ class ModelRegistry:
                 )
             )
             prefix = "Nested " if nested else ""
-            print(
-                f"{prefix}Experiment Run {exp_run.name} created with ID: {exp_run.id}"
-            )
+            print(f"{prefix}Experiment Run {exp_run.name} created with ID: {exp_run.id}")
 
         return exp_run
 
@@ -870,7 +877,7 @@ class ModelRegistry:
     @overload
     def get_experiment_runs(self, experiment_name: str) -> Pager[ExperimentRun]: ...
 
-    @required_args(("experiment_id",), ("experiment_name",))
+    @required_args(("experiment_id",), ("experiment_name",))  # type: ignore[misc]
     def get_experiment_runs(
         self, experiment_id: str | None = None, experiment_name: str | None = None
     ) -> Pager[ExperimentRun]:
@@ -882,16 +889,8 @@ class ModelRegistry:
 
         def exp_run_list(options: ListOptions) -> list[ExperimentRun]:
             if experiment_id:
-                return self.async_runner(
-                    self._api.get_experiment_runs_by_experiment_id(
-                        experiment_id, options
-                    )
-                )
-            return self.async_runner(
-                self._api.get_experiment_runs_by_experiment_name(
-                    experiment_name, options
-                )
-            )
+                return self.async_runner(self._api.get_experiment_runs_by_experiment_id(experiment_id, options))
+            return self.async_runner(self._api.get_experiment_runs_by_experiment_name(experiment_name, options))  # type: ignore[arg-type,type-var]
 
         return Pager[ExperimentRun](exp_run_list)
 
@@ -915,7 +914,7 @@ class ModelRegistry:
         experiment_id: str,
     ) -> Pager[ExperimentRunArtifact]: ...
 
-    @required_args(
+    @required_args(  # type: ignore[misc]
         ("run_id",),
         (
             "run_name",
@@ -948,9 +947,7 @@ class ModelRegistry:
         def exp_run_logs(options: ListOptions) -> list[ExperimentRunArtifact]:
             if run_id:
                 return self.async_runner(
-                    self._api.get_artifacts_by_experiment_run_params(
-                        run_id=run_id, options=options
-                    )
+                    self._api.get_artifacts_by_experiment_run_params(run_id=run_id, options=options)
                 )
             if run_name and experiment_name:
                 return self.async_runner(
@@ -963,10 +960,10 @@ class ModelRegistry:
             if run_name and experiment_id:
                 return self.async_runner(
                     self._api.get_artifacts_by_experiment_run_params(
-                        experiment_id=experiment_id, options=options
+                        run_name=run_name, experiment_id=experiment_id, options=options
                     )
                 )
-            return None
+            return None  # type: ignore[return-value]
 
         return Pager[ExperimentRunArtifact](exp_run_logs)
 

@@ -1,8 +1,18 @@
-manifests = kustomize("../../../manifests/kustomize/options/catalog")
+manifests = kustomize("../../../manifests/kustomize/options/catalog/base")
 
 objects = decode_yaml_stream(manifests)
 
 for o in objects:
+    # Deploy catalog resources in kubeflow namespace to match where UI is looking for them
+    if o.get("metadata"):
+        o["metadata"]["namespace"] = "kubeflow"
+
+    # Add component label for BFF service discovery
+    if o["kind"] == "Service" and o.get("metadata").get("name") == "model-catalog":
+        if "labels" not in o["metadata"]:
+            o["metadata"]["labels"] = {}
+        o["metadata"]["labels"]["component"] = "model-catalog"
+
     if o["kind"] == "Deployment" and o.get("metadata").get("name") in ["model-catalog-server"]:
         o["spec"]["template"]["spec"]["securityContext"] = {"runAsNonRoot": False, "readOnlyRootFilesystem": False}
         o["spec"]["template"]["spec"]["containers"][0]["imagePullPolicy"] = "Always"
@@ -18,5 +28,14 @@ k8s_resource(
     labels="backend",
     resource_deps=["kubeflow-namespace"],
     port_forwards="8082:8080",
+    trigger_mode=TRIGGER_MODE_AUTO
+)
+
+k8s_resource(
+    workload="model-catalog-postgres",
+    new_name="catalog-db",
+    labels="backend",
+    resource_deps=["kubeflow-namespace"],
+    port_forwards="5432:5432",
     trigger_mode=TRIGGER_MODE_AUTO
 )

@@ -5,6 +5,7 @@ GENQLIENT_CONFIG := internal/catalog/genqlient/genqlient.yaml
 GENQLIENT_OUTPUT := internal/catalog/genqlient/generated.go
 GENQLIENT_SOURCES := $(wildcard internal/catalog/genqlient/queries/*.graphql)
 GRAPHQL_SCHEMA := internal/catalog/genqlient/queries/schema.graphql
+GO ?= "$(shell which go)"
 
 .PHONY: gen/openapi-server
 gen/openapi-server: internal/server/openapi/api_model_catalog_service.go
@@ -18,8 +19,8 @@ gen/openapi: pkg/openapi/client.go
 pkg/openapi/client.go: ../api/openapi/catalog.yaml
 	${OPENAPI_GENERATOR} generate \
 		-i ../api/openapi/catalog.yaml -g go -o pkg/openapi --package-name openapi \
-		--ignore-file-override ./.openapi-generator-ignore --additional-properties=isGoSubmodule=true,enumClassPrefix=true,useOneOfDiscriminatorLookup=true
-	gofmt -w pkg/openapi
+		--ignore-file-override ./.openapi-generator-ignore --additional-properties=isGoSubmodule=true,enumClassPrefix=true,useOneOfDiscriminatorLookup=true,generateUnmarshalJSON=false
+	$(PROJECT_BIN)/goimports -w pkg/openapi
 
 .PHONY: gen/graphql
 gen/graphql: $(GENQLIENT_OUTPUT)
@@ -42,3 +43,16 @@ clean-graphql:
 .PHONY: clean-internal-server-openapi
 clean-internal-server-openapi:
 	while IFS= read -r file; do rm -f "internal/server/openapi/$$file"; done < internal/server/openapi/.openapi-generator/FILES
+
+.PHONY: test
+test:
+	${GO} test ./...
+
+.PHONY: test-nocache
+test-nocache:
+	${GO} test ./... -count=1
+
+.PHONY: test-cover
+test-cover:
+	${GO} test ./... -coverprofile=coverage.txt
+	${GO} tool cover -html=coverage.txt -o coverage.html

@@ -12,7 +12,7 @@ on:
       - "docs/**"
       - "clients/python/**"
 
-permissions:
+permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 env:
@@ -25,7 +25,7 @@ jobs:
   build-and-test-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Generate Tag
         shell: bash
         id: tags
@@ -39,7 +39,7 @@ jobs:
           IMG_VERSION: ${{ steps.tags.outputs.tag }}
         run: make image/build
       - name: Start Kind Cluster
-        uses: helm/kind-action@v1.12.0
+        uses: helm/kind-action@v1.13.0
         with:
           node_image: "kindest/node:v1.27.11"
       - name: Remove AppArmor profile for mysql in KinD on GHA # https://github.com/kubeflow/manifests/issues/2507
@@ -58,6 +58,18 @@ jobs:
           echo "Deploying operator from model-registry-operator branch ${BRANCH}"
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/default?ref=${BRANCH}"
           kubectl set env -n model-registry-operator-system deployment/model-registry-operator-controller-manager REST_IMAGE="${IMG}"
+          kubectl wait --for=condition=Available=true -n model-registry-operator-system deployment/model-registry-operator-controller-manager --timeout=5m
+      - name: Display about MR Operator in KinD cluster status in any case
+        if: always()
+        run: |
+          kubectl get deployments -n model-registry-operator-system -o wide
+          kubectl get pods -n model-registry-operator-system -o wide --show-labels
+          kubectl events -A
+          kubectl describe -n model-registry-operator-system deployment/model-registry-operator-controller-manager
+          for p in $(kubectl get pods -n model-registry-operator-system -o name); do
+            echo "===== Logs for $p ====="
+            kubectl logs -n model-registry-operator-system $p
+          done
       - name: Create Test Registry
         run: |
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/samples/mysql?ref=${BRANCH}"
@@ -66,8 +78,14 @@ jobs:
         run: |
           kubectl wait --for=condition=Available=true deployment/model-registry-db --timeout=5m
           kubectl wait --for=condition=Available=true modelregistries/modelregistry-sample --timeout=5m
+      - name: Display KinD cluster status in any case
+        if: always()
+        run: |
           kubectl get deployments -o wide
           kubectl get pods -o wide
+          kubectl events
+          kubectl get modelregistries/modelregistry-sample -o wide
+          kubectl describe modelregistries/modelregistry-sample
       - name: Set up Python
         uses: actions/setup-python@v6
         with:

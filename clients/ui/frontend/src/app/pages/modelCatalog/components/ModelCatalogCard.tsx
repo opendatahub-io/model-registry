@@ -10,15 +10,15 @@ import {
   FlexItem,
   Label,
   Skeleton,
-  Stack,
-  StackItem,
   Truncate,
 } from '@patternfly/react-core';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { CatalogModel, CatalogSource } from '~/app/modelCatalogTypes';
-import { getModelName } from '~/app/pages/modelCatalog/utils/modelCatalogUtils';
 import { catalogModelDetailsFromModel } from '~/app/routes/modelCatalog/catalogModel';
+import { getLabels } from '~/app/pages/modelRegistry/screens/utils';
+import { isModelValidated, getModelName } from '~/app/pages/modelCatalog/utils/modelCatalogUtils';
 import ModelCatalogLabels from './ModelCatalogLabels';
+import ModelCatalogCardBody from './ModelCatalogCardBody';
 
 type ModelCatalogCardProps = {
   model: CatalogModel;
@@ -27,13 +27,16 @@ type ModelCatalogCardProps = {
 };
 
 const ModelCatalogCard: React.FC<ModelCatalogCardProps> = ({ model, source, truncate = false }) => {
-  const navigate = useNavigate();
+  // Extract labels from customProperties and check for validated label
+  const allLabels = model.customProperties ? getLabels(model.customProperties) : [];
+  const validatedLabels = allLabels.includes('validated') ? ['validated'] : [];
+  const isValidated = isModelValidated(model);
 
   return (
     <Card isFullHeight data-testid="model-catalog-card" key={`${model.name}/${model.source_id}`}>
       <CardHeader>
         <CardTitle>
-          <Flex alignItems={{ default: 'alignItemsCenter' }}>
+          <Flex alignItems={{ default: 'alignItemsFlexStart' }} className="pf-v6-u-mb-md">
             {model.logo ? (
               <img src={model.logo} alt="model logo" style={{ height: '56px', width: '56px' }} />
             ) : (
@@ -45,22 +48,19 @@ const ModelCatalogCard: React.FC<ModelCatalogCardProps> = ({ model, source, trun
               />
             )}
             <FlexItem align={{ default: 'alignRight' }}>
-              {source && <Label>{source.name}</Label>}
+              {isValidated ? (
+                <Label color="purple">Validated</Label>
+              ) : (
+                source && <Label>{source.name}</Label>
+              )}
             </FlexItem>
           </Flex>
-        </CardTitle>
-      </CardHeader>
-      <CardBody>
-        <Stack hasGutter>
-          <StackItem isFilled>
+          <Link to={catalogModelDetailsFromModel(model.name, source?.id)}>
             <Button
               data-testid="model-catalog-detail-link"
               variant="link"
+              tabIndex={-1}
               isInline
-              component="a"
-              onClick={() => {
-                navigate(catalogModelDetailsFromModel(model.name, source?.id));
-              }}
               style={{
                 fontSize: 'var(--pf-t--global--font--size--body--default)',
                 fontWeight: 'var(--pf-t--global--font--weight--body--bold)',
@@ -69,40 +69,28 @@ const ModelCatalogCard: React.FC<ModelCatalogCardProps> = ({ model, source, trun
               {truncate ? (
                 <Truncate
                   data-testid="model-catalog-card-name"
-                  content={model.name}
+                  content={getModelName(model.name)}
                   position="middle"
                   tooltipPosition="top"
                   style={{ textDecoration: 'underline' }}
                 />
               ) : (
-                <span>{getModelName(model.name)}</span>
+                <span data-testid="model-catalog-card-name">{getModelName(model.name)}</span>
               )}
             </Button>
-          </StackItem>
-          <StackItem isFilled data-testid="model-catalog-card-description">
-            {truncate ? (
-              <div
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  WebkitLineClamp: 4,
-                  WebkitBoxOrient: 'vertical',
-                  display: '-webkit-box',
-                }}
-              >
-                {model.description}
-              </div>
-            ) : (
-              model.description
-            )}
-          </StackItem>
-        </Stack>
+          </Link>
+        </CardTitle>
+      </CardHeader>
+      <CardBody>
+        <ModelCatalogCardBody model={model} isValidated={isValidated} source={source} />
       </CardBody>
       <CardFooter>
         <ModelCatalogLabels
           tasks={model.tasks ?? []}
           license={model.license}
           provider={model.provider}
+          labels={validatedLabels}
+          numLabels={isValidated ? 2 : 3}
         />
       </CardFooter>
     </Card>

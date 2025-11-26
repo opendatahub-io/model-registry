@@ -96,9 +96,7 @@ class ModelRegistryAPIClient:
         finally:
             await api_client.close()
 
-    async def upsert_registered_model(
-        self, registered_model: RegisteredModel
-    ) -> RegisteredModel:
+    async def upsert_registered_model(self, registered_model: RegisteredModel) -> RegisteredModel:
         """Upsert a registered model.
 
         Updates or creates a registered model on the server.
@@ -111,9 +109,7 @@ class ModelRegistryAPIClient:
         """
         async with self.get_client() as client:
             if registered_model.id:
-                rm = await client.update_registered_model(
-                    registered_model.id, registered_model.update()
-                )
+                rm = await client.update_registered_model(registered_model.id, registered_model.update())
             else:
                 rm = await client.create_registered_model(registered_model.create())
 
@@ -157,17 +153,13 @@ class ModelRegistryAPIClient:
         """
         async with self.get_client() as client:
             try:
-                rm = await client.find_registered_model(
-                    name=name, external_id=external_id
-                )
+                rm = await client.find_registered_model(name=name, external_id=external_id)
             except mr_exceptions.NotFoundException:
                 return None
 
         return RegisteredModel.from_basemodel(rm)
 
-    async def get_registered_models(
-        self, options: ListOptions | None = None
-    ) -> list[RegisteredModel]:
+    async def get_registered_models(self, options: ListOptions | None = None) -> list[RegisteredModel]:
         """Fetch registered models.
 
         Args:
@@ -177,9 +169,7 @@ class ModelRegistryAPIClient:
             Registered models.
         """
         async with self.get_client() as client:
-            rm_list = await client.get_registered_models(
-                **(options or ListOptions()).as_options()
-            )
+            rm_list = await client.get_registered_models(**(options or ListOptions()).as_options())
 
         if options:
             options.next_page_token = rm_list.next_page_token
@@ -202,22 +192,16 @@ class ModelRegistryAPIClient:
         """
         async with self.get_client() as client:
             if model_version.id:
-                mv = await client.update_model_version(
-                    model_version.id, model_version.update()
-                )
+                mv = await client.update_model_version(model_version.id, model_version.update())
             elif registered_model_id:
-                mv = await client.create_model_version(
-                    model_version.create(registered_model_id=registered_model_id)
-                )
+                mv = await client.create_model_version(model_version.create(registered_model_id=registered_model_id))
             else:
                 msg = f"Registered model ID required for creating a new model version: {model_version}"
                 raise ValueError(msg)
 
         return ModelVersion.from_basemodel(mv)
 
-    async def get_model_version_by_id(
-        self, model_version_id: str
-    ) -> ModelVersion | None:
+    async def get_model_version_by_id(self, model_version_id: str) -> ModelVersion | None:
         """Fetch a model version by its ID.
 
         Args:
@@ -257,9 +241,7 @@ class ModelRegistryAPIClient:
         return [ModelVersion.from_basemodel(mv) for mv in mv_list.items or []]
 
     @overload
-    async def get_model_version_by_params(
-        self, registered_model_id: str, name: str
-    ): ...
+    async def get_model_version_by_params(self, registered_model_id: str, name: str): ...
 
     @overload
     async def get_model_version_by_params(self, *, external_id: str): ...
@@ -301,9 +283,7 @@ class ModelRegistryAPIClient:
 
         return ModelVersion.from_basemodel(mv)
 
-    async def upsert_model_artifact(
-        self, model_artifact: ModelArtifact
-    ) -> ModelArtifact:
+    async def upsert_model_artifact(self, model_artifact: ModelArtifact) -> ModelArtifact:
         """Upsert a model artifact.
 
         Updates or creates a model artifact on the server.
@@ -319,14 +299,10 @@ class ModelRegistryAPIClient:
             if not model_artifact.id:
                 ma = await client.create_model_artifact(model_artifact.create())
             else:
-                ma = await client.update_model_artifact(
-                    model_artifact.id, model_artifact.update()
-                )
+                ma = await client.update_model_artifact(model_artifact.id, model_artifact.update())
         return ModelArtifact.from_basemodel(ma)
 
-    async def upsert_model_version_artifact(
-        self, artifact: ArtifactT, model_version_id: str
-    ) -> ArtifactT:
+    async def upsert_model_version_artifact(self, artifact: ArtifactT, model_version_id: str) -> ArtifactT:
         """Creates a model version artifact.
 
         Creates a model version artifact on the server.
@@ -342,9 +318,7 @@ class ModelRegistryAPIClient:
             return cast(
                 ArtifactT,
                 Artifact.validate_artifact(
-                    await client.upsert_model_version_artifact(
-                        model_version_id, artifact.wrap()
-                    )
+                    await client.upsert_model_version_artifact(model_version_id, artifact.wrap())
                 ),
             )
 
@@ -438,9 +412,7 @@ class ModelRegistryAPIClient:
                         models.append(converted)
                 return models
 
-            ma_list = await client.get_model_artifacts(
-                **(options or ListOptions()).as_options()
-            )
+            ma_list = await client.get_model_artifacts(**(options or ListOptions()).as_options())
             if options:
                 options.next_page_token = ma_list.next_page_token
             return [ModelArtifact.from_basemodel(ma) for ma in ma_list.items or []]
@@ -479,8 +451,8 @@ class ModelRegistryAPIClient:
             if experiment.id:
                 exp = await client.update_experiment(experiment.id, experiment.update())
             elif experiment.name:
-                if exp := await self.get_experiment_by_name(experiment.name):
-                    exp = await client.update_experiment(exp.id, experiment.update())
+                if exp := await self.get_experiment_by_name(experiment.name):  # type: ignore[assignment]
+                    exp = await client.update_experiment(exp.id, experiment.update())  # type: ignore[arg-type]
                 else:
                     exp = await client.create_experiment(experiment.create())
         return Experiment.from_basemodel(exp)
@@ -511,27 +483,21 @@ class ModelRegistryAPIClient:
             except mr_exceptions.NotFoundException:
                 return None
 
-        return RegisteredModel.from_basemodel(exp)
+        return RegisteredModel.from_basemodel(exp)  # type: ignore[return-value,arg-type]
 
-    async def get_experiments(
-        self, options: ListOptions | None = None
-    ) -> list[Experiment]:
+    async def get_experiments(self, options: ListOptions | None = None) -> list[Experiment]:
         """Fetch experiments.
 
         Args:
             options: Options for listing experiments.
         """
         async with self.get_client() as client:
-            exp_list = await client.get_experiments(
-                **(options or ListOptions()).as_options()
-            )
+            exp_list = await client.get_experiments(**(options or ListOptions()).as_options())
         if options:
             options.next_page_token = exp_list.next_page_token
         return [Experiment.from_basemodel(exp) for exp in exp_list.items or []]
 
-    async def upsert_experiment_run(
-        self, experiment_run: ExperimentRun
-    ) -> ExperimentRun:
+    async def upsert_experiment_run(self, experiment_run: ExperimentRun) -> ExperimentRun:
         """Upsert an experiment run.
 
         Updates or creates an experiment run on the server.
@@ -541,9 +507,7 @@ class ModelRegistryAPIClient:
         """
         async with self.get_client() as client:
             if experiment_run.id:
-                exp_run = await client.create_experiment_run(
-                    experiment_run.id, experiment_run.update()
-                )
+                exp_run = await client.create_experiment_run(experiment_run.id, experiment_run.update())  # type: ignore[arg-type]
             else:
                 exp_run = await client.create_experiment_run(experiment_run.create())
 
@@ -569,9 +533,7 @@ class ModelRegistryAPIClient:
         if options:
             options.next_page_token = exp_runs.next_page_token
 
-        return [
-            ExperimentRun.from_basemodel(exp_run) for exp_run in exp_runs.items or []
-        ]
+        return [ExperimentRun.from_basemodel(exp_run) for exp_run in exp_runs.items or []]
 
     async def get_experiment_runs_by_experiment_name(
         self, experiment_name: str, options: ListOptions | None = None
@@ -597,9 +559,7 @@ class ModelRegistryAPIClient:
         if options:
             options.next_page_token = exp_runs.next_page_token
 
-        return [
-            ExperimentRun.from_basemodel(exp_run) for exp_run in exp_runs.items or []
-        ]
+        return [ExperimentRun.from_basemodel(exp_run) for exp_run in exp_runs.items or []]
 
     async def get_experiment_run_by_experiment_and_run_id(
         self,
@@ -628,11 +588,11 @@ class ModelRegistryAPIClient:
                     msg = "Either experiment_name or experiment_id must be provided"
                     raise ValueError(msg)
                 if not exp:
-                    return None
+                    return None  # type: ignore[return-value]
 
                 exp_run = await client.get_experiment_run(str(run_id))
             except mr_exceptions.NotFoundException:
-                return None
+                return None  # type: ignore[return-value]
 
         return ExperimentRun.from_basemodel(exp_run)
 
@@ -663,11 +623,11 @@ class ModelRegistryAPIClient:
                     exp = await self.get_experiment_by_id(str(experiment_id))
 
                 if not exp:
-                    return None
+                    return None  # type: ignore[return-value]
 
-                exp_run = await client.get_experiment_run(exp.id)
+                exp_run = await client.get_experiment_run(exp.id)  # type: ignore[arg-type]
             except mr_exceptions.NotFoundException:
-                return None
+                return None  # type: ignore[return-value]
 
         return ExperimentRun.from_basemodel(exp_run)
 
@@ -681,7 +641,7 @@ class ModelRegistryAPIClient:
             try:
                 exp_run = await client.get_experiment_run(id)
             except mr_exceptions.NotFoundException:
-                return None
+                return None  # type: ignore[return-value]
 
         return ExperimentRun.from_basemodel(exp_run)
 
@@ -697,16 +657,14 @@ class ModelRegistryAPIClient:
             artifact: Artifact to upsert.
         """
         async with self.get_client() as client:
-            return Artifact.validate_artifact(
+            return Artifact.validate_artifact(  # type: ignore[return-value]
                 await client.upsert_experiment_run_artifact(
                     experimentrun_id=experiment_run_id, artifact=artifact.wrap()
                 )
             )
 
     @overload
-    async def get_artifacts_by_experiment_run_params(
-        self, run_id: str | int, options: ListOptions | None = None
-    ): ...
+    async def get_artifacts_by_experiment_run_params(self, run_id: str | int, options: ListOptions | None = None): ...
 
     @overload
     async def get_artifacts_by_experiment_run_params(
@@ -724,9 +682,7 @@ class ModelRegistryAPIClient:
         options: ListOptions | None = None,
     ): ...
 
-    @required_args(
-        ("run_id",), ("run_name", "experiment_name"), ("run_name", "experiment_id")
-    )
+    @required_args(("run_id",), ("run_name", "experiment_name"), ("run_name", "experiment_id"))  # type: ignore[misc]
     async def get_artifacts_by_experiment_run_params(
         self,
         run_id: str | int | None = None,
@@ -771,18 +727,18 @@ class ModelRegistryAPIClient:
                             f"in experiment {experiment_name} within the first 100 runs. "
                             "Please narrow your search by run id."
                         )
-                        return []
+                        return []  # type: ignore[return-value]
                     run_id = run.id
 
                 logs = await client.get_experiment_run_artifacts(
                     str(run_id), **(options or ListOptions()).as_options()
                 )
             except mr_exceptions.NotFoundException:
-                return []
+                return []  # type: ignore[return-value]
 
         if options:
             options.next_page_token = logs.next_page_token
-        return [Artifact.validate_artifact(log) for log in logs.items or []]
+        return [Artifact.validate_artifact(log) for log in logs.items or []]  # type: ignore[return-value]
 
     async def get_artifacts(
         self,

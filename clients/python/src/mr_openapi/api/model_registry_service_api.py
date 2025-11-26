@@ -264,7 +264,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -273,7 +272,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -285,7 +284,8 @@ class ModelRegistryServiceApi:
             _body_params = artifact_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -537,7 +537,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -546,7 +545,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -560,7 +559,8 @@ class ModelRegistryServiceApi:
             _body_params = inference_service_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -784,7 +784,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -793,7 +792,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -805,7 +804,8 @@ class ModelRegistryServiceApi:
             _body_params = experiment_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1045,7 +1045,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -1054,7 +1053,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -1068,7 +1067,8 @@ class ModelRegistryServiceApi:
             _body_params = experiment_run
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1301,7 +1301,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -1310,7 +1309,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -1322,7 +1321,8 @@ class ModelRegistryServiceApi:
             _body_params = experiment_run_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1552,7 +1552,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -1561,7 +1560,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -1573,7 +1572,8 @@ class ModelRegistryServiceApi:
             _body_params = inference_service_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1819,7 +1819,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -1828,7 +1827,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -1842,7 +1841,8 @@ class ModelRegistryServiceApi:
             _body_params = serve_model_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2072,7 +2072,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -2081,7 +2080,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -2093,7 +2092,8 @@ class ModelRegistryServiceApi:
             _body_params = model_artifact_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2320,7 +2320,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -2329,7 +2328,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -2341,7 +2340,8 @@ class ModelRegistryServiceApi:
             _body_params = model_version_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2571,7 +2571,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -2580,7 +2579,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -2592,7 +2591,8 @@ class ModelRegistryServiceApi:
             _body_params = registered_model_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2832,7 +2832,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -2841,7 +2840,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -2855,7 +2854,8 @@ class ModelRegistryServiceApi:
             _body_params = model_version
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -3085,7 +3085,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -3094,7 +3093,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -3106,7 +3105,8 @@ class ModelRegistryServiceApi:
             _body_params = serving_environment_create
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -3362,7 +3362,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -3371,21 +3370,18 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if parent_resource_id is not None:
-
             _query_params.append(("parentResourceId", parent_resource_id))
 
         # process the header parameters
@@ -3393,7 +3389,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -3619,7 +3616,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -3628,17 +3624,15 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         # process the header parameters
@@ -3646,7 +3640,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -3894,7 +3889,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -3903,21 +3897,18 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if parent_resource_id is not None:
-
             _query_params.append(("parentResourceId", parent_resource_id))
 
         # process the header parameters
@@ -3925,7 +3916,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4173,7 +4165,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -4182,21 +4173,18 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if parent_resource_id is not None:
-
             _query_params.append(("parentResourceId", parent_resource_id))
 
         # process the header parameters
@@ -4204,7 +4192,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4452,7 +4441,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -4461,21 +4449,18 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if parent_resource_id is not None:
-
             _query_params.append(("parentResourceId", parent_resource_id))
 
         # process the header parameters
@@ -4483,7 +4468,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4731,7 +4717,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -4740,21 +4725,18 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if parent_resource_id is not None:
-
             _query_params.append(("parentResourceId", parent_resource_id))
 
         # process the header parameters
@@ -4762,7 +4744,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4988,7 +4971,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -4997,17 +4979,15 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         # process the header parameters
@@ -5015,7 +4995,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -5241,7 +5222,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -5250,17 +5230,15 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         # process the header parameters
@@ -5268,7 +5246,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -5472,7 +5451,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -5481,7 +5459,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -5493,7 +5471,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -5813,7 +5792,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -5822,33 +5800,27 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if artifact_type is not None:
-
             _query_params.append(("artifactType", artifact_type.value))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -5856,7 +5828,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -6199,7 +6172,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -6208,7 +6180,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -6216,31 +6188,24 @@ class ModelRegistryServiceApi:
             _path_params["servingenvironmentId"] = servingenvironment_id
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -6248,7 +6213,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -6461,7 +6427,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -6470,7 +6435,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -6482,7 +6447,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -6819,7 +6785,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -6828,7 +6793,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -6836,31 +6801,24 @@ class ModelRegistryServiceApi:
             _path_params["experimentId"] = experiment_id
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -6868,7 +6826,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -7081,7 +7040,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -7090,7 +7048,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -7102,7 +7060,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -7452,7 +7411,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -7461,7 +7419,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -7469,35 +7427,27 @@ class ModelRegistryServiceApi:
             _path_params["experimentrunId"] = experimentrun_id
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if artifact_type is not None:
-
             _query_params.append(("artifactType", artifact_type.value))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -7505,7 +7455,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -7848,7 +7799,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -7857,7 +7807,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -7865,31 +7815,24 @@ class ModelRegistryServiceApi:
             _path_params["experimentrunId"] = experimentrun_id
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if name is not None:
-
             _query_params.append(("name", name))
 
         if step_ids is not None:
-
             _query_params.append(("stepIds", step_ids))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -7897,7 +7840,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -8192,7 +8136,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -8201,29 +8144,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -8231,7 +8169,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -8561,7 +8500,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -8570,37 +8508,30 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if name is not None:
-
             _query_params.append(("name", name))
 
         if step_ids is not None:
-
             _query_params.append(("stepIds", step_ids))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -8608,7 +8539,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -8903,7 +8835,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -8912,29 +8843,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -8942,7 +8868,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -9155,7 +9082,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -9164,7 +9090,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -9176,7 +9102,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -9389,7 +9316,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -9398,7 +9324,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -9410,7 +9336,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -9747,7 +9674,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -9756,7 +9682,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -9764,31 +9690,24 @@ class ModelRegistryServiceApi:
             _path_params["inferenceserviceId"] = inferenceservice_id
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -9796,7 +9715,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10009,7 +9929,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -10018,7 +9937,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -10030,7 +9949,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10331,7 +10251,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -10340,29 +10259,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -10370,7 +10284,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10583,7 +10498,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -10592,7 +10506,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -10604,7 +10518,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10905,7 +10820,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -10914,29 +10828,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -10944,7 +10853,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -11157,7 +11067,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -11166,7 +11075,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -11178,7 +11087,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -11528,7 +11438,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -11537,7 +11446,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -11545,35 +11454,27 @@ class ModelRegistryServiceApi:
             _path_params["modelversionId"] = modelversion_id
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if artifact_type is not None:
-
             _query_params.append(("artifactType", artifact_type.value))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -11581,7 +11482,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -11876,7 +11778,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -11885,29 +11786,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -11915,7 +11811,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -12128,7 +12025,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -12137,7 +12033,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -12149,7 +12045,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -12486,7 +12383,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -12495,7 +12391,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -12503,31 +12399,24 @@ class ModelRegistryServiceApi:
             _path_params["registeredmodelId"] = registeredmodel_id
         # process the query parameters
         if name is not None:
-
             _query_params.append(("name", name))
 
         if external_id is not None:
-
             _query_params.append(("externalId", external_id))
 
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -12535,7 +12424,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -12830,7 +12720,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -12839,29 +12728,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -12869,7 +12753,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -13088,7 +12973,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -13097,7 +12981,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -13109,7 +12993,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -13404,7 +13289,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -13413,29 +13297,24 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
         # process the query parameters
         if filter_query is not None:
-
             _query_params.append(("filterQuery", filter_query))
 
         if page_size is not None:
-
             _query_params.append(("pageSize", page_size))
 
         if order_by is not None:
-
             _query_params.append(("orderBy", order_by.value))
 
         if sort_order is not None:
-
             _query_params.append(("sortOrder", sort_order.value))
 
         if next_page_token is not None:
-
             _query_params.append(("nextPageToken", next_page_token))
 
         # process the header parameters
@@ -13443,7 +13322,8 @@ class ModelRegistryServiceApi:
         # process the body parameter
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -13672,7 +13552,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -13681,7 +13560,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -13695,7 +13574,8 @@ class ModelRegistryServiceApi:
             _body_params = artifact_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -13932,7 +13812,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -13941,7 +13820,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -13955,7 +13834,8 @@ class ModelRegistryServiceApi:
             _body_params = experiment_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14198,7 +14078,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -14207,7 +14086,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -14221,7 +14100,8 @@ class ModelRegistryServiceApi:
             _body_params = experiment_run_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14464,7 +14344,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -14473,7 +14352,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -14487,7 +14366,8 @@ class ModelRegistryServiceApi:
             _body_params = inference_service_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14730,7 +14610,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -14739,7 +14618,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -14753,7 +14632,8 @@ class ModelRegistryServiceApi:
             _body_params = model_artifact_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14990,7 +14870,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -14999,7 +14878,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -15013,7 +14892,8 @@ class ModelRegistryServiceApi:
             _body_params = model_version_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -15256,7 +15136,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -15265,7 +15144,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -15279,7 +15158,8 @@ class ModelRegistryServiceApi:
             _body_params = registered_model_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -15528,7 +15408,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -15537,7 +15416,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -15551,7 +15430,8 @@ class ModelRegistryServiceApi:
             _body_params = serving_environment_update
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -15800,7 +15680,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -15809,7 +15688,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -15823,7 +15702,8 @@ class ModelRegistryServiceApi:
             _body_params = artifact
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -16072,7 +15952,6 @@ class ModelRegistryServiceApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: dict[str, str] = {}
@@ -16081,7 +15960,7 @@ class ModelRegistryServiceApi:
         _query_params: list[tuple[str, str]] = []
         _header_params: dict[str, Optional[str]] = _headers or {}
         _form_params: list[tuple[str, str]] = []
-        _files: dict[str, Union[str, bytes]] = {}
+        _files: dict[str, Union[str, bytes, list[str], list[bytes], list[tuple[str, bytes]]]] = {}
         _body_params: Optional[bytes] = None
 
         # process the path parameters
@@ -16095,7 +15974,8 @@ class ModelRegistryServiceApi:
             _body_params = artifact
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:

@@ -110,7 +110,8 @@ func (r *InferenceServiceController) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !okMrIsvcId && !okRegisteredModelId {
 		// Early check: no model registry specific labels set in the ISVC, ignore the CR
-		log.Error(fmt.Errorf("missing model registry specific label, unable to link ISVC to Model Registry, skipping InferenceService"), "Stop ModelRegistry InferenceService reconciliation")
+		log.Info(fmt.Sprintf("missing model registry specific label, unable to link ISVC to Model Registry, skipping InferenceService: %s", isvc.Name))
+
 		return ctrl.Result{}, nil
 	}
 
@@ -167,11 +168,7 @@ func (r *InferenceServiceController) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, fmt.Errorf("unable to find InferenceService with id %s in model registry: %w", mrIsvcId, err)
 		}
 
-		mrCurrentIvcUrl := ""
-
-		if mrIs.CustomProperties != nil {
-			mrCurrentIvcUrl = (*mrIs.CustomProperties)["url"].MetadataStringValue.GetStringValue()
-		}
+		mrCurrentIvcUrl := mrIs.CustomProperties["url"].MetadataStringValue.GetStringValue()
 
 		urlAreDiff := r.checkURLDiff(isvc, mrCurrentIvcUrl)
 		if urlAreDiff {
@@ -375,10 +372,10 @@ func (r *InferenceServiceController) createMRInferenceService(
 		}
 
 		if isvc.Status.URL != nil {
-			isCreate.CustomProperties = &map[string]openapi.MetadataValue{}
-
-			(*isCreate.CustomProperties)["url"] = openapi.MetadataValue{
-				MetadataStringValue: openapi.NewMetadataStringValue(isvc.Status.URL.String(), "MetadataStringValue"),
+			isCreate.CustomProperties = map[string]openapi.MetadataValue{
+				"url": openapi.MetadataValue{
+					MetadataStringValue: openapi.NewMetadataStringValue(isvc.Status.URL.String(), "MetadataStringValue"),
+				},
 			}
 		}
 
@@ -404,10 +401,10 @@ func (r *InferenceServiceController) updateMRInferenceService(
 	}
 
 	if mrIsvc.CustomProperties == nil {
-		mrIsvc.CustomProperties = &map[string]openapi.MetadataValue{}
+		mrIsvc.CustomProperties = map[string]openapi.MetadataValue{}
 	}
 
-	(*mrIsvc.CustomProperties)["url"] = openapi.MetadataValue{
+	mrIsvc.CustomProperties["url"] = openapi.MetadataValue{
 		MetadataStringValue: openapi.NewMetadataStringValue(url, "MetadataStringValue"),
 	}
 

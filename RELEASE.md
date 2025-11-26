@@ -72,7 +72,7 @@ git checkout -b mr_maintainer-$TDATE-upstreamSync
 pushd manifests/kustomize/base && kustomize edit set image ghcr.io/kubeflow/model-registry/server=ghcr.io/kubeflow/model-registry/server:$VVERSION && popd
 pushd manifests/kustomize/options/csi && kustomize edit set image ghcr.io/kubeflow/model-registry/storage-initializer=ghcr.io/kubeflow/model-registry/storage-initializer:$VVERSION && popd
 pushd manifests/kustomize/options/ui/base && kustomize edit set image model-registry-ui=ghcr.io/kubeflow/model-registry/ui:$VVERSION && popd
-pushd manifests/kustomize/options/catalog && kustomize edit set image ghcr.io/kubeflow/model-registry/server=ghcr.io/kubeflow/model-registry/server:$VVERSION && popd
+pushd manifests/kustomize/options/catalog/base && kustomize edit set image ghcr.io/kubeflow/model-registry/server=ghcr.io/kubeflow/model-registry/server:$VVERSION && popd
 git add .
 git commit -s
 
@@ -89,8 +89,7 @@ git push --set-upstream origin mr_maintainer-$TDATE-upstreamSync
 
 - optional. if you create the tag from local git (see point below); await GHA complete that push Container images to docker.io or any other KF registry: https://github.com/kubeflow/model-registry/actions
 - create [the Release from GitHub](https://github.com/kubeflow/model-registry/releases/new), ⚠️ select the _release branch_ ⚠️ , input the _new tag_<br/>(in this example the tag is created from GitHub; alternatively, you could just do the tag manually by checking out the release branch locally--remember to pull!!--and issuing the tag from local machine).
-Encouraging in upstream to mark it as a non-production release (in the github screen).
-Encouraging to use the "alpha" version policy of KF in the beginning of the release markdown (see previous pre-releases).
+- encouraging to use the "alpha" version policy of KF in the beginning of the release markdown (see previous releases).
 
 It is helpful to prefix this in the release notes:
 

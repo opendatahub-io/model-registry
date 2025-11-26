@@ -1,8 +1,12 @@
 package models
 
 type CatalogSource struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id      string   `json:"id"`
+	Name    string   `json:"name"`
+	Enabled *bool    `json:"enabled,omitempty"`
+	Labels  []string `json:"labels"`
+	Status  *string  `json:"status,omitempty"`
+	Error   *string  `json:"error,omitempty"`
 }
 
 type CatalogSourceList struct {

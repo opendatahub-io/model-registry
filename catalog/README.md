@@ -78,7 +78,7 @@ catalogs:
 ## Development
 
 ### Prerequisites
-- Go >= 1.24
+- Go >= 1.25
 - Java >= 11.0 (for OpenAPI generation)
 - Node.js >= 20.0.0 (for GraphQL schema downloads)
 
@@ -122,7 +122,7 @@ type CatalogSourceProvider interface {
 
 2. Register your provider:
 ```go
-catalog.RegisterCatalogType("my-catalog", func(source *CatalogSourceConfig) (CatalogSourceProvider, error) {
+catalog.RegisterCatalogType("my-catalog", func(source *Source) (CatalogSourceProvider, error) {
     return NewMyCatalogProvider(source)
 })
 ```

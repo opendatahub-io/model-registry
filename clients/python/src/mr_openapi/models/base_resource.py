@@ -105,9 +105,9 @@ class BaseResource(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each value in custom_properties (dict)
         _field_dict = {}
         if self.custom_properties:
-            for _key in self.custom_properties:
-                if self.custom_properties[_key]:
-                    _field_dict[_key] = self.custom_properties[_key].to_dict()
+            for _key_custom_properties in self.custom_properties:
+                if self.custom_properties[_key_custom_properties]:
+                    _field_dict[_key_custom_properties] = self.custom_properties[_key_custom_properties].to_dict()
             _dict["customProperties"] = _field_dict
         return _dict
 
@@ -124,11 +124,9 @@ class BaseResource(BaseModel):
             {
                 "createTimeSinceEpoch": obj.get("createTimeSinceEpoch"),
                 "lastUpdateTimeSinceEpoch": obj.get("lastUpdateTimeSinceEpoch"),
-                "customProperties": (
-                    {_k: MetadataValue.from_dict(_v) for _k, _v in obj["customProperties"].items()}
-                    if obj.get("customProperties") is not None
-                    else None
-                ),
+                "customProperties": {_k: MetadataValue.from_dict(_v) for _k, _v in obj["customProperties"].items()}
+                if obj.get("customProperties") is not None
+                else None,
                 "description": obj.get("description"),
                 "externalId": obj.get("externalId"),
                 "name": obj.get("name"),

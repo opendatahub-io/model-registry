@@ -72,9 +72,9 @@ class ServeModelList(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in items (list)
         _items = []
         if self.items:
-            for _item in self.items:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_items in self.items:
+                if _item_items:
+                    _items.append(_item_items.to_dict())
             _dict["items"] = _items
         return _dict
 
@@ -92,8 +92,8 @@ class ServeModelList(BaseModel):
                 "nextPageToken": obj.get("nextPageToken"),
                 "pageSize": obj.get("pageSize"),
                 "size": obj.get("size"),
-                "items": (
-                    [ServeModel.from_dict(_item) for _item in obj["items"]] if obj.get("items") is not None else None
-                ),
+                "items": [ServeModel.from_dict(_item) for _item in obj["items"]]
+                if obj.get("items") is not None
+                else None,
             }
         )

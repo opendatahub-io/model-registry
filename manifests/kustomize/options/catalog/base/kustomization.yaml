@@ -4,12 +4,24 @@ kind: Kustomization
 resources:
 - deployment.yaml
 - service.yaml
+- postgres-statefulset.yaml
+- postgres-pvc.yaml
+- postgres-service.yaml
 
 configMapGenerator:
 - behavior: create
   files:
-  - sources.yaml=sources.yaml
-  - sample-catalog.yaml=sample-catalog.yaml
+  - sources.yaml=dev-sources.yaml
+  - dev-organization-models.yaml=dev-organization-models.yaml
+  - dev-validated-models.yaml=dev-validated-models.yaml
+  - dev-community-models.yaml=dev-community-models.yaml
   name: model-catalog-sources
+  options:
+    disableNameSuffixHash: true
+
+secretGenerator:
+- name: model-catalog-postgres
+  envs:
+  - postgres.env
   options:
     disableNameSuffixHash: true

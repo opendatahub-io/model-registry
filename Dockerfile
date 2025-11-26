@@ -1,11 +1,11 @@
 # Build the model-registry binary
-FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/go-toolset:1.24 AS common
+FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/go-toolset:1.25 AS common
 ARG TARGETOS
 ARG TARGETARCH
 
 WORKDIR /workspace
 # Copy the Go Modules manifests and workspace file
-COPY ["go.mod", "go.sum", "go.work", "go.work.sum", "./"]
+COPY ["go.mod", "go.sum", "./"]
 COPY ["pkg/openapi/go.mod", "pkg/openapi/"]
 COPY ["catalog/pkg/openapi/go.mod", "catalog/pkg/openapi/"]
 # cache deps before building and copying source so that we don't need to re-download as much

@@ -1,10 +1,28 @@
 import { APIOptions } from 'mod-arch-core';
-import { ModelRegistryCustomProperties } from './types';
+import {
+  ModelCatalogTask,
+  ModelCatalogProvider,
+  ModelCatalogLicense,
+  AllLanguageCode,
+  ModelCatalogStringFilterKey,
+  ModelCatalogNumberFilterKey,
+  LatencyMetricFieldName,
+  UseCaseOptionValue,
+} from '~/concepts/modelCatalog/const';
+import {
+  ModelRegistryCustomProperties,
+  ModelRegistryCustomPropertyString,
+  ModelRegistryCustomPropertyInt,
+  ModelRegistryCustomPropertyDouble,
+} from './types';
 
 export type CatalogSource = {
   id: string;
   name: string;
+  labels: string[];
   enabled?: boolean;
+  status?: 'available' | 'error' | 'disabled';
+  error?: string;
 };
 
 export type CatalogSourceList = ModelCatalogListParams & { items: CatalogSource[] };
@@ -35,18 +53,106 @@ export type ModelCatalogListParams = {
 
 export type CatalogModelList = ModelCatalogListParams & { items: CatalogModel[] };
 
-export type CatalogModelArtifact = {
+export enum CatalogArtifactType {
+  modelArtifact = 'model-artifact',
+  metricsArtifact = 'metrics-artifact',
+}
+
+export enum MetricsType {
+  accuracyMetrics = 'accuracy-metrics',
+  performanceMetrics = 'performance-metrics',
+}
+
+export enum CategoryName {
+  allModels = 'All models',
+  communityAndCustomModels = 'Community and custom',
+}
+
+export enum SourceLabel {
+  other = 'null',
+}
+
+export enum CatalogSourceType {
+  YAML = 'yaml',
+  HUGGING_FACE = 'huggingface',
+}
+
+export type CatalogArtifactBase = {
   createTimeSinceEpoch: string;
   lastUpdateTimeSinceEpoch: string;
-  uri: string;
   customProperties: ModelRegistryCustomProperties;
 };
 
-export type CatalogModelArtifactList = ModelCatalogListParams & { items: CatalogModelArtifact[] };
+export type CatalogModelArtifact = CatalogArtifactBase & {
+  artifactType: CatalogArtifactType.modelArtifact;
+  uri: string;
+};
+
+export type PerformanceMetricsCustomProperties = {
+  config_id?: ModelRegistryCustomPropertyString;
+  hardware_type?: ModelRegistryCustomPropertyString;
+  hardware_count?: ModelRegistryCustomPropertyInt;
+  requests_per_second?: ModelRegistryCustomPropertyDouble;
+  // Token metrics
+  mean_input_tokens?: ModelRegistryCustomPropertyDouble;
+  mean_output_tokens?: ModelRegistryCustomPropertyDouble;
+  // Use case information
+  use_case?: ModelRegistryCustomPropertyString;
+  // Framework information
+  framework?: ModelRegistryCustomPropertyString;
+  framework_version?: ModelRegistryCustomPropertyString;
+  // Additional fields from ADR (excluded from display per requirements)
+  docker_image?: ModelRegistryCustomPropertyString;
+  entrypoint?: ModelRegistryCustomPropertyString;
+  inserted_at?: ModelRegistryCustomPropertyString;
+  created_at?: ModelRegistryCustomPropertyString;
+  updated_at?: ModelRegistryCustomPropertyString;
+  model_hf_repo_name?: ModelRegistryCustomPropertyString;
+  scenario_id?: ModelRegistryCustomPropertyString;
+} & Partial<Record<LatencyMetricFieldName, ModelRegistryCustomPropertyDouble>>;
+
+export type AccuracyMetricsCustomProperties = {
+  // overall_average?: ModelRegistryCustomPropertyDouble; // NOTE: overall_average is currently omitted from the API and will be restored
+  arc_v1?: ModelRegistryCustomPropertyDouble;
+} & Record<string, ModelRegistryCustomPropertyDouble>;
+
+export type CatalogPerformanceMetricsArtifact = Omit<CatalogArtifactBase, 'customProperties'> & {
+  artifactType: CatalogArtifactType.metricsArtifact;
+  metricsType: MetricsType.performanceMetrics;
+  customProperties: PerformanceMetricsCustomProperties;
+};
+
+export type CatalogAccuracyMetricsArtifact = Omit<CatalogArtifactBase, 'customProperties'> & {
+  artifactType: CatalogArtifactType.metricsArtifact;
+  metricsType: MetricsType.accuracyMetrics;
+  customProperties: AccuracyMetricsCustomProperties;
+};
+
+export type CatalogMetricsArtifact =
+  | CatalogPerformanceMetricsArtifact
+  | CatalogAccuracyMetricsArtifact;
+
+export type CatalogArtifacts = CatalogModelArtifact | CatalogMetricsArtifact;
+
+export type CatalogArtifactList = ModelCatalogListParams & { items: CatalogArtifacts[] };
+
+export type CatalogFilterNumberOption = {
+  type: 'number';
+  range: {
+    max: number;
+    min: number;
+  };
+};
+
+export type CatalogFilterStringOption<T extends string> = {
+  type: 'string';
+  values: T[];
+};
 
 export type GetCatalogModelsBySource = (
   opts: APIOptions,
-  sourceId: string,
+  sourceId?: string,
+  sourceLabel?: string,
   paginationParams?: {
     pageSize?: string;
     nextPageToken?: string;
@@ -54,6 +160,8 @@ export type GetCatalogModelsBySource = (
     sortOrder?: string;
   },
   searchKeyword?: string,
+  filterData?: ModelCatalogFilterStates,
+  filterOptions?: CatalogFilterOptionsList | null,
 ) => Promise<CatalogModelList>;
 
 export type GetListSources = (opts: APIOptions) => Promise<CatalogSourceList>;
@@ -68,16 +176,118 @@ export type GetListCatalogModelArtifacts = (
   opts: APIOptions,
   sourceId: string,
   modelName: string,
-) => Promise<CatalogModelArtifactList>;
+) => Promise<CatalogArtifactList>;
+
+export type GetCatalogFilterOptionList = (opts: APIOptions) => Promise<CatalogFilterOptionsList>;
 
 export type ModelCatalogAPIs = {
   getCatalogModelsBySource: GetCatalogModelsBySource;
   getListSources: GetListSources;
   getCatalogModel: GetCatalogModel;
   getListCatalogModelArtifacts: GetListCatalogModelArtifacts;
+  getCatalogFilterOptionList: GetCatalogFilterOptionList;
 };
 
 export type CatalogModelDetailsParams = {
   sourceId?: string;
   modelName?: string;
+};
+
+export type ModelCatalogFilterKey =
+  | ModelCatalogStringFilterKey
+  | ModelCatalogNumberFilterKey
+  | LatencyMetricFieldName;
+
+// Not used for a run time value, just for mapping other types
+export type ModelCatalogStringFilterValueType = {
+  [ModelCatalogStringFilterKey.TASK]: ModelCatalogTask;
+  [ModelCatalogStringFilterKey.PROVIDER]: ModelCatalogProvider;
+  [ModelCatalogStringFilterKey.LICENSE]: ModelCatalogLicense;
+  [ModelCatalogStringFilterKey.LANGUAGE]: AllLanguageCode;
+  [ModelCatalogStringFilterKey.HARDWARE_TYPE]: string;
+  [ModelCatalogStringFilterKey.USE_CASE]: UseCaseOptionValue;
+};
+
+export type ModelCatalogStringFilterOptions = {
+  [key in ModelCatalogStringFilterKey]: CatalogFilterStringOption<
+    ModelCatalogStringFilterValueType[key]
+  >;
+};
+
+export type CatalogFilterOptions = ModelCatalogStringFilterOptions & {
+  [key in ModelCatalogNumberFilterKey]: CatalogFilterNumberOption;
+} & {
+  // Allow additional latency metric field names
+  [key in LatencyMetricFieldName]?: CatalogFilterNumberOption;
+};
+
+export type CatalogFilterOptionsList = {
+  filters: CatalogFilterOptions;
+};
+
+export type ModelCatalogFilterStates = {
+  [ModelCatalogStringFilterKey.TASK]: ModelCatalogTask[];
+  [ModelCatalogStringFilterKey.PROVIDER]: ModelCatalogProvider[];
+  [ModelCatalogStringFilterKey.LICENSE]: ModelCatalogLicense[];
+  [ModelCatalogStringFilterKey.LANGUAGE]: AllLanguageCode[];
+  [ModelCatalogStringFilterKey.HARDWARE_TYPE]: string[];
+  [ModelCatalogStringFilterKey.USE_CASE]: UseCaseOptionValue[];
+} & {
+  [key in ModelCatalogNumberFilterKey]: number | undefined;
+} & {
+  [key in LatencyMetricFieldName]?: number | undefined;
+};
+
+// Model Catalog Settings types
+export type CatalogSourceConfigCommon = {
+  id: string;
+  name: string;
+  enabled?: boolean;
+  labels?: string[];
+  includedModels?: string[];
+  excludedModels?: string[];
+  isDefault?: boolean;
+};
+
+export type YamlCatalogSourceConfig = CatalogSourceConfigCommon & {
+  type: CatalogSourceType.YAML;
+  yaml?: string;
+};
+
+export type HuggingFaceCatalogSourceConfig = CatalogSourceConfigCommon & {
+  type: CatalogSourceType.HUGGING_FACE;
+  allowedOrganization?: string;
+  apiKey?: string;
+};
+
+export type CatalogSourceConfig = YamlCatalogSourceConfig | HuggingFaceCatalogSourceConfig;
+
+export type CatalogSourceConfigPayload = CatalogSourceConfig;
+
+export type CatalogSourceConfigList = {
+  catalogs: CatalogSourceConfig[];
+};
+
+export type GetCatalogSourceConfigs = (opts: APIOptions) => Promise<CatalogSourceConfigList>;
+export type CreateCatalogSourceConfig = (
+  opts: APIOptions,
+  data: CatalogSourceConfigPayload,
+) => Promise<CatalogSourceConfig>;
+export type GetCatalogSourceConfig = (
+  opts: APIOptions,
+  sourceId: string,
+) => Promise<CatalogSourceConfig>;
+export type UpdateCatalogSourceConfig = (
+  opts: APIOptions,
+  sourceId: string,
+  data: CatalogSourceConfigPayload,
+) => Promise<CatalogSourceConfig>;
+export type DeleteCatalogSourceConfig = (opts: APIOptions, sourceId: string) => Promise<void>;
+
+export type ModelCatalogSettingsAPIs = {
+  getCatalogSourceConfigs: GetCatalogSourceConfigs;
+  createCatalogSourceConfig: CreateCatalogSourceConfig;
+  getCatalogSourceConfig: GetCatalogSourceConfig;
+  updateCatalogSourceConfig: UpdateCatalogSourceConfig;
+  deleteCatalogSourceConfig: DeleteCatalogSourceConfig;
 };

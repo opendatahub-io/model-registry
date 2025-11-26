@@ -36,6 +36,11 @@ func AssertBaseModelRequired(obj model.BaseModel) error {
 	return nil
 }
 
+// AssertBaseResourceConstraints checks if the values respects the defined constraints
+func AssertBaseResourceConstraints(obj model.BaseResource) error {
+	return nil
+}
+
 // AssertBaseResourceDatesConstraints checks if the values respects the defined constraints
 func AssertBaseResourceDatesConstraints(obj model.BaseResourceDates) error {
 	return nil
@@ -67,18 +72,23 @@ func AssertBaseResourceListRequired(obj model.BaseResourceList) error {
 	return nil
 }
 
-// AssertCatalogModelArtifactConstraints checks if the values respects the defined constraints
-func AssertCatalogModelArtifactConstraints(obj model.CatalogModelArtifact) error {
+// AssertBaseResourceRequired checks if the required fields are not zero-ed
+func AssertBaseResourceRequired(obj model.BaseResource) error {
 	return nil
 }
 
-// AssertCatalogModelArtifactListConstraints checks if the values respects the defined constraints
-func AssertCatalogModelArtifactListConstraints(obj model.CatalogModelArtifactList) error {
+// AssertCatalogArtifactListConstraints checks if the values respects the defined constraints
+func AssertCatalogArtifactListConstraints(obj model.CatalogArtifactList) error {
+	for _, el := range obj.Items {
+		if err := AssertCatalogArtifactConstraints(el); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-// AssertCatalogModelArtifactListRequired checks if the required fields are not zero-ed
-func AssertCatalogModelArtifactListRequired(obj model.CatalogModelArtifactList) error {
+// AssertCatalogArtifactListRequired checks if the required fields are not zero-ed
+func AssertCatalogArtifactListRequired(obj model.CatalogArtifactList) error {
 	elements := map[string]interface{}{
 		"nextPageToken": obj.NextPageToken,
 		"pageSize":      obj.PageSize,
@@ -92,17 +102,84 @@ func AssertCatalogModelArtifactListRequired(obj model.CatalogModelArtifactList) 
 	}
 
 	for _, el := range obj.Items {
-		if err := AssertCatalogModelArtifactRequired(el); err != nil {
+		if err := AssertCatalogArtifactRequired(el); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// AssertCatalogLabelConstraints checks if the values respects the defined constraints
+func AssertCatalogLabelConstraints(obj model.CatalogLabel) error {
+	return nil
+}
+
+// AssertCatalogLabelListConstraints checks if the values respects the defined constraints
+func AssertCatalogLabelListConstraints(obj model.CatalogLabelList) error {
+	return nil
+}
+
+// AssertCatalogLabelListRequired checks if the required fields are not zero-ed
+func AssertCatalogLabelListRequired(obj model.CatalogLabelList) error {
+	elements := map[string]interface{}{
+		"nextPageToken": obj.NextPageToken,
+		"pageSize":      obj.PageSize,
+		"size":          obj.Size,
+		"items":         obj.Items,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	return nil
+}
+
+// AssertCatalogLabelRequired checks if the required fields are not zero-ed
+func AssertCatalogLabelRequired(obj model.CatalogLabel) error {
+	elements := map[string]interface{}{
+		"name": obj.Name,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	return nil
+}
+
+// AssertCatalogMetricsArtifactConstraints checks if the values respects the defined constraints
+func AssertCatalogMetricsArtifactConstraints(obj model.CatalogMetricsArtifact) error {
+	return nil
+}
+
+// AssertCatalogMetricsArtifactRequired checks if the required fields are not zero-ed
+func AssertCatalogMetricsArtifactRequired(obj model.CatalogMetricsArtifact) error {
+	elements := map[string]interface{}{
+		"artifactType": obj.ArtifactType,
+		"metricsType":  obj.MetricsType,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	return nil
+}
+
+// AssertCatalogModelArtifactConstraints checks if the values respects the defined constraints
+func AssertCatalogModelArtifactConstraints(obj model.CatalogModelArtifact) error {
+	return nil
+}
+
 // AssertCatalogModelArtifactRequired checks if the required fields are not zero-ed
 func AssertCatalogModelArtifactRequired(obj model.CatalogModelArtifact) error {
 	elements := map[string]interface{}{
-		"uri": obj.Uri,
+		"artifactType": obj.ArtifactType,
+		"uri":          obj.Uri,
 	}
 	for name, el := range elements {
 		if isZero := IsZeroValue(el); isZero {
@@ -120,6 +197,11 @@ func AssertCatalogModelConstraints(obj model.CatalogModel) error {
 
 // AssertCatalogModelListConstraints checks if the values respects the defined constraints
 func AssertCatalogModelListConstraints(obj model.CatalogModelList) error {
+	for _, el := range obj.Items {
+		if err := AssertCatalogModelConstraints(el); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -166,6 +248,11 @@ func AssertCatalogSourceConstraints(obj model.CatalogSource) error {
 
 // AssertCatalogSourceListConstraints checks if the values respects the defined constraints
 func AssertCatalogSourceListConstraints(obj model.CatalogSourceList) error {
+	for _, el := range obj.Items {
+		if err := AssertCatalogSourceConstraints(el); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -193,8 +280,9 @@ func AssertCatalogSourceListRequired(obj model.CatalogSourceList) error {
 // AssertCatalogSourceRequired checks if the required fields are not zero-ed
 func AssertCatalogSourceRequired(obj model.CatalogSource) error {
 	elements := map[string]interface{}{
-		"id":   obj.Id,
-		"name": obj.Name,
+		"id":     obj.Id,
+		"name":   obj.Name,
+		"labels": obj.Labels,
 	}
 	for name, el := range elements {
 		if isZero := IsZeroValue(el); isZero {
@@ -222,6 +310,26 @@ func AssertErrorRequired(obj model.Error) error {
 		}
 	}
 
+	return nil
+}
+
+// AssertFilterOptionRangeConstraints checks if the values respects the defined constraints
+func AssertFilterOptionRangeConstraints(obj model.FilterOptionRange) error {
+	return nil
+}
+
+// AssertFilterOptionRangeRequired checks if the required fields are not zero-ed
+func AssertFilterOptionRangeRequired(obj model.FilterOptionRange) error {
+	return nil
+}
+
+// AssertFilterOptionsListConstraints checks if the values respects the defined constraints
+func AssertFilterOptionsListConstraints(obj model.FilterOptionsList) error {
+	return nil
+}
+
+// AssertFilterOptionsListRequired checks if the required fields are not zero-ed
+func AssertFilterOptionsListRequired(obj model.FilterOptionsList) error {
 	return nil
 }
 

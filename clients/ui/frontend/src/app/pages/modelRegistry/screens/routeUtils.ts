@@ -1,8 +1,11 @@
-export const modelRegistryUrl = (preferredModelRegistry = ''): string =>
-  `/model-registry/${preferredModelRegistry}`;
+export const modelRegistryUrl = (preferredModelRegistry?: string): string =>
+  `/model-registry${preferredModelRegistry ? `/${preferredModelRegistry}` : ''}`;
 
-export const registeredModelsUrl = (preferredModelRegistry?: string): string =>
-  `${modelRegistryUrl(preferredModelRegistry)}/registeredModels`;
+/* NOTE: registeredModelsUrl is only used to construct child routes. There is no route matching this exact path. 
+The registered models list is located at the index route (modelRegistryUrl).  
+*/
+const registeredModelsUrl = (preferredModelRegistry?: string): string =>
+  `${modelRegistryUrl(preferredModelRegistry)}/registered-models`;
 
 export const registeredModelUrl = (rmId = '', preferredModelRegistry?: string): string =>
   `${registeredModelsUrl(preferredModelRegistry)}/${rmId}`;
@@ -45,15 +48,15 @@ export const modelVersionArchiveDetailsUrl = (
 ): string => `${modelVersionArchiveUrl(rmId, preferredModelRegistry)}/${mvId}`;
 
 export const registerModelUrl = (preferredModelRegistry?: string): string =>
-  `${modelRegistryUrl(preferredModelRegistry)}/registerModel`;
+  `${modelRegistryUrl(preferredModelRegistry)}/register/model`;
 
 export const registerVersionUrl = (preferredModelRegistry?: string): string =>
-  `${modelRegistryUrl(preferredModelRegistry)}/registerVersion`;
+  `${modelRegistryUrl(preferredModelRegistry)}/register/version`;
 
 export const registerVersionForModelUrl = (
   rmId?: string,
   preferredModelRegistry?: string,
-): string => `${registeredModelUrl(rmId, preferredModelRegistry)}/registerVersion`;
+): string => `${registeredModelUrl(rmId, preferredModelRegistry)}/register/version`;
 
 export const modelVersionDeploymentsUrl = (
   mvId: string,
