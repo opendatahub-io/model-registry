@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../odh
+
+patches:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: model-catalog-server
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/args/1
+      value: "--performance-metrics=/shared-data/performance"
+    - op: add
+      path: /spec/template/spec/imagePullSecrets
+      value:
+        - name: registry-redhat-io-credentials
+    - op: add
+      path: /spec/template/spec/initContainers/1
+      value:
+        name: benchmark-data-init
+        image: registry.redhat.io/rhoai/odh-model-performance-data-rhel9:v3.0.0
+        command:
+          - /bin/sh
+          - -c
+          - mkdir /shared-data/performance && cp -r /app/benchmarks/* /shared-data/performance/
+        volumeMounts:
+          - name: shared-data
+            mountPath: /shared-data
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
