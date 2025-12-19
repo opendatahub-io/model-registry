@@ -108,3 +108,4 @@ jobs:
         if: always()
         run: |
           kubectl logs -l app=modelregistry-sample --all-containers --prefix
+          kubectl logs -l name=model-registry-db
