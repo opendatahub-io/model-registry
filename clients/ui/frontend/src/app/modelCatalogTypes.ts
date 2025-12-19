@@ -74,7 +74,7 @@ export enum SourceLabel {
 
 export enum CatalogSourceType {
   YAML = 'yaml',
-  HUGGING_FACE = 'huggingface',
+  HUGGING_FACE = 'hf',
 }
 
 export type CatalogArtifactBase = {
@@ -258,7 +258,7 @@ export type YamlCatalogSourceConfig = CatalogSourceConfigCommon & {
 export type HuggingFaceCatalogSourceConfig = CatalogSourceConfigCommon & {
   type: CatalogSourceType.HUGGING_FACE;
   allowedOrganization?: string;
-  /** apiKey wiil be populated on GET (by ID) requests, not on LIST requests */
+  /** apiKey will be populated on GET (by ID) requests, not on LIST requests */
   apiKey?: string;
 };
 
