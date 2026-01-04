@@ -4,11 +4,11 @@ go 1.24.6
 
 require (
 	github.com/spf13/cobra v1.9.1
-	gorm.io/driver/mysql v1.5.7
+	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/driver/sqlite v1.5.6
 	gorm.io/gen v0.3.26
-	gorm.io/gorm v1.26.0
+	gorm.io/gorm v1.30.0
 )
 
 exclude gorm.io/plugin/dbresolver v1.5.0
