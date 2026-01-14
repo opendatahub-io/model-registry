@@ -58,6 +58,18 @@ jobs:
           echo "Deploying operator from model-registry-operator branch ${BRANCH}"
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/default?ref=${BRANCH}"
           kubectl set env -n model-registry-operator-system deployment/model-registry-operator-controller-manager REST_IMAGE="${IMG}"
+          kubectl wait --for=condition=Available=true -n model-registry-operator-system deployment/model-registry-operator-controller-manager --timeout=5m
+      - name: Display about MR Operator in KinD cluster status in any case
+        if: always()
+        run: |
+          kubectl get deployments -n model-registry-operator-system -o wide
+          kubectl get pods -n model-registry-operator-system -o wide --show-labels
+          kubectl events -A
+          kubectl describe -n model-registry-operator-system deployment/model-registry-operator-controller-manager
+          for p in $(kubectl get pods -n model-registry-operator-system -o name); do
+            echo "===== Logs for $p ====="
+            kubectl logs -n model-registry-operator-system $p
+          done
       - name: Create Test Registry
         run: |
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/samples/mysql?ref=${BRANCH}"
@@ -66,8 +78,14 @@ jobs:
         run: |
           kubectl wait --for=condition=Available=true deployment/model-registry-db --timeout=5m
           kubectl wait --for=condition=Available=true modelregistries/modelregistry-sample --timeout=5m
+      - name: Display KinD cluster status in any case
+        if: always()
+        run: |
           kubectl get deployments -o wide
           kubectl get pods -o wide
+          kubectl events
+          kubectl get modelregistries/modelregistry-sample -o wide
+          kubectl describe modelregistries/modelregistry-sample
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
