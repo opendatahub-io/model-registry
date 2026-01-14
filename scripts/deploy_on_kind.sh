@@ -40,6 +40,15 @@ kubectl apply -k manifests/kustomize/overlays/$DEPLOY_MANIFEST_DB -n "$MR_NAMESP
 kubectl patch deployment -n "$MR_NAMESPACE" model-registry-deployment \
 --patch '{"spec": {"template": {"spec": {"containers": [{"name": "rest-container", "image": "'$IMG'", "imagePullPolicy": "IfNotPresent"}]}}}}'
 
+if [ "$DEPLOY_MANIFEST_DB" = "postgres" ]; then
+    kubectl scale deployment -n "$MR_NAMESPACE" model-registry-deployment --replicas=0
+    kubectl scale deployment -n "$MR_NAMESPACE" model-registry-db --replicas=0
+    kubectl delete pvc -n "$MR_NAMESPACE" metadata-postgres
+    kubectl apply -n "$MR_NAMESPACE" -f manifests/kustomize/overlays/$DEPLOY_MANIFEST_DB/model-registry-db-pvc.yaml
+    kubectl scale deployment -n "$MR_NAMESPACE" model-registry-db --replicas=1
+    kubectl scale deployment -n "$MR_NAMESPACE" model-registry-deployment --replicas=1
+fi
+
 if ! kubectl wait --for=condition=available -n "$MR_NAMESPACE" deployment/model-registry-db --timeout=5m ; then
     kubectl events -A
     kubectl describe deployment/model-registry-db -n "$MR_NAMESPACE"
@@ -50,7 +59,7 @@ fi
 kubectl delete pod -n "$MR_NAMESPACE" --selector='component=model-registry-server'
 
 repeat_cmd_until "kubectl get pod -n "$MR_NAMESPACE" --selector='component=model-registry-server' \
--o jsonpath=\"{.items[*].spec.containers[?(@.name=='rest-container')].image}\" | tr ' ' '\n' | sort -u" "= $IMG" 500 "kubectl describe pod -n $MR_NAMESPACE --selector='component=model-registry-server'"
+-o jsonpath=\"{.items[*].spec.containers[?(@.name=='rest-container')].image}\" | tr ' ' '\n' | sort -u" "= $IMG" 300 "kubectl describe pod -n $MR_NAMESPACE --selector='component=model-registry-server' && kubectl logs -n $MR_NAMESPACE deployment/model-registry-server"
 
 if ! kubectl wait --for=condition=available -n "$MR_NAMESPACE" deployment/model-registry-deployment --timeout=5m ; then
     kubectl events -A
