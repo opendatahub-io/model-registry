@@ -1,27 +1,29 @@
 name: Controller container image build and tag
 on:
-  push:
-    branches:
-      - 'main'
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'LICENSE*'
-      - '**.gitignore'
-      - '**.md'
-      - '**.txt'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/dependabot.yml'
-      - 'docs/**'
+  workflow_dispatch: {}
+  # FIXME: Re-enable when the repo exists in opendatahub
+  #push:
+  #  branches:
+  #    - 'main'
+  #  tags:
+  #    - 'v*'
+  #  paths-ignore:
+  #    - 'LICENSE*'
+  #    - '**.gitignore'
+  #    - '**.md'
+  #    - '**.txt'
+  #    - '.github/ISSUE_TEMPLATE/**'
+  #    - '.github/dependabot.yml'
+  #    - 'docs/**'
 permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID\
   contents: read
 env:
-  IMG_REGISTRY: ghcr.io
-  IMG_ORG: kubeflow
-  IMG_REPO: model-registry/controller
+  IMG_REGISTRY: quay.io
+  IMG_ORG: opendatahub
+  IMG_REPO: model-registry-controller
   PUSH_IMAGE: true
-  DOCKER_USER: ${{ github.actor }}
-  DOCKER_PWD: ${{ secrets.GITHUB_TOKEN }}
+  DOCKER_USER: ${{ secrets.QUAY_USERNAME }}
+  DOCKER_PWD: ${{ secrets.QUAY_PASSWORD }}
   PLATFORMS: linux/arm64,linux/amd64
 jobs:
   build-controller-image:
