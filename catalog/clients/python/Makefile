@@ -1,4 +1,5 @@
 # Makefile for Model Catalog Python Client
+include odh_rules_catalog.mk
 
 all: install tidy
 

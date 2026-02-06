@@ -17,6 +17,8 @@ WORKDIR /home/odh
 
 # Copy project files
 COPY clients/python clients/python
+COPY catalog/clients/python catalog/clients/python
+COPY jobs/async-upload jobs/async-upload
 COPY api/ api/
 COPY manifests/ manifests/
 COPY scripts/ scripts/
