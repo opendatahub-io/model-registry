@@ -15,7 +15,7 @@ require (
 	github.com/kserve/kserve v0.16.0
 	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
 	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.11.2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
