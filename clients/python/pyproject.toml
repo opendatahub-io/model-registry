@@ -41,7 +41,7 @@ signing = ["rh-model-signing", "platformdirs"]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-sphinx = ">=7.2.6,<9.0.0"
+sphinx = ">=9.1.0,<9.2.0"
 furo = ">=2023.9.10,<2026.0.0"
 myst-parser = { extras = ["linkify"], version = ">=2,<5" }
 sphinx-autobuild = ">=2021.3.14,<2025.0.0"
