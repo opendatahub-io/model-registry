@@ -22,7 +22,7 @@ repos:
         exclude: '^clients/python/src/mr_openapi'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.0
+    rev: v0.15.1
     hooks:
       - id: ruff
         args: [--fix]
