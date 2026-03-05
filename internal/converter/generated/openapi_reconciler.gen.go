@@ -803,28 +803,24 @@ func (c *OpenAPIReconcilerImpl) UpdateExistingRegisteredModel(source converter.O
 		pStringList = &source.Update.Language
 	}
 	if pStringList != nil {
-		var stringList []string
 		if (*pStringList) != nil {
-			stringList = make([]string, len((*pStringList)))
+			openapiRegisteredModel.Language = make([]string, len((*pStringList)))
 			for i := 0; i < len((*pStringList)); i++ {
-				stringList[i] = (*pStringList)[i]
+				openapiRegisteredModel.Language[i] = (*pStringList)[i]
 			}
 		}
-		openapiRegisteredModel.Language = stringList
 	}
 	var pStringList2 *[]string
 	if source.Update != nil {
 		pStringList2 = &source.Update.Tasks
 	}
 	if pStringList2 != nil {
-		var stringList2 []string
 		if (*pStringList2) != nil {
-			stringList2 = make([]string, len((*pStringList2)))
+			openapiRegisteredModel.Tasks = make([]string, len((*pStringList2)))
 			for j := 0; j < len((*pStringList2)); j++ {
-				stringList2[j] = (*pStringList2)[j]
+				openapiRegisteredModel.Tasks[j] = (*pStringList2)[j]
 			}
 		}
-		openapiRegisteredModel.Tasks = stringList2
 	}
 	var pString5 *string
 	if source.Update != nil {

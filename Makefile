@@ -169,7 +169,7 @@ clean/odh:
 	rm -Rf ./model-registry
 
 bin/envtest:
-	GOBIN=$(PROJECT_BIN) ${GO} install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240320141353-395cfc7486e6
+	GOBIN=$(PROJECT_BIN) ${GO} install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.23
 
 GOLANGCI_LINT ?= ${PROJECT_BIN}/golangci-lint
 bin/golangci-lint:
@@ -177,7 +177,7 @@ bin/golangci-lint:
 
 GOVERTER ?= ${PROJECT_BIN}/goverter
 bin/goverter:
-	GOBIN=$(PROJECT_PATH)/bin ${GO} install github.com/jmattheis/goverter/cmd/goverter@v1.8.1
+	GOBIN=$(PROJECT_PATH)/bin ${GO} install github.com/jmattheis/goverter/cmd/goverter@v1.9.2
 
 YQ ?= ${PROJECT_BIN}/yq
 bin/yq:
