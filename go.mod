@@ -13,7 +13,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/golang/glog v1.2.5
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.8.0
 	github.com/kserve/kserve v0.16.1-0.20260225025151-ee4d1150b940
 	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
 	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
