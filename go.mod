@@ -15,7 +15,7 @@ require (
 	github.com/golang/glog v1.2.5
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/kserve/kserve v0.16.1-0.20260225025151-ee4d1150b940
-	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
+	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-20260306170608-7f9d2d7cf240
 	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo v1.16.5
