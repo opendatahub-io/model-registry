@@ -23,7 +23,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/opendatahub/model-registry-job-async-upload:odh-stable
+    value: quay.io/opendatahub/model-registry-job-async-upload:v0.3.7
   - name: dockerfile
     value: Dockerfile
   - name: path-context
