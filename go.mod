@@ -34,9 +34,9 @@ require (
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
-	k8s.io/api v0.34.4
+	k8s.io/api v0.35.1
 	k8s.io/apimachinery v0.35.2
-	k8s.io/client-go v0.34.4
+	k8s.io/client-go v0.35.1
 	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
 	sigs.k8s.io/controller-runtime v0.22.4
 )
@@ -113,7 +113,7 @@ require (
 	github.com/kedacore/keda/v2 v2.18.3 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/mailru/easyjson v0.9.0 // indirect
+	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
@@ -167,15 +167,15 @@ require (
 	k8s.io/component-base v0.34.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
+	k8s.io/utils v0.0.0-20260108192941-914a6e750570 // indirect
 	knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d // indirect
 	knative.dev/serving v0.48.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
-	sigs.k8s.io/gateway-api v1.4.2-0.20260116062110-0d0ca872766e // indirect
+	sigs.k8s.io/gateway-api v1.5.1 // indirect
 	sigs.k8s.io/gateway-api-inference-extension v1.3.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
