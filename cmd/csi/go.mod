@@ -3,7 +3,7 @@ module github.com/kubeflow/model-registry/cmd/csi
 go 1.25.7
 
 require (
-	github.com/kserve/kserve v0.17.0-rc1
+	github.com/kserve/kserve v0.17.0
 	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
 )
 
