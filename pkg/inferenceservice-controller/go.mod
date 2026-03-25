@@ -9,11 +9,11 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.39.1
 	go.uber.org/zap v1.27.1
-	k8s.io/api v0.34.4
+	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.2
-	k8s.io/client-go v0.34.4
+	k8s.io/client-go v0.35.0
 	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
-	sigs.k8s.io/controller-runtime v0.22.4
+	sigs.k8s.io/controller-runtime v0.23.3
 )
 
 require (
@@ -105,7 +105,7 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	k8s.io/apiextensions-apiserver v0.34.3 // indirect
+	k8s.io/apiextensions-apiserver v0.35.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
@@ -122,7 +122,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/expr-lang/expr v1.17.7 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/kedacore/keda/v2 v2.18.3 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -134,7 +133,7 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
 
 replace github.com/kubeflow/model-registry/pkg/openapi => ../openapi
