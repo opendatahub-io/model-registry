@@ -14,7 +14,7 @@ require (
 	github.com/golang/glog v1.2.5
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/kubeflow/model-registry/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
-	github.com/kubeflow/model-registry/pkg/openapi v0.0.0
+	github.com/kubeflow/model-registry/pkg/openapi v0.3.7
 	github.com/lib/pq v1.10.9
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
