@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/kserve/kserve v0.17.0-rc1
-	github.com/kubeflow/model-registry/pkg/inferenceservice-controller v0.0.0-00010101000000-000000000000
+	github.com/kubeflow/model-registry/pkg/inferenceservice-controller v0.0.0-20260327201151-e770f92c459f
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	k8s.io/apimachinery v0.35.2
