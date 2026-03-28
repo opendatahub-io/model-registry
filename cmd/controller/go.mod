@@ -124,8 +124,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d // indirect
-	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a // indirect
-	knative.dev/serving v0.48.1 // indirect
+	knative.dev/pkg v0.0.0-20260319144603-18c5d580ae64 // indirect
+	knative.dev/serving v0.48.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/gateway-api v1.4.2-0.20260116062110-0d0ca872766e // indirect
 	sigs.k8s.io/gateway-api-inference-extension v1.3.0 // indirect
