@@ -36,7 +36,7 @@ jsonschema-specifications==2025.9.1 ; python_version >= "3.11" and python_versio
 jsonschema==4.26.0 ; python_version >= "3.11" and python_version < "4.0"
 markdown-it-py==4.0.0 ; python_version >= "3.11" and python_version < "4.0"
 mdurl==0.1.2 ; python_version >= "3.11" and python_version < "4.0"
-model-registry==0.3.7 ; python_version >= "3.11" and python_version < "4.0"
+model-registry==0.3.8 ; python_version >= "3.11" and python_version < "4.0"
 multidict==6.4.4 ; python_version >= "3.11" and python_version < "4.0"
 nest-asyncio2==1.7.2 ; python_version >= "3.11" and python_version < "4.0"
 olot==0.1.8 ; python_version >= "3.11" and python_version < "4.0"
