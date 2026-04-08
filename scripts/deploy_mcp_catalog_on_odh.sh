@@ -27,11 +27,15 @@ if [ -z "$MR_NAMESPACE" ]; then
 fi
 echo "Model Registry namespace: '$MR_NAMESPACE'"
 
-echo "Check if ConfigMap 'mcp-catalog-sources' exists in namespace '$MR_NAMESPACE'"
+echo "Looking for catalog sources ConfigMap in namespace '$MR_NAMESPACE'"
 if kubectl get configmap mcp-catalog-sources -n "$MR_NAMESPACE" &> /dev/null; then
-  echo "ConfigMap 'mcp-catalog-sources' found in namespace '$MR_NAMESPACE'."
+  CATALOG_CONFIGMAP="mcp-catalog-sources"
+  echo "ConfigMap 'mcp-catalog-sources' found."
+elif kubectl get configmap model-catalog-sources -n "$MR_NAMESPACE" &> /dev/null; then
+  CATALOG_CONFIGMAP="model-catalog-sources"
+  echo "ConfigMap 'model-catalog-sources' found (fallback)."
 else
-  echo "ConfigMap 'mcp-catalog-sources' NOT found in namespace '$MR_NAMESPACE'."
+  echo "Neither 'mcp-catalog-sources' nor 'model-catalog-sources' ConfigMap found in namespace '$MR_NAMESPACE'."
   exit 1
 fi
 
@@ -45,7 +49,7 @@ if [ ! -f "$MCP_SERVERS_FILE" ]; then
 fi
 
 echo "Fetching current sources.yaml from ConfigMap"
-CURRENT_SOURCES=$(kubectl get configmap mcp-catalog-sources -n "$MR_NAMESPACE" -o jsonpath='{.data.sources\.yaml}')
+CURRENT_SOURCES=$(kubectl get configmap "$CATALOG_CONFIGMAP" -n "$MR_NAMESPACE" -o jsonpath='{.data.sources\.yaml}')
 
 if echo "$CURRENT_SOURCES" | grep -q "test_mcp_servers"; then
   echo "test_mcp_servers already present in sources.yaml, skipping patch."
@@ -74,25 +78,29 @@ labels:
 
 namedQueries:
   production_ready:
-    verifiedSource:
-      operator: '='
-      value: true
+    assetType: mcp_servers
+    filters:
+      verifiedSource:
+        operator: '='
+        value: true
   security_focused:
-    sast:
-      operator: '='
-      value: true
-    readOnlyTools:
-      operator: '='
-      value: true
+    assetType: mcp_servers
+    filters:
+      sast:
+        operator: '='
+        value: true
+      readOnlyTools:
+        operator: '='
+        value: true
 "
 
   # Patch the existing ConfigMap: update sources.yaml and add the MCP servers YAML as a data key
-  kubectl patch configmap mcp-catalog-sources -n "$MR_NAMESPACE" --type merge -p "$(cat <<EOF
+  kubectl patch configmap "$CATALOG_CONFIGMAP" -n "$MR_NAMESPACE" --type merge -p "$(cat <<EOF
 {"data": {"sources.yaml": $(echo "$UPDATED_SOURCES" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'), "test-mcp-servers.yaml": $(echo "$MCP_SERVERS_CONTENT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}}
 EOF
 )"
 
-  echo "ConfigMap 'mcp-catalog-sources' patched successfully."
+  echo "ConfigMap '$CATALOG_CONFIGMAP' patched successfully."
 
   echo "Restarting model-catalog pod to pick up config changes"
   CATALOG_DEPLOYMENT=$(kubectl get deployment -n "$MR_NAMESPACE" -l app.kubernetes.io/name=model-catalog -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
