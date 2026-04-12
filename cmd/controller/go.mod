@@ -3,7 +3,7 @@ module github.com/kubeflow/model-registry/cmd/controller
 go 1.25.7
 
 require (
-	github.com/kserve/kserve v0.17.0-rc1
+	github.com/kserve/kserve v0.17.0
 	github.com/kubeflow/model-registry/pkg/inferenceservice-controller v0.0.0-00010101000000-000000000000
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
