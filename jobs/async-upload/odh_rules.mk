@@ -22,7 +22,7 @@ test-e2e-odh-async-jobs: deploy-mr-odh deploy-local-registry deploy-test-minio
 		-o junit_suite_name=odh-async-upload \
 	)
 
-.PHONY: test-e2e-odh-async-cleanup
+.PHONY: test-e2e-odh-async-jobs-cleanup
 test-e2e-odh-async-jobs-cleanup: undeploy-mr-odh undeploy-minio undeploy-local-kind-registry
 	@echo "Cleaning up port-forward processes..."
 	@if [ -f .port-forwards.pid ]; then \
