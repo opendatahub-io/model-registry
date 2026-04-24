@@ -19,7 +19,7 @@ test-e2e-odh-async-jobs: deploy-mr-odh deploy-local-registry deploy-test-minio
 		--html=../../results/report.html \
 		--junit-xml=../../results/xunit_report.xml \
 		--self-contained-html \
-		-o junit_suite_name=odh-async-upload \
+		-o junit_suite_name=odh-async-job \
 	)
 
 .PHONY: test-e2e-odh-async-jobs-cleanup

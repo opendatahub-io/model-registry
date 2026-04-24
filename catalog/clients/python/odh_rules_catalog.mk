@@ -16,4 +16,5 @@ test-e2e-catalog: deploy-mcp-catalog-odh
 	export AUTH_TOKEN=$$(kubectl config view --raw -o jsonpath="{.users[?(@.name==\"$$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$$(kubectl config current-context)\")].context.user}")\")].user.token}") && \
 	export VERIFY_SSL=False && \
 	export KIND_CLUSTER=False && \
-	poetry install --all-extras && poetry run pytest tests --e2e -svv -rA
+	mkdir -p ../../../results; \
+	poetry install --all-extras && poetry run pytest tests --e2e -svv -rA --html=../../../results/report.html --junit-xml=../../../results/xunit_report.xml --self-contained-html -o junit_suite_name=odh-model-catalog
