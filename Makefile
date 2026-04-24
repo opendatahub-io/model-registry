@@ -58,7 +58,7 @@ endif
 model-registry: build
 
 internal/converter/generated/converter.go: internal/converter/*.go
-	${GOVERTER} gen github.com/kubeflow/model-registry/internal/converter/
+	${GOVERTER} gen github.com/kubeflow/hub/internal/converter/
 
 .PHONY: gen/converter
 gen/converter: internal/converter/generated/converter.go
@@ -144,7 +144,7 @@ endif
 .PHONY: vet
 vet:
 	@echo "Running go vet on all packages..."
-	@${GO} vet $$(${GO} list ./... | grep -vF github.com/kubeflow/model-registry/internal/db/filter) && \
+	@${GO} vet $$(${GO} list ./... | grep -vF github.com/kubeflow/hub/internal/db/filter) && \
 	echo "Checking filter package (parser.go excluded due to participle struct tags)..." && \
 	cd internal/db/filter && ${GO} build -o /dev/null . 2>&1 | grep -E "vet:|error:" || echo "✓ Filter package builds successfully"
 
@@ -237,7 +237,7 @@ build/prepare: gen vet lint
 # WARNING: DO NOT DELETE THIS TARGET, USED BY Dockerfile!!!
 .PHONY: build/compile
 build/compile:
-	${GO} build -buildvcs=false
+	${GO} build -buildvcs=false -o model-registry
 
 # WARNING: DO NOT EDIT THIS TARGET DIRECTLY!!!
 # Use build/prepare to add build prerequisites
@@ -429,7 +429,7 @@ controller/uninstall: controller/manifests bin/kustomize ## Uninstall CRDs from 
 
 .PHONY: controller/deploy
 controller/deploy: controller/manifests bin/kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd manifests/kustomize/options/controller/manager && $(KUSTOMIZE) edit set image ghcr.io/kubeflow/model-registry/controller=${IMG}:${IMG_VERSION}
+	cd manifests/kustomize/options/controller/manager && $(KUSTOMIZE) edit set image ghcr.io/kubeflow/hub/controller=${IMG}:${IMG_VERSION}
 	$(KUSTOMIZE) build manifests/kustomize/options/controller/overlays/base | $(KUBECTL) apply -f -
 
 .PHONY: controller/undeploy
