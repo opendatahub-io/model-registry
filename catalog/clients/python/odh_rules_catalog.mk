@@ -8,8 +8,13 @@ undeploy-mcp-catalog-odh:
 	@echo "Undeploying MCP catalog config on ODH..."
 	bash ../../../scripts/undeploy_catalog_on_odh.sh
 
+.PHONY: deploy-test-catalog-odh
+deploy-test-catalog-odh:
+	@echo "Deploying test catalog data on ODH..."
+	bash ../../../scripts/deploy_test_catalog_on_odh.sh
+
 .PHONY: test-e2e-catalog
-test-e2e-catalog: deploy-mcp-catalog-odh
+test-e2e-catalog: deploy-mcp-catalog-odh deploy-test-catalog-odh
 	@echo "Running catalog tests..."
 	export MC_NAMESPACE=$$(kubectl get datasciencecluster default-dsc -o jsonpath='{.spec.components.modelregistry.registriesNamespace}') && \
 	export CATALOG_URL="https://$$(kubectl get route -n "$$MC_NAMESPACE" model-catalog-https -o 'jsonpath={.status.ingress[0].host}')/" && \
