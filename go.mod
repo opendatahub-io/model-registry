@@ -13,7 +13,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/golang/glog v1.2.5
 	github.com/jackc/pgx/v5 v5.9.2
-	github.com/kubeflow/hub/catalog/pkg/openapi v0.0.0-00010101000000-000000000000
+	github.com/kubeflow/hub/catalog/pkg/openapi v0.0.0-20260504210417-0857d8705005
 	github.com/kubeflow/hub/pkg/openapi v0.0.0
 	github.com/lib/pq v1.12.3
 	github.com/spf13/cobra v1.10.2
