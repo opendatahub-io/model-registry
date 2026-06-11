@@ -96,6 +96,7 @@ func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 
 	base := basecatalog.NewBaseLoader(cfg.ConfigPaths)
 	p.loader = modelcatalog.NewModelLoader(p.services, base)
+	p.loader.SetSourceStatusReady(&p.sourceStatusReady)
 
 	if len(cfg.PerformanceMetricsPath) > 0 {
 		perfLoader, err := modelcatalog.NewPerformanceMetricsLoader(
