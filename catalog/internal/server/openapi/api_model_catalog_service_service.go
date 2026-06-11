@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
@@ -33,6 +34,12 @@ type ModelCatalogServiceAPIService struct {
 	agentSources     *catalog.AgentSourceCollection
 	labels           *catalog.LabelCollection
 	sourceRepository models.CatalogSourceRepository
+	// sourceStatusReady gates DB status merging in FindSources. When non-nil
+	// and false, stale DB statuses from a previous pod lifecycle are not merged
+	// into the API response. This prevents serving stale error states after a
+	// configmap update and pod restart, before leader operations have
+	// reprocessed sources and updated the database.
+	sourceStatusReady *atomic.Bool
 }
 
 // GetAllModelArtifacts retrieves all model artifacts for a given model from the specified source.
@@ -395,9 +402,11 @@ func (m *ModelCatalogServiceAPIService) FindSources(ctx context.Context, name st
 		return ErrorResponse(http.StatusInternalServerError, err), err
 	}
 
-	// Fetch status from database
+	// Fetch status from database, but only if source processing has completed
+	// in this pod's lifecycle. Before leader operations run, the DB may contain
+	// stale status/error from a previous configuration, which must not be served.
 	var statuses map[string]models.SourceStatus
-	if m.sourceRepository != nil {
+	if m.sourceRepository != nil && (m.sourceStatusReady == nil || m.sourceStatusReady.Load()) {
 		var err error
 		statuses, err = m.sourceRepository.GetAllStatuses()
 		if err != nil {
@@ -762,15 +771,19 @@ func genLabelCmpFunc(orderByKey string, sortOrder model.SortOrder) func(sortable
 
 var _ ModelCatalogServiceAPIServicer = &ModelCatalogServiceAPIService{}
 
-// NewModelCatalogServiceAPIService creates a default api service
-func NewModelCatalogServiceAPIService(provider catalog.APIProvider, sources *catalog.SourceCollection, mcpSources *catalog.MCPSourceCollection, agentSources *catalog.AgentSourceCollection, labels *catalog.LabelCollection, sourceRepository models.CatalogSourceRepository) ModelCatalogServiceAPIServicer {
+// NewModelCatalogServiceAPIService creates a default api service.
+// sourceStatusReady gates DB status merging: when non-nil and false, FindSources
+// returns sources without DB-persisted status to avoid serving stale data from a
+// previous pod lifecycle. Pass nil to always merge (backwards-compatible for tests).
+func NewModelCatalogServiceAPIService(provider catalog.APIProvider, sources *catalog.SourceCollection, mcpSources *catalog.MCPSourceCollection, agentSources *catalog.AgentSourceCollection, labels *catalog.LabelCollection, sourceRepository models.CatalogSourceRepository, sourceStatusReady *atomic.Bool) ModelCatalogServiceAPIServicer {
 	return &ModelCatalogServiceAPIService{
-		provider:         provider,
-		sources:          sources,
-		mcpSources:       mcpSources,
-		agentSources:     agentSources,
-		labels:           labels,
-		sourceRepository: sourceRepository,
+		provider:          provider,
+		sources:           sources,
+		mcpSources:        mcpSources,
+		agentSources:      agentSources,
+		labels:            labels,
+		sourceRepository:  sourceRepository,
+		sourceStatusReady: sourceStatusReady,
 	}
 }
 
