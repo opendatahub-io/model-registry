@@ -942,8 +942,7 @@ func TestFetchModelNamesForPreviewWithPatterns(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	os.Setenv("HF_API_KEY", "test-api-key")
-	defer os.Unsetenv("HF_API_KEY")
+	t.Setenv("HF_API_KEY", "test-api-key")
 
 	t.Run("mixed patterns: org/* and exact", func(t *testing.T) {
 		config := &PreviewConfig{
@@ -1017,6 +1016,7 @@ func TestFetchModelNamesForPreviewWithPatterns(t *testing.T) {
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		_, err = provider.FetchModelNamesForPreview(context.Background(), config.IncludedModels)
 		require.Error(t, err)
@@ -1651,8 +1651,7 @@ func TestClassifyModelTypeFromTasks(t *testing.T) {
 }
 
 func TestNewHFPreviewProvider_RejectsCustomURL(t *testing.T) {
-	os.Setenv("HF_API_KEY", "hf_test123")
-	defer os.Unsetenv("HF_API_KEY")
+	t.Setenv("HF_API_KEY", "hf_test123")
 
 	config := &PreviewConfig{
 		Type: "hf",
@@ -1671,11 +1670,8 @@ func TestNewHFPreviewProvider_RejectsCustomURL(t *testing.T) {
 }
 
 func TestNewHFPreviewProvider_IgnoresCustomApiKeyEnvVar(t *testing.T) {
-	os.Setenv("HF_API_KEY", "hf_real_key")
-	defer os.Unsetenv("HF_API_KEY")
-
-	os.Setenv("PGPASSWORD", "db_secret")
-	defer os.Unsetenv("PGPASSWORD")
+	t.Setenv("HF_API_KEY", "hf_real_key")
+	t.Setenv("PGPASSWORD", "db_secret")
 
 	config := &PreviewConfig{
 		Type: "hf",
@@ -1691,11 +1687,8 @@ func TestNewHFPreviewProvider_IgnoresCustomApiKeyEnvVar(t *testing.T) {
 }
 
 func TestNewHFPreviewProvider_ApiKeyEnvVarHFPrefixAlsoIgnored(t *testing.T) {
-	os.Setenv("HF_CUSTOM_KEY", "hf_custom_val")
-	defer os.Unsetenv("HF_CUSTOM_KEY")
-
-	os.Setenv("HF_API_KEY", "hf_default_val")
-	defer os.Unsetenv("HF_API_KEY")
+	t.Setenv("HF_CUSTOM_KEY", "hf_custom_val")
+	t.Setenv("HF_API_KEY", "hf_default_val")
 
 	config := &PreviewConfig{
 		Type: "hf",

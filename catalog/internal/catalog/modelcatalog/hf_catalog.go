@@ -861,17 +861,13 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	}
 	p.sourceId = sourceId
 
-	// SECURITY: Only allow env var names with the "HF_" prefix to prevent
-	// reading arbitrary environment variables (e.g. PGPASSWORD) via ConfigMap.
-	apiKeyEnvVar := defaultAPIKeyEnvVar
+	// SECURITY: Only read the API key from the default HF_API_KEY environment variable.
+	// Custom apiKeyEnvVar is not supported to prevent env var oracle attacks.
 	if envVar, ok := source.Properties[apiKeyEnvVarKey].(string); ok && envVar != "" {
-		if strings.HasPrefix(envVar, "HF_") {
-			apiKeyEnvVar = envVar
-		} else {
-			glog.Warningf("HuggingFace catalog: custom apiKeyEnvVar %q was ignored because it does not start with 'HF_'", envVar)
-		}
+		glog.Warningf("HuggingFace catalog: custom apiKeyEnvVar was ignored for security reasons")
+		delete(source.Properties, apiKeyEnvVarKey)
 	}
-	apiKey := os.Getenv(apiKeyEnvVar)
+	apiKey := os.Getenv(defaultAPIKeyEnvVar)
 	if apiKey == "" {
 		glog.Infof("No API key configured for Hugging Face. Only public models and limited data for gated models will be available.")
 	}
@@ -881,8 +877,8 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	// An attacker with ConfigMap write access could redirect catalog HTTP
 	// requests to an attacker-controlled domain, exfiltrating the HF API key.
 	// See also: preview.go loadHFModelNames which applies the same protection.
-	if customURL, exists := source.Properties[urlKey]; exists {
-		glog.Warningf("HuggingFace catalog: custom URL %q was ignored for security reasons (SSRF prevention)", customURL)
+	if _, exists := source.Properties[urlKey]; exists {
+		glog.Warningf("HuggingFace catalog: custom URL override was ignored for security reasons (SSRF prevention)")
 		delete(source.Properties, urlKey)
 	}
 	p.baseURL = defaultHuggingFaceURL
@@ -965,8 +961,8 @@ func NewHFPreviewProvider(config *PreviewConfig) (*hfModelProvider, error) {
 	// SECURITY: Reject custom URL property to prevent SSRF attacks.
 	// An attacker could otherwise set a custom URL to leak the HF API key
 	// to an attacker-controlled domain.
-	if customURL, exists := config.Properties[urlKey]; exists {
-		glog.Warningf("HuggingFace preview: custom URL %q was ignored for security reasons (SSRF prevention)", customURL)
+	if _, exists := config.Properties[urlKey]; exists {
+		glog.Warningf("HuggingFace preview: custom URL override was ignored for security reasons (SSRF prevention)")
 		delete(config.Properties, urlKey)
 	}
 
