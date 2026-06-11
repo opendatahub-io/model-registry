@@ -16,6 +16,164 @@ from job.models import (
 class TestGetUploadParams:
     """Test cases for _get_upload_params function"""
 
+    @patch("job.upload.utils._get_skopeo_backend")
+    def test_get_upload_params_oci_passes_pull_args_tls_disabled(self, mock_get_skopeo_backend):
+        """Test that pull_args include --src-tls-verify=false when TLS verification is disabled"""
+        mock_get_skopeo_backend.return_value = Mock()
+
+        config = AsyncUploadConfig(
+            source=S3StorageConfig(
+                bucket="source-bucket",
+                key="source-key",
+                access_key_id="source-key-id",
+                secret_access_key="source-secret",
+                region="us-west-1"
+            ),
+            destination=OCIStorageConfig(
+                uri="quay.io/example/test:latest",
+                registry="quay.io",
+                username="test-user",
+                password="test-password",
+                base_image="foo-bar:latest",
+                enable_tls_verify=False,
+                credentials_path=None
+            ),
+            model=ModelConfig(
+                intent=UpdateArtifactIntent(artifact_id="123")
+            ),
+            storage=StorageConfig(path="/tmp/test-model"),
+            registry=RegistryConfig(server_address="test-server")
+        )
+
+        _get_upload_params(config)
+
+        mock_get_skopeo_backend.assert_called_once()
+        call_kwargs = mock_get_skopeo_backend.call_args
+        pull_args = call_kwargs.kwargs.get("pull_args") or call_kwargs[1].get("pull_args")
+        push_args = call_kwargs.kwargs.get("push_args") or call_kwargs[1].get("push_args")
+        assert "--src-tls-verify=false" in pull_args
+        assert "--dest-tls-verify=false" in push_args
+
+    @patch("job.upload.utils._get_skopeo_backend")
+    def test_get_upload_params_oci_passes_pull_args_with_authfile(self, mock_get_skopeo_backend):
+        """Test that pull_args include --authfile when credentials_path is set"""
+        mock_get_skopeo_backend.return_value = Mock()
+
+        config = AsyncUploadConfig(
+            source=S3StorageConfig(
+                bucket="source-bucket",
+                key="source-key",
+                access_key_id="source-key-id",
+                secret_access_key="source-secret",
+                region="us-west-1"
+            ),
+            destination=OCIStorageConfig(
+                uri="quay.io/example/test:latest",
+                registry="quay.io",
+                username="test-user",
+                password="test-password",
+                base_image="foo-bar:latest",
+                enable_tls_verify=True,
+                credentials_path="/tmp/test-creds"
+            ),
+            model=ModelConfig(
+                intent=UpdateArtifactIntent(artifact_id="123")
+            ),
+            storage=StorageConfig(path="/tmp/test-model"),
+            registry=RegistryConfig(server_address="test-server")
+        )
+
+        _get_upload_params(config)
+
+        mock_get_skopeo_backend.assert_called_once()
+        call_kwargs = mock_get_skopeo_backend.call_args
+        pull_args = call_kwargs.kwargs.get("pull_args") or call_kwargs[1].get("pull_args")
+        push_args = call_kwargs.kwargs.get("push_args") or call_kwargs[1].get("push_args")
+        assert "--authfile" in pull_args
+        assert "/tmp/test-creds" in pull_args
+        assert "--authfile" in push_args
+        assert "/tmp/test-creds" in push_args
+
+    @patch("job.upload.utils._get_skopeo_backend")
+    def test_get_upload_params_oci_passes_pull_args_tls_and_authfile(self, mock_get_skopeo_backend):
+        """Test that pull_args include both TLS and authfile flags when both are configured"""
+        mock_get_skopeo_backend.return_value = Mock()
+
+        config = AsyncUploadConfig(
+            source=S3StorageConfig(
+                bucket="source-bucket",
+                key="source-key",
+                access_key_id="source-key-id",
+                secret_access_key="source-secret",
+                region="us-west-1"
+            ),
+            destination=OCIStorageConfig(
+                uri="quay.io/example/test:latest",
+                registry="quay.io",
+                username="test-user",
+                password="test-password",
+                base_image="foo-bar:latest",
+                enable_tls_verify=False,
+                credentials_path="/tmp/test-creds"
+            ),
+            model=ModelConfig(
+                intent=UpdateArtifactIntent(artifact_id="123")
+            ),
+            storage=StorageConfig(path="/tmp/test-model"),
+            registry=RegistryConfig(server_address="test-server")
+        )
+
+        _get_upload_params(config)
+
+        mock_get_skopeo_backend.assert_called_once()
+        call_kwargs = mock_get_skopeo_backend.call_args
+        pull_args = call_kwargs.kwargs.get("pull_args") or call_kwargs[1].get("pull_args")
+        push_args = call_kwargs.kwargs.get("push_args") or call_kwargs[1].get("push_args")
+        assert "--src-tls-verify=false" in pull_args
+        assert "--authfile" in pull_args
+        assert "/tmp/test-creds" in pull_args
+        assert "--dest-tls-verify=false" in push_args
+        assert "--authfile" in push_args
+        assert "/tmp/test-creds" in push_args
+
+    @patch("job.upload.utils._get_skopeo_backend")
+    def test_get_upload_params_oci_empty_pull_args_when_tls_enabled_no_creds(self, mock_get_skopeo_backend):
+        """Test that pull_args is empty when TLS is enabled and no credentials_path"""
+        mock_get_skopeo_backend.return_value = Mock()
+
+        config = AsyncUploadConfig(
+            source=S3StorageConfig(
+                bucket="source-bucket",
+                key="source-key",
+                access_key_id="source-key-id",
+                secret_access_key="source-secret",
+                region="us-west-1"
+            ),
+            destination=OCIStorageConfig(
+                uri="quay.io/example/test:latest",
+                registry="quay.io",
+                username="test-user",
+                password="test-password",
+                base_image="foo-bar:latest",
+                enable_tls_verify=True,
+                credentials_path=None
+            ),
+            model=ModelConfig(
+                intent=UpdateArtifactIntent(artifact_id="123")
+            ),
+            storage=StorageConfig(path="/tmp/test-model"),
+            registry=RegistryConfig(server_address="test-server")
+        )
+
+        _get_upload_params(config)
+
+        mock_get_skopeo_backend.assert_called_once()
+        call_kwargs = mock_get_skopeo_backend.call_args
+        pull_args = call_kwargs.kwargs.get("pull_args") or call_kwargs[1].get("pull_args")
+        push_args = call_kwargs.kwargs.get("push_args") or call_kwargs[1].get("push_args")
+        assert pull_args == []
+        assert push_args == []
+
     def test_get_upload_params_s3_config(self):
         """Test _get_upload_params with S3 configuration returns S3Params"""
         config = AsyncUploadConfig(
