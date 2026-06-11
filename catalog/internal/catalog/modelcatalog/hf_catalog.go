@@ -861,11 +861,15 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	}
 	p.sourceId = sourceId
 
-	// Parse API key from environment variable
-	// Allow the environment variable name to be configured via properties, defaulting to HF_API_KEY
+	// SECURITY: Only allow env var names with the "HF_" prefix to prevent
+	// reading arbitrary environment variables (e.g. PGPASSWORD) via ConfigMap.
 	apiKeyEnvVar := defaultAPIKeyEnvVar
 	if envVar, ok := source.Properties[apiKeyEnvVarKey].(string); ok && envVar != "" {
-		apiKeyEnvVar = envVar
+		if strings.HasPrefix(envVar, "HF_") {
+			apiKeyEnvVar = envVar
+		} else {
+			glog.Warningf("HuggingFace catalog: custom apiKeyEnvVar %q was ignored because it does not start with 'HF_'", envVar)
+		}
 	}
 	apiKey := os.Getenv(apiKeyEnvVar)
 	if apiKey == "" {
@@ -873,12 +877,15 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	}
 	p.apiKey = apiKey
 
-	// Parse base URL (optional, defaults to huggingface.co)
-	// This allows tests to use mock servers by providing a custom URL
-	p.baseURL = defaultHuggingFaceURL
-	if url, ok := source.Properties[urlKey].(string); ok && url != "" {
-		p.baseURL = strings.TrimSuffix(url, "/")
+	// SECURITY: Reject custom URL property to prevent SSRF attacks.
+	// An attacker with ConfigMap write access could redirect catalog HTTP
+	// requests to an attacker-controlled domain, exfiltrating the HF API key.
+	// See also: preview.go loadHFModelNames which applies the same protection.
+	if customURL, exists := source.Properties[urlKey]; exists {
+		glog.Warningf("HuggingFace catalog: custom URL %q was ignored for security reasons (SSRF prevention)", customURL)
+		delete(source.Properties, urlKey)
 	}
+	p.baseURL = defaultHuggingFaceURL
 
 	allowedOrg, _ := source.Properties[allowedOrgKey].(string)
 	restrictToOrg(allowedOrg, &source.IncludedModels, &source.ExcludedModels)
@@ -946,20 +953,21 @@ func NewHFPreviewProvider(config *PreviewConfig) (*hfModelProvider, error) {
 		syncInterval: defaultSyncInterval,
 	}
 
-	// Parse API key from environment variable (optional - allows public model access without key)
-	apiKeyEnvVar := defaultAPIKeyEnvVar
-	if envVar, ok := config.Properties[apiKeyEnvVarKey].(string); ok && envVar != "" {
-		apiKeyEnvVar = envVar
-	}
-	apiKey := os.Getenv(apiKeyEnvVar)
+	// SECURITY: Only read the API key from the default HF_API_KEY environment variable.
+	// Custom apiKeyEnvVar is not supported in preview to prevent env var oracle attacks
+	// (the preview path has no hf_ prefix check, so arbitrary env vars could be exfiltrated).
+	apiKey := os.Getenv(defaultAPIKeyEnvVar)
 	if apiKey == "" {
 		glog.Infof("No API key configured for Hugging Face preview. Only public models and limited data for gated models will be available.")
 	}
 	p.apiKey = apiKey
 
-	// Parse base URL (optional, defaults to huggingface.co)
-	if url, ok := config.Properties[urlKey].(string); ok && url != "" {
-		p.baseURL = strings.TrimSuffix(url, "/")
+	// SECURITY: Reject custom URL property to prevent SSRF attacks.
+	// An attacker could otherwise set a custom URL to leak the HF API key
+	// to an attacker-controlled domain.
+	if customURL, exists := config.Properties[urlKey]; exists {
+		glog.Warningf("HuggingFace preview: custom URL %q was ignored for security reasons (SSRF prevention)", customURL)
+		delete(config.Properties, urlKey)
 	}
 
 	allowedOrg, _ := config.Properties[allowedOrgKey].(string)

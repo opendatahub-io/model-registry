@@ -801,15 +801,14 @@ func TestListModelsByAuthor(t *testing.T) {
 	t.Run("lists all models from org with pagination", func(t *testing.T) {
 		callCount = 0
 		config := &PreviewConfig{
-			Type: "hf",
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Type:           "hf",
+			Properties:     map[string]any{},
 			IncludedModels: []string{"test-org/*"},
 		}
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		models, err := provider.listModelsByAuthor(context.Background(), "test-org", "")
 		require.NoError(t, err)
@@ -827,15 +826,14 @@ func TestListModelsByAuthor(t *testing.T) {
 
 	t.Run("filters by search prefix", func(t *testing.T) {
 		config := &PreviewConfig{
-			Type: "hf",
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Type:           "hf",
+			Properties:     map[string]any{},
 			IncludedModels: []string{"test-org/*"},
 		}
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		models, err := provider.listModelsByAuthor(context.Background(), "search-org", "prefix")
 		require.NoError(t, err)
@@ -853,7 +851,6 @@ func TestListModelsByAuthor(t *testing.T) {
 		config := &PreviewConfig{
 			Type: "hf",
 			Properties: map[string]any{
-				"url":       server.URL,
 				"maxModels": 50, // Limit to 50 models
 			},
 			IncludedModels: []string{"test-org/*"},
@@ -861,6 +858,7 @@ func TestListModelsByAuthor(t *testing.T) {
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 		assert.Equal(t, 50, provider.maxModels)
 
 		models, err := provider.listModelsByAuthor(context.Background(), "test-org", "")
@@ -875,10 +873,8 @@ func TestListModelsByAuthor(t *testing.T) {
 
 	t.Run("uses default maxModels when not specified", func(t *testing.T) {
 		config := &PreviewConfig{
-			Type: "hf",
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Type:           "hf",
+			Properties:     map[string]any{},
 			IncludedModels: []string{"test-org/*"},
 		}
 
@@ -894,7 +890,6 @@ func TestListModelsByAuthor(t *testing.T) {
 		config := &PreviewConfig{
 			Type: "hf",
 			Properties: map[string]any{
-				"url":       server.URL,
 				"maxModels": 0, // No limit
 			},
 			IncludedModels: []string{"test-org/*"},
@@ -902,6 +897,7 @@ func TestListModelsByAuthor(t *testing.T) {
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 		assert.Equal(t, 0, provider.maxModels)
 
 		models, err := provider.listModelsByAuthor(context.Background(), "test-org", "")
@@ -956,13 +952,12 @@ func TestFetchModelNamesForPreviewWithPatterns(t *testing.T) {
 				"test-org/*",            // Should use list API
 				"exact-org/exact-model", // Should use direct fetch
 			},
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Properties: map[string]any{},
 		}
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		names, err := provider.FetchModelNamesForPreview(context.Background(), config.IncludedModels)
 		require.NoError(t, err)
@@ -979,13 +974,12 @@ func TestFetchModelNamesForPreviewWithPatterns(t *testing.T) {
 			IncludedModels: []string{
 				"*",
 			},
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Properties: map[string]any{},
 		}
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		_, err = provider.FetchModelNamesForPreview(context.Background(), config.IncludedModels)
 		require.Error(t, err)
@@ -999,13 +993,12 @@ func TestFetchModelNamesForPreviewWithPatterns(t *testing.T) {
 			IncludedModels: []string{
 				"*/*",
 			},
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Properties: map[string]any{},
 		}
 
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		_, err = provider.FetchModelNamesForPreview(context.Background(), config.IncludedModels)
 		require.Error(t, err)
@@ -1019,9 +1012,7 @@ func TestFetchModelNamesForPreviewWithPatterns(t *testing.T) {
 			IncludedModels: []string{
 				"*/Llama-*",
 			},
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Properties: map[string]any{},
 		}
 
 		provider, err := NewHFPreviewProvider(config)
@@ -1075,14 +1066,12 @@ func TestPreviewSourceModelsWithHFPatterns(t *testing.T) {
 			Type:           "hf",
 			IncludedModels: includedModels,
 			ExcludedModels: excludedModels,
-			Properties: map[string]any{
-				"url": server.URL,
-			},
+			Properties:     map[string]any{},
 		}
 
-		// Create provider and fetch model names (bypassing SSRF protection for testing)
 		provider, err := NewHFPreviewProvider(config)
 		require.NoError(t, err)
+		provider.baseURL = server.URL
 
 		modelNames, err := provider.FetchModelNamesForPreview(context.Background(), includedModels)
 		require.NoError(t, err)
@@ -1659,4 +1648,64 @@ func TestClassifyModelTypeFromTasks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewHFPreviewProvider_RejectsCustomURL(t *testing.T) {
+	os.Setenv("HF_API_KEY", "hf_test123")
+	defer os.Unsetenv("HF_API_KEY")
+
+	config := &PreviewConfig{
+		Type: "hf",
+		Properties: map[string]any{
+			"url": "http://attacker.example.com",
+		},
+		IncludedModels: []string{"test-org/model-1"},
+	}
+
+	provider, err := NewHFPreviewProvider(config)
+	require.NoError(t, err)
+	assert.Equal(t, defaultHuggingFaceURL, provider.baseURL)
+
+	_, exists := config.Properties["url"]
+	assert.False(t, exists, "url property should be deleted from config")
+}
+
+func TestNewHFPreviewProvider_IgnoresCustomApiKeyEnvVar(t *testing.T) {
+	os.Setenv("HF_API_KEY", "hf_real_key")
+	defer os.Unsetenv("HF_API_KEY")
+
+	os.Setenv("PGPASSWORD", "db_secret")
+	defer os.Unsetenv("PGPASSWORD")
+
+	config := &PreviewConfig{
+		Type: "hf",
+		Properties: map[string]any{
+			"apiKeyEnvVar": "PGPASSWORD",
+		},
+		IncludedModels: []string{"test-org/model-1"},
+	}
+
+	provider, err := NewHFPreviewProvider(config)
+	require.NoError(t, err)
+	assert.Equal(t, "hf_real_key", provider.apiKey, "should use HF_API_KEY, not the custom env var")
+}
+
+func TestNewHFPreviewProvider_ApiKeyEnvVarHFPrefixAlsoIgnored(t *testing.T) {
+	os.Setenv("HF_CUSTOM_KEY", "hf_custom_val")
+	defer os.Unsetenv("HF_CUSTOM_KEY")
+
+	os.Setenv("HF_API_KEY", "hf_default_val")
+	defer os.Unsetenv("HF_API_KEY")
+
+	config := &PreviewConfig{
+		Type: "hf",
+		Properties: map[string]any{
+			"apiKeyEnvVar": "HF_CUSTOM_KEY",
+		},
+		IncludedModels: []string{"test-org/model-1"},
+	}
+
+	provider, err := NewHFPreviewProvider(config)
+	require.NoError(t, err)
+	assert.Equal(t, "hf_default_val", provider.apiKey, "preview should always use HF_API_KEY regardless of apiKeyEnvVar")
 }
