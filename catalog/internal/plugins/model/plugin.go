@@ -96,6 +96,11 @@ func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 
 	base := basecatalog.NewBaseLoader(cfg.ConfigPaths)
 	p.loader = modelcatalog.NewModelLoader(p.services, base)
+	// Initialize to true so non-leader pods always serve DB status (trusting
+	// the leader to manage DB freshness via cleanup). The leader will reset
+	// this to false during PerformLeaderOperations and set it back to true
+	// after OnLeaderReady completes.
+	p.sourceStatusReady.Store(true)
 	p.loader.SetSourceStatusReady(&p.sourceStatusReady)
 
 	if len(cfg.PerformanceMetricsPath) > 0 {

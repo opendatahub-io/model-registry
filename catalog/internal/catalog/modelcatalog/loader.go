@@ -182,7 +182,9 @@ func (l *ModelLoader) performLeaderWrites(ctx context.Context, allKnownSourceIDs
 	// source-processing goroutines have written fresh statuses, the API
 	// will not serve outdated error/status values from a previous pod
 	// lifecycle.
-	l.clearStaleSourceStatuses()
+	if err := l.clearStaleSourceStatuses(); err != nil {
+		return fmt.Errorf("failed to clear stale source statuses: %w", err)
+	}
 
 	if err := l.removeModelsFromMissingSources(allKnownSourceIDs); err != nil {
 		return fmt.Errorf("failed to remove models from missing sources: %w", err)
@@ -574,26 +576,30 @@ func (l *ModelLoader) setModelSourceID(model models.CatalogModel, sourceID strin
 	}
 }
 
-// clearStaleSourceStatuses removes status/error properties from all existing
-// CatalogSource records in the database. This runs at the start of leader
-// operations so that any status from a previous pod lifecycle is wiped before
-// source reprocessing begins. Each source will get a fresh status once its
-// provider goroutine finishes loading.
-func (l *ModelLoader) clearStaleSourceStatuses() {
-	sources, err := l.services.CatalogSourceRepository.GetAll()
-	if err != nil {
-		glog.Errorf("failed to retrieve existing catalog sources for status clearing: %v", err)
-		return
-	}
-
-	for _, source := range sources {
-		attrs := source.GetAttributes()
-		if attrs == nil || attrs.Name == nil {
+// clearStaleSourceStatuses removes status/error properties from existing
+// CatalogSource records that belong to model sources managed by this loader.
+// This runs at the start of leader operations so that any status from a
+// previous pod lifecycle is wiped before source reprocessing begins. Each
+// source will get a fresh status once its provider goroutine finishes loading.
+//
+// Only model source IDs (from l.Sources.AllSources()) are cleared, leaving
+// MCP source records untouched.
+func (l *ModelLoader) clearStaleSourceStatuses() error {
+	for id := range l.Sources.AllSources() {
+		existing, err := l.services.CatalogSourceRepository.GetBySourceID(id)
+		if err != nil {
+			// Source not yet in DB — nothing stale to clear.
+			if errors.Is(err, service.ErrCatalogSourceNotFound) {
+				continue
+			}
+			return fmt.Errorf("failed to retrieve catalog source %s for status clearing: %w", id, err)
+		}
+		if existing == nil {
 			continue
 		}
-		sourceID := *attrs.Name
 
 		// Save with empty properties to clear status and error.
+		sourceID := id
 		cleared := &sharedmodels.CatalogSourceImpl{
 			Attributes: &sharedmodels.CatalogSourceAttributes{
 				Name: &sourceID,
@@ -601,9 +607,10 @@ func (l *ModelLoader) clearStaleSourceStatuses() {
 			Properties: &[]mrmodels.Properties{},
 		}
 		if _, err := l.services.CatalogSourceRepository.Save(cleared); err != nil {
-			glog.Errorf("failed to clear stale status for source %s: %v", sourceID, err)
+			return fmt.Errorf("failed to clear stale status for source %s: %w", id, err)
 		}
 	}
+	return nil
 }
 
 func (l *ModelLoader) removeModelsFromMissingSources(allKnownSourceIDs mapset.Set[string]) error {

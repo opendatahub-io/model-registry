@@ -2667,15 +2667,21 @@ func TestFindSources_StaleStatusNotServedBeforeLeaderReady(t *testing.T) {
 		},
 	}
 
-	// sourceStatusReady starts as false (zero value), simulating a pod that
-	// has started serving HTTP but hasn't completed leader operations yet.
+	// sourceStatusReady starts as true (matching Plugin.Init behavior where
+	// the flag is initialized to true so non-leader pods always serve DB
+	// status). On a leader pod, PerformLeaderOperations resets it to false
+	// before reprocessing sources.
 	var ready atomic.Bool
+	ready.Store(true)
 
 	service := NewModelCatalogServiceAPIService(
 		&mockModelProvider{}, sources, nil, nil, sourceLabels, staleRepo, &ready,
 	)
 
-	// Before leader operations complete, FindSources must NOT merge DB statuses.
+	// Simulate the leader resetting the gate during PerformLeaderOperations.
+	ready.Store(false)
+
+	// While leader operations are in progress, FindSources must NOT merge DB statuses.
 	resp, err := service.FindSources(
 		context.Background(), "", "", "10",
 		model.ORDERBYFIELD_ID, model.SORTORDER_ASC, "",
@@ -2690,10 +2696,10 @@ func TestFindSources_StaleStatusNotServedBeforeLeaderReady(t *testing.T) {
 	item := sourceList.Items[0]
 	assert.Equal(t, "error_catalog", item.Id)
 	// Status and error must be empty — stale DB data should not appear.
-	assert.Nil(t, item.Status, "status should be nil before leader operations complete")
-	assert.True(t, item.Error.Get() == nil, "error should be nil before leader operations complete")
+	assert.Nil(t, item.Status, "status should be nil while leader operations are in progress")
+	assert.True(t, item.Error.Get() == nil, "error should be nil while leader operations are in progress")
 
-	// Simulate leader operations completing.
+	// Simulate leader operations completing (OnLeaderReady sets gate to true).
 	ready.Store(true)
 
 	// After leader operations, FindSources should merge DB statuses.
