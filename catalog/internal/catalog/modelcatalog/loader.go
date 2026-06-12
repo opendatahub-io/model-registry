@@ -159,7 +159,16 @@ func (l *ModelLoader) PerformLeaderOperations(ctx context.Context, allKnownSourc
 		l.sourceStatusReady.Store(false)
 	}
 
-	return l.performLeaderWrites(ctx, allKnownSourceIDs)
+	if err := l.performLeaderWrites(ctx, allKnownSourceIDs); err != nil {
+		// Restore the gate so the pod can still serve DB statuses. Without
+		// this, a failed leader write leaves the gate permanently closed and
+		// the pod serves sources without any status/error indefinitely.
+		if l.sourceStatusReady != nil {
+			l.sourceStatusReady.Store(true)
+		}
+		return err
+	}
+	return nil
 }
 
 // ReloadParsing re-parses all config files into in-memory collections.
