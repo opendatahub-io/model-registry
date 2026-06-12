@@ -560,7 +560,7 @@ func TestSourceStatusPartialVsFull(t *testing.T) {
 }
 
 func TestPerformLeaderOperations_RestoresGateOnError(t *testing.T) {
-	providerName := "gate-error-provider"
+	providerName := "gate-error-provider-" + strings.ReplaceAll(t.Name(), "/", "_")
 	require.NoError(t, RegisterModelProvider(providerName, func(ctx context.Context, source *basecatalog.ModelSource, reldir string) (<-chan ModelProviderRecord, error) {
 		ch := make(chan ModelProviderRecord)
 		close(ch)
