@@ -433,14 +433,14 @@ class TestValidateCredentialsPath:
         with pytest.raises(ValueError, match="must be an absolute path"):
             _validate_credentials_path("auth.json")
 
-    def test_rejects_symlink(self, tmp_path):
-        """Test that a symlink is rejected"""
+    def test_accepts_symlink_to_regular_file(self, tmp_path):
+        """Test that a symlink to a regular file is accepted (Kubernetes Secret mounts use symlinks)"""
         real_file = tmp_path / "real_auth.json"
         real_file.write_text("{}")
         link_file = tmp_path / "link_auth.json"
         link_file.symlink_to(real_file)
-        with pytest.raises(ValueError, match="must not be a symlink"):
-            _validate_credentials_path(str(link_file))
+        result = _validate_credentials_path(str(link_file))
+        assert result == str(real_file)
 
     def test_rejects_nonexistent_path(self, tmp_path):
         """Test that a nonexistent path is rejected"""

@@ -20,14 +20,12 @@ def _validate_credentials_path(path: str) -> str:
         The resolved absolute path string.
 
     Raises:
-        ValueError: If the path is not absolute, is a symlink, does not exist,
+        ValueError: If the path is not absolute, does not exist,
             or is not a regular file.
     """
     p = Path(path)
     if not p.is_absolute():
         raise ValueError(f"credentials_path must be an absolute path, got: {path}")
-    if p.is_symlink():
-        raise ValueError(f"credentials_path must not be a symlink, got: {path}")
     try:
         resolved = p.resolve(strict=True)
     except OSError as e:
