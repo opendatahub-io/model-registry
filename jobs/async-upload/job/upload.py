@@ -1,5 +1,6 @@
 from dataclasses import asdict, fields
 import logging
+from pathlib import Path
 from typing import Any, Dict
 from model_registry import utils
 from model_registry.utils import OCIParams, S3Params, save_to_oci_registry
@@ -7,6 +8,34 @@ from model_registry.utils import OCIParams, S3Params, save_to_oci_registry
 from .models import AsyncUploadConfig, DestinationConfig, OCIStorageConfig, S3StorageConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_credentials_path(path: str) -> str:
+    """Validate that a credentials path is safe to pass to skopeo --authfile.
+
+    Args:
+        path: The credentials file path to validate.
+
+    Returns:
+        The resolved absolute path string.
+
+    Raises:
+        ValueError: If the path is not absolute, is a symlink, does not exist,
+            or is not a regular file.
+    """
+    p = Path(path)
+    if not p.is_absolute():
+        raise ValueError(f"credentials_path must be an absolute path, got: {path}")
+    if p.is_symlink():
+        raise ValueError(f"credentials_path must not be a symlink, got: {path}")
+    try:
+        resolved = p.resolve(strict=True)
+    except OSError as e:
+        raise ValueError(f"credentials_path does not exist or cannot be resolved: {path}") from e
+    if not resolved.is_file():
+        raise ValueError(f"credentials_path must be a regular file, got: {path}")
+    return str(resolved)
+
 
 def _get_upload_params(config: AsyncUploadConfig) -> S3Params | OCIParams:
     """
@@ -34,10 +63,11 @@ def _get_upload_params(config: AsyncUploadConfig) -> S3Params | OCIParams:
             push_args.append("--dest-tls-verify=false")
             pull_args.append("--src-tls-verify=false")
         if destination_config.credentials_path:
+            validated_path = _validate_credentials_path(destination_config.credentials_path)
             push_args.append("--authfile")
-            push_args.append(destination_config.credentials_path)
+            push_args.append(validated_path)
             pull_args.append("--authfile")
-            pull_args.append(destination_config.credentials_path)
+            pull_args.append(validated_path)
 
         return OCIParams(
             base_image=destination_config.base_image,
