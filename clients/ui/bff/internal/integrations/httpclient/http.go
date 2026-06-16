@@ -43,7 +43,10 @@ func (e *HTTPError) Error() string {
 }
 
 func NewHTTPClient(logger *slog.Logger, baseURL string, headers http.Header, insecureSkipVerify bool, rootCAs *x509.CertPool) (HTTPClientInterface, error) {
-	tlsCfg := &tls.Config{InsecureSkipVerify: insecureSkipVerify}
+	tlsCfg := &tls.Config{
+		InsecureSkipVerify: insecureSkipVerify,
+		NextProtos:         []string{"h2", "http/1.1"},
+	}
 	if rootCAs != nil {
 		tlsCfg.RootCAs = rootCAs
 	}

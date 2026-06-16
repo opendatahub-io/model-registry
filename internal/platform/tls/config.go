@@ -65,6 +65,7 @@ func (c *TLSConfig) BuildTLSConfig() (*tls.Config, error) {
 		RootCAs:            rootCAs,
 		InsecureSkipVerify: !c.VerifyServerCert,
 		MinVersion:         tls.VersionTLS12,
+		NextProtos:         []string{"h2", "http/1.1"},
 	}
 
 	if c.CertPath != "" && c.KeyPath != "" {

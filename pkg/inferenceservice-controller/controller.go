@@ -52,7 +52,10 @@ func NewInferenceServiceController(
 
 	if skipTLSVerify {
 		httpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+				NextProtos:         []string{"h2", "http/1.1"},
+			},
 		}
 	}
 
