@@ -1482,14 +1482,14 @@ files = [
 
 [[package]]
 name = "model-registry"
-version = "0.3.9"
+version = "0.3.10"
 description = "Client for Kubeflow Model Registry"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "model_registry-0.3.9-py3-none-any.whl", hash = "sha256:7ec9fc8d5b60600f81006e9870097e3cb20125bd06784472def8b3a379c49e7b"},
-    {file = "model_registry-0.3.9.tar.gz", hash = "sha256:e3077dcb724b5be968b99c49f773edf633a16dde53a92fb9d95c0871df13e9db"},
+    {file = "model_registry-0.3.10-py3-none-any.whl", hash = "sha256:0e9f2abe805364bf35c3e48b9ca278dabd45dc5be7731d5158fabd6110e2fc36"},
+    {file = "model_registry-0.3.10.tar.gz", hash = "sha256:094ed4efdbc8b699489fd61d0d27e6d11f22a4d1eb2b76cdc129e5d57896e022"},
 ]
 
 [package.dependencies]
@@ -1504,9 +1504,9 @@ typing-extensions = ">=4.8,<5.0"
 
 [package.extras]
 boto3 = ["boto3 (>=1.37.34,<2.0.0)"]
-hf = ["huggingface-hub (>=0.20.1,<1.13.0)"]
+hf = ["huggingface-hub (>=0.20.1,<1.18.0)"]
 olot = ["olot (>=0.1.17,<0.2.0)"]
-signing = ["platformdirs (>=4.0.0,<5.0.0)", "rh-model-signing (==1.0.1)"]
+signing = ["platformdirs (>=4.0.0,<5.0.0)", "rh-model-signing (==1.0.2)"]
 
 [[package]]
 name = "multidict"
