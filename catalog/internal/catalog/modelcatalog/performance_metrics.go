@@ -797,6 +797,11 @@ func performanceRecordGPUKey(pr performanceRecord) string {
 			}
 			gpuCount = int(n)
 		} else if f, err := v.Float64(); err == nil {
+			// Reject fractional gpu_count (e.g. 2.5) — only whole numbers
+			// are valid. Silent truncation would produce wrong merge keys.
+			if f != float64(int64(f)) {
+				return ""
+			}
 			if f <= 0 {
 				return ""
 			}
@@ -805,6 +810,9 @@ func performanceRecordGPUKey(pr performanceRecord) string {
 			return ""
 		}
 	case float64:
+		if v != float64(int64(v)) {
+			return ""
+		}
 		if v <= 0 {
 			return ""
 		}

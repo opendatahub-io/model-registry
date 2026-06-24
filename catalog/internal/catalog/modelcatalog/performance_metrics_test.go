@@ -2021,14 +2021,14 @@ func TestPerformanceRecordGPUKey(t *testing.T) {
 			want: "A100|4",
 		},
 		{
-			name: "gpu_count as decimal json.Number with fractional part",
+			name: "gpu_count as decimal json.Number with fractional part is rejected",
 			pr: performanceRecord{
 				CustomProperties: map[string]any{
 					"gpu_type":  "A100",
 					"gpu_count": json.Number("2.5"),
 				},
 			},
-			want: "A100|2",
+			want: "",
 		},
 		{
 			name: "gpu_count as negative decimal json.Number",
@@ -2063,6 +2063,16 @@ func TestPerformanceRecordGPUKey(t *testing.T) {
 				CustomProperties: map[string]any{
 					"gpu_type":  "A100",
 					"gpu_count": float64(0),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as fractional float64 is rejected",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": float64(2.5),
 				},
 			},
 			want: "",
