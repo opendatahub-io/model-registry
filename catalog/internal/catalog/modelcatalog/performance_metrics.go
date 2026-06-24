@@ -443,6 +443,10 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 	// Check performance artifacts and build a gpu_type+gpu_count index for cold-start merging
 	// The key is "gpu_type|gpu_count" and the value is the index into artifactsToInsert
 	perfGPUIndex := make(map[string]int, len(performanceRecords))
+	// existingPerfGPUKeys tracks GPU keys for performance artifacts that already exist in the DB.
+	// On re-ingest, cold-start data for these keys should be skipped because the merge already
+	// happened on the first ingest.
+	existingPerfGPUKeys := make(map[string]bool, len(performanceRecords))
 	for _, perfRecord := range performanceRecords {
 		if !existingArtifactsMap[perfRecord.ID] {
 			artifact := createPerformanceArtifact(perfRecord, modelID, metricsArtifactTypeID, nil, nil)
@@ -454,11 +458,16 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 			}
 		} else {
 			glog.V(2).Infof("Performance artifact %s already exists, skipping", perfRecord.ID)
+			// Track GPU key so cold-start entries for this key are skipped on re-ingest
+			if gpuKey := performanceRecordGPUKey(perfRecord); gpuKey != "" {
+				existingPerfGPUKeys[gpuKey] = true
+			}
 		}
 	}
 
 	// Merge cold-start metrics into matching performance artifacts by gpu_type + gpu_count.
 	// If a matching performance artifact was created above, merge the cold-start data into it.
+	// If the GPU key matches an existing DB artifact, skip (merge already happened on first ingest).
 	// Otherwise, create a standalone cold-start artifact.
 	for i, csEntry := range coldStartMatrix {
 		if csEntry.GPUType == "" || csEntry.GPUCount <= 0 {
@@ -470,6 +479,10 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 			// Merge cold-start data into the matching performance artifact
 			mergeColdStartIntoArtifact(artifactsToInsert[idx], csEntry)
 			glog.V(2).Infof("Merged cold-start data into performance artifact for %s (gpu_type=%s, gpu_count=%d)", modelName, csEntry.GPUType, csEntry.GPUCount)
+		} else if existingPerfGPUKeys[gpuKey] {
+			// Performance artifact already exists in DB with this GPU key — cold-start
+			// data was merged on the first ingest, so skip to avoid a duplicate standalone artifact.
+			glog.V(2).Infof("Skipping cold-start for %s (gpu_type=%s, gpu_count=%d): matching performance artifact already exists in DB", modelName, csEntry.GPUType, csEntry.GPUCount)
 		} else {
 			// No matching performance artifact — create a standalone cold-start artifact
 			externalID := coldStartExternalID(modelID, csEntry)
@@ -774,11 +787,19 @@ func performanceRecordGPUKey(pr performanceRecord) string {
 	var gpuCount int
 	switch v := pr.CustomProperties["gpu_count"].(type) {
 	case json.Number:
-		n, err := v.Int64()
-		if err != nil || n <= 0 {
+		if n, err := v.Int64(); err == nil {
+			if n <= 0 {
+				return ""
+			}
+			gpuCount = int(n)
+		} else if f, err := v.Float64(); err == nil {
+			if f <= 0 {
+				return ""
+			}
+			gpuCount = int(f)
+		} else {
 			return ""
 		}
-		gpuCount = int(n)
 	case float64:
 		if v <= 0 {
 			return ""

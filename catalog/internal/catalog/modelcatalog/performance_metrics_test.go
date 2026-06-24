@@ -2011,6 +2011,36 @@ func TestPerformanceRecordGPUKey(t *testing.T) {
 			want: "H100|2",
 		},
 		{
+			name: "gpu_count as decimal json.Number like 4.0",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("4.0"),
+				},
+			},
+			want: "A100|4",
+		},
+		{
+			name: "gpu_count as decimal json.Number with fractional part",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("2.5"),
+				},
+			},
+			want: "A100|2",
+		},
+		{
+			name: "gpu_count as negative decimal json.Number",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("-1.0"),
+				},
+			},
+			want: "",
+		},
+		{
 			name: "both fields absent",
 			pr: performanceRecord{
 				CustomProperties: map[string]any{},
@@ -2339,6 +2369,128 @@ func TestProcessModelArtifactsBatch_MixedMergeAndStandalone(t *testing.T) {
 	}
 	if standaloneCount != 1 {
 		t.Errorf("expected 1 standalone cold-start artifact, got %d", standaloneCount)
+	}
+}
+
+func TestProcessModelArtifactsBatch_ReIngestSkipsColdStartForExistingPerf(t *testing.T) {
+	// Simulates re-ingest: performance artifacts already exist in the DB.
+	// Cold-start entries whose GPU key matches an existing performance artifact
+	// should be skipped (merge happened on the first ingest), NOT create standalone artifacts.
+	tmpDir := t.TempDir()
+
+	// Performance record with gpu_type=A100, gpu_count=4
+	perfData := `{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	// Cold-start entry matches the existing perf artifact's GPU key
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3, RuntimeCommand: "python3 -m vllm serve"},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+	existingPerfExtID := "perf-a100-4"
+
+	// Simulate that perf-a100-4 already exists in the DB (from a previous ingest)
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{
+			Items: []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						ExternalID: &existingPerfExtID,
+					},
+				},
+			},
+			Size: 1,
+		},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			// Nothing should be saved on re-ingest
+			t.Errorf("BatchSave called with %d artifacts, expected 0 (no new artifacts on re-ingest)", len(artifacts))
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// No new artifacts should be created — both the perf artifact and its cold-start
+	// data are already in the DB from the first ingest
+	if count != 0 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 0 (re-ingest should create nothing)", count)
+	}
+}
+
+func TestProcessModelArtifactsBatch_ReIngestMixedExistingAndNew(t *testing.T) {
+	// Simulates re-ingest with a mix: one perf artifact exists in the DB (with cold-start
+	// already merged), and one cold-start has no matching perf artifact at all.
+	tmpDir := t.TempDir()
+
+	// Two perf records
+	perfLines := []string{
+		`{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5}`,
+		`{"id":"perf-h100-1","model_id":"test-model","gpu_type":"H100","gpu_count":1,"requests_per_second":200.0}`,
+	}
+	perfData := strings.Join(perfLines, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3},  // matches existing perf -> skip
+		{GPUType: "H200", GPUCount: 2, ColdStartTimeToLoadSeconds: 300.0},  // no matching perf -> standalone (new)
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	// Only perf-a100-4 exists already. perf-h100-1 is new.
+	existingPerfExtID := "perf-a100-4"
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{
+			Items: []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						ExternalID: &existingPerfExtID,
+					},
+				},
+			},
+			Size: 1,
+		},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 new artifacts:
+	// - perf-h100-1 (new perf, no matching cold-start)
+	// - standalone cold-start for H200|2 (no matching perf)
+	// Should NOT create standalone cold-start for A100|4 (existing perf already has it merged)
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// Verify that no artifact for A100|4 cold-start was created
+	for _, a := range savedArtifacts {
+		extID := a.GetAttributes().ExternalID
+		if extID != nil && *extID == "cold-start-model-1-A100-4" {
+			t.Error("should NOT create standalone cold-start artifact for A100|4 — matching perf artifact already exists in DB")
+		}
 	}
 }
 
