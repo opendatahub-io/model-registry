@@ -2252,6 +2252,80 @@ func TestProcessModelArtifactsBatch_MergeColdStartIntoPerformance(t *testing.T) 
 	}
 }
 
+func TestProcessModelArtifactsBatch_DuplicateGPUKeyMergesIntoFirst(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Two performance records with the same gpu_type+gpu_count.
+	// Cold-start data should merge into the FIRST record, not the second.
+	perfLines := []string{
+		`{"id":"perf-a100-4-first","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5,"ttft_p90":50.0}`,
+		`{"id":"perf-a100-4-second","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":200.0,"ttft_p90":30.0}`,
+	}
+	perfData := strings.Join(perfLines, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3, RuntimeCommand: "python3 -m vllm serve"},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 performance artifacts (no standalone cold-start artifact)
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// The FIRST artifact (perf-a100-4-first) should have cold-start data merged
+	firstProps := savedArtifacts[0].GetCustomProperties()
+	if firstProps == nil {
+		t.Fatal("expected first artifact to have custom properties")
+	}
+	foundColdStartInFirst := false
+	for _, p := range *firstProps {
+		if p.Name == "cold_start_time_to_load_seconds" && p.DoubleValue != nil {
+			foundColdStartInFirst = true
+		}
+	}
+	if !foundColdStartInFirst {
+		t.Error("first artifact (first duplicate GPU key) should have cold_start_time_to_load_seconds merged")
+	}
+
+	// The SECOND artifact (perf-a100-4-second) should NOT have cold-start data
+	secondProps := savedArtifacts[1].GetCustomProperties()
+	hasColdStartInSecond := false
+	if secondProps != nil {
+		for _, p := range *secondProps {
+			if p.Name == "cold_start_time_to_load_seconds" {
+				hasColdStartInSecond = true
+			}
+		}
+	}
+	if hasColdStartInSecond {
+		t.Error("second artifact (duplicate GPU key) should NOT have cold_start_time_to_load_seconds; merge should target the first")
+	}
+}
+
 func TestProcessModelArtifactsBatch_ColdStartNoMatchFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 

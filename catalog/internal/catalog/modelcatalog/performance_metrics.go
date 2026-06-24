@@ -452,9 +452,13 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 			artifact := createPerformanceArtifact(perfRecord, modelID, metricsArtifactTypeID, nil, nil)
 			idx := len(artifactsToInsert)
 			artifactsToInsert = append(artifactsToInsert, artifact)
-			// Index by gpu_type+gpu_count for cold-start merging
+			// Index by gpu_type+gpu_count for cold-start merging.
+			// Keep the first entry if duplicate GPU keys exist so that cold-start
+			// data merges into the first matching performance artifact.
 			if gpuKey := performanceRecordGPUKey(perfRecord); gpuKey != "" {
-				perfGPUIndex[gpuKey] = idx
+				if _, exists := perfGPUIndex[gpuKey]; !exists {
+					perfGPUIndex[gpuKey] = idx
+				}
 			}
 		} else {
 			glog.V(2).Infof("Performance artifact %s already exists, skipping", perfRecord.ID)
