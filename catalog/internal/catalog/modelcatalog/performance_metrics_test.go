@@ -2047,6 +2047,36 @@ func TestPerformanceRecordGPUKey(t *testing.T) {
 			},
 			want: "",
 		},
+		{
+			name: "gpu_count as invalid json.Number (not a number)",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("abc"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as zero float64",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": float64(0),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as negative float64",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": float64(-2),
+				},
+			},
+			want: "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -2491,6 +2521,70 @@ func TestProcessModelArtifactsBatch_ReIngestMixedExistingAndNew(t *testing.T) {
 		if extID != nil && *extID == "cold-start-model-1-A100-4" {
 			t.Error("should NOT create standalone cold-start artifact for A100|4 — matching perf artifact already exists in DB")
 		}
+	}
+}
+
+func TestProcessModelArtifactsBatch_ReIngestExistingPerfWithoutGPUFields(t *testing.T) {
+	// Regression test: when re-ingesting, an existing DB performance artifact
+	// that has no gpu_type/gpu_count fields should not pollute the
+	// existingPerfGPUKeys map (gpuKey is ""), so cold-start entries with valid
+	// GPU keys should still create standalone artifacts.
+	tmpDir := t.TempDir()
+
+	// Performance record WITHOUT gpu_type/gpu_count fields
+	perfData := `{"id":"perf-no-gpu","model_id":"test-model","requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	// Cold-start entry for a GPU config — no matching perf artifact
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+	existingPerfExtID := "perf-no-gpu"
+
+	// Simulate that perf-no-gpu already exists in the DB (from a previous ingest)
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{
+			Items: []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						ExternalID: &existingPerfExtID,
+					},
+				},
+			},
+			Size: 1,
+		},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 1 standalone cold-start artifact because:
+	// - perf-no-gpu already exists (skipped), and has no GPU key (gpuKey == "")
+	// - cold-start A100|4 has no matching perf -> standalone
+	if count != 1 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 1", count)
+	}
+
+	if len(savedArtifacts) != 1 {
+		t.Fatalf("expected 1 saved artifact, got %d", len(savedArtifacts))
+	}
+
+	// Verify it's a standalone cold-start artifact
+	extID := savedArtifacts[0].GetAttributes().ExternalID
+	if extID == nil || !strings.HasPrefix(*extID, "cold-start-") {
+		t.Errorf("expected standalone cold-start artifact, got externalID %v", extID)
 	}
 }
 
