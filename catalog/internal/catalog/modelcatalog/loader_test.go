@@ -607,6 +607,58 @@ func TestPerformLeaderOperations_RestoresGateOnError(t *testing.T) {
 	assert.True(t, ready.Load(), "gate must be restored to true after leader write failure")
 }
 
+func TestPerformLeaderOperations_RestoresGateOnSuccess(t *testing.T) {
+	providerName := "gate-success-provider-" + strings.ReplaceAll(t.Name(), "/", "_")
+	require.NoError(t, RegisterModelProvider(providerName, func(ctx context.Context, source *basecatalog.ModelSource, reldir string) (<-chan ModelProviderRecord, error) {
+		ch := make(chan ModelProviderRecord, 2)
+		modelName := "success-model"
+		ch <- ModelProviderRecord{
+			Model: &models.CatalogModelImpl{
+				Attributes: &models.CatalogModelAttributes{Name: &modelName},
+			},
+			Artifacts: []sharedmodels.CatalogArtifact{},
+		}
+		ch <- ModelProviderRecord{Model: nil} // completion marker
+		close(ch)
+		return ch, nil
+	}))
+
+	services := Services{
+		CatalogModelRepository:           &MockCatalogModelRepository{},
+		CatalogArtifactRepository:        &MockCatalogArtifactRepository{},
+		CatalogModelArtifactRepository:   &MockCatalogModelArtifactRepository{},
+		CatalogMetricsArtifactRepository: &MockCatalogMetricsArtifactRepository{},
+		CatalogSourceRepository:          &MockCatalogSourceRepository{},
+		PropertyOptionsRepository:        &MockPropertyOptionsRepository{},
+	}
+
+	baseLoader := basecatalog.NewBaseLoader([]string{})
+	baseLoader.SetLeader(true)
+	loader := NewModelLoader(services, baseLoader)
+
+	var ready atomic.Bool
+	ready.Store(true)
+	loader.SetSourceStatusReady(&ready)
+
+	cfg := &basecatalog.SourceConfig{
+		ModelCatalogs: []basecatalog.ModelSource{
+			{
+				CatalogSource: apimodels.CatalogSource{
+					Id:      "success-src",
+					Name:    "Test",
+					Enabled: new(true),
+				},
+				Type: providerName,
+			},
+		},
+	}
+	require.NoError(t, loader.updateSources("test-path", cfg))
+
+	err := loader.PerformLeaderOperations(context.Background(), mapset.NewSet("success-src"))
+	require.NoError(t, err)
+	assert.True(t, ready.Load(), "gate must be restored to true after successful leader operations")
+}
+
 type FailingCatalogSourceRepository struct {
 	err error
 }

@@ -121,8 +121,8 @@ func NewModelLoader(services Services, state basecatalog.LoaderState) *ModelLoad
 // SetSourceStatusReady sets the gate that controls whether the API serves
 // DB-persisted source statuses. The gate is reset to false at the start of
 // each leader election cycle (PerformLeaderOperations) so stale statuses from
-// a previous lifecycle are not served. The caller is responsible for setting
-// it to true once leader operations complete (e.g., via OnLeaderReady).
+// a previous lifecycle are not served. PerformLeaderOperations restores the
+// gate to true on both success and failure.
 func (l *ModelLoader) SetSourceStatusReady(ready *atomic.Bool) {
 	l.sourceStatusReady = ready
 }
@@ -167,6 +167,12 @@ func (l *ModelLoader) PerformLeaderOperations(ctx context.Context, allKnownSourc
 			l.sourceStatusReady.Store(true)
 		}
 		return err
+	}
+	// Restore the gate after successful leader writes so the API can
+	// serve fresh DB statuses. This is needed for both the initial
+	// OnBecomeLeader path and the file-watcher reload path.
+	if l.sourceStatusReady != nil {
+		l.sourceStatusReady.Store(true)
 	}
 	return nil
 }
