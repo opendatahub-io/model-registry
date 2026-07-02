@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,9 +37,10 @@ type agentSourceProvider interface {
 
 type Plugin struct {
 	*plugin.PluginBase
-	loader     *modelcatalog.ModelLoader
-	services   modelcatalog.Services
-	perfLoader *modelcatalog.PerformanceMetricsLoader
+	loader            *modelcatalog.ModelLoader
+	services          modelcatalog.Services
+	perfLoader        *modelcatalog.PerformanceMetricsLoader
+	sourceStatusReady atomic.Bool
 }
 
 func (p *Plugin) Name() string                   { return "model" }
@@ -94,6 +96,12 @@ func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 
 	base := basecatalog.NewBaseLoader(cfg.ConfigPaths)
 	p.loader = modelcatalog.NewModelLoader(p.services, base)
+	// Initialize to true so non-leader pods always serve DB status (trusting
+	// the leader to manage DB freshness via cleanup). The leader will reset
+	// this to false during PerformLeaderOperations and set it back to true
+	// after OnLeaderReady completes.
+	p.sourceStatusReady.Store(true)
+	p.loader.SetSourceStatusReady(&p.sourceStatusReady)
 
 	if len(cfg.PerformanceMetricsPath) > 0 {
 		perfLoader, err := modelcatalog.NewPerformanceMetricsLoader(
@@ -122,6 +130,12 @@ func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 			return ids
 		},
 		OnLeaderReady: func(ctx context.Context) error {
+			// Mark source statuses as ready now that leader operations
+			// have reprocessed sources and updated the database. Before
+			// this point, the DB may contain stale status/error from a
+			// previous pod lifecycle.
+			p.sourceStatusReady.Store(true)
+
 			poRefresher := models.NewPropertyOptionsRefresher(ctx, p.services.PropertyOptionsRepository, time.Second)
 			p.loader.RegisterEventHandler(func(_ context.Context, _ modelcatalog.ModelProviderRecord) error {
 				poRefresher.Trigger()
@@ -178,6 +192,7 @@ func (p *Plugin) RegisterRoutes(router chi.Router) error {
 		agentSources,
 		p.loader.Labels,
 		p.services.CatalogSourceRepository,
+		&p.sourceStatusReady,
 	)
 	ctrl := openapi.NewModelCatalogServiceAPIController(svc)
 

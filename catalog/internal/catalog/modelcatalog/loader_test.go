@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -556,4 +557,128 @@ func TestSourceStatusPartialVsFull(t *testing.T) {
 			assert.Contains(t, st.Error, tt.wantErrContain)
 		})
 	}
+}
+
+func TestPerformLeaderOperations_RestoresGateOnError(t *testing.T) {
+	providerName := "gate-error-provider-" + strings.ReplaceAll(t.Name(), "/", "_")
+	require.NoError(t, RegisterModelProvider(providerName, func(ctx context.Context, source *basecatalog.ModelSource, reldir string) (<-chan ModelProviderRecord, error) {
+		ch := make(chan ModelProviderRecord)
+		close(ch)
+		return ch, nil
+	}))
+
+	failingSourceRepo := &FailingCatalogSourceRepository{
+		err: fmt.Errorf("simulated DB failure"),
+	}
+
+	services := Services{
+		CatalogModelRepository:           &MockCatalogModelRepository{},
+		CatalogArtifactRepository:        &MockCatalogArtifactRepository{},
+		CatalogModelArtifactRepository:   &MockCatalogModelArtifactRepository{},
+		CatalogMetricsArtifactRepository: &MockCatalogMetricsArtifactRepository{},
+		CatalogSourceRepository:          failingSourceRepo,
+		PropertyOptionsRepository:        &MockPropertyOptionsRepository{},
+	}
+
+	baseLoader := basecatalog.NewBaseLoader([]string{})
+	baseLoader.SetLeader(true)
+	loader := NewModelLoader(services, baseLoader)
+
+	var ready atomic.Bool
+	ready.Store(true)
+	loader.SetSourceStatusReady(&ready)
+
+	cfg := &basecatalog.SourceConfig{
+		ModelCatalogs: []basecatalog.ModelSource{
+			{
+				CatalogSource: apimodels.CatalogSource{
+					Id:      "test-src",
+					Name:    "Test",
+					Enabled: new(true),
+				},
+				Type: providerName,
+			},
+		},
+	}
+	require.NoError(t, loader.updateSources("test-path", cfg))
+
+	err := loader.PerformLeaderOperations(context.Background(), mapset.NewSet("test-src"))
+	require.Error(t, err)
+	assert.True(t, ready.Load(), "gate must be restored to true after leader write failure")
+}
+
+func TestPerformLeaderOperations_RestoresGateOnSuccess(t *testing.T) {
+	providerName := "gate-success-provider-" + strings.ReplaceAll(t.Name(), "/", "_")
+	require.NoError(t, RegisterModelProvider(providerName, func(ctx context.Context, source *basecatalog.ModelSource, reldir string) (<-chan ModelProviderRecord, error) {
+		ch := make(chan ModelProviderRecord, 2)
+		modelName := "success-model"
+		ch <- ModelProviderRecord{
+			Model: &models.CatalogModelImpl{
+				Attributes: &models.CatalogModelAttributes{Name: &modelName},
+			},
+			Artifacts: []sharedmodels.CatalogArtifact{},
+		}
+		ch <- ModelProviderRecord{Model: nil} // completion marker
+		close(ch)
+		return ch, nil
+	}))
+
+	services := Services{
+		CatalogModelRepository:           &MockCatalogModelRepository{},
+		CatalogArtifactRepository:        &MockCatalogArtifactRepository{},
+		CatalogModelArtifactRepository:   &MockCatalogModelArtifactRepository{},
+		CatalogMetricsArtifactRepository: &MockCatalogMetricsArtifactRepository{},
+		CatalogSourceRepository:          &MockCatalogSourceRepository{},
+		PropertyOptionsRepository:        &MockPropertyOptionsRepository{},
+	}
+
+	baseLoader := basecatalog.NewBaseLoader([]string{})
+	baseLoader.SetLeader(true)
+	loader := NewModelLoader(services, baseLoader)
+
+	var ready atomic.Bool
+	ready.Store(true)
+	loader.SetSourceStatusReady(&ready)
+
+	cfg := &basecatalog.SourceConfig{
+		ModelCatalogs: []basecatalog.ModelSource{
+			{
+				CatalogSource: apimodels.CatalogSource{
+					Id:      "success-src",
+					Name:    "Test",
+					Enabled: new(true),
+				},
+				Type: providerName,
+			},
+		},
+	}
+	require.NoError(t, loader.updateSources("test-path", cfg))
+
+	err := loader.PerformLeaderOperations(context.Background(), mapset.NewSet("success-src"))
+	require.NoError(t, err)
+	assert.True(t, ready.Load(), "gate must be restored to true after successful leader operations")
+}
+
+type FailingCatalogSourceRepository struct {
+	err error
+}
+
+func (f *FailingCatalogSourceRepository) GetBySourceID(string) (sharedmodels.CatalogSource, error) {
+	return nil, f.err
+}
+
+func (f *FailingCatalogSourceRepository) Save(s sharedmodels.CatalogSource) (sharedmodels.CatalogSource, error) {
+	return nil, f.err
+}
+
+func (f *FailingCatalogSourceRepository) Delete(string) error {
+	return f.err
+}
+
+func (f *FailingCatalogSourceRepository) GetAll() ([]sharedmodels.CatalogSource, error) {
+	return nil, f.err
+}
+
+func (f *FailingCatalogSourceRepository) GetAllStatuses() (map[string]sharedmodels.SourceStatus, error) {
+	return nil, f.err
 }

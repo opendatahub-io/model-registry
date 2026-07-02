@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/golang/glog"
@@ -78,6 +79,11 @@ type ModelLoader struct {
 	services      Services
 	handlers      []LoaderEventHandler
 	loadedSources map[string]bool // tracks which source IDs have been loaded
+
+	// sourceStatusReady is an optional gate that is reset to false at the start
+	// of leader operations to prevent the API from serving stale DB statuses
+	// during source reprocessing. When nil, no gating is applied.
+	sourceStatusReady *atomic.Bool
 }
 
 // UpdateServices replaces the loader's repository references after a database
@@ -112,6 +118,15 @@ func NewModelLoader(services Services, state basecatalog.LoaderState) *ModelLoad
 	}
 }
 
+// SetSourceStatusReady sets the gate that controls whether the API serves
+// DB-persisted source statuses. The gate is reset to false at the start of
+// each leader election cycle (PerformLeaderOperations) so stale statuses from
+// a previous lifecycle are not served. PerformLeaderOperations restores the
+// gate to true on both success and failure.
+func (l *ModelLoader) SetSourceStatusReady(ready *atomic.Bool) {
+	l.sourceStatusReady = ready
+}
+
 // RegisterEventHandler adds a function that will be called for every
 // successfully processed record. This should be called before initialization.
 //
@@ -136,7 +151,30 @@ func (l *ModelLoader) ParseAllConfigs() error {
 // cross-contamination when cleaning up shared CatalogSource records.
 // This is called by the unified loader when becoming leader.
 func (l *ModelLoader) PerformLeaderOperations(ctx context.Context, allKnownSourceIDs mapset.Set[string]) error {
-	return l.performLeaderWrites(ctx, allKnownSourceIDs)
+	// Reset the source-status gate so the API does not serve stale DB
+	// statuses from a previous leader cycle while we reprocess sources.
+	// This also handles re-election: the gate may still be true from the
+	// previous cycle and must be closed before new leader writes begin.
+	if l.sourceStatusReady != nil {
+		l.sourceStatusReady.Store(false)
+	}
+
+	if err := l.performLeaderWrites(ctx, allKnownSourceIDs); err != nil {
+		// Restore the gate so the pod can still serve DB statuses. Without
+		// this, a failed leader write leaves the gate permanently closed and
+		// the pod serves sources without any status/error indefinitely.
+		if l.sourceStatusReady != nil {
+			l.sourceStatusReady.Store(true)
+		}
+		return err
+	}
+	// Restore the gate after successful leader writes so the API can
+	// serve fresh DB statuses. This is needed for both the initial
+	// OnBecomeLeader path and the file-watcher reload path.
+	if l.sourceStatusReady != nil {
+		l.sourceStatusReady.Store(true)
+	}
+	return nil
 }
 
 // ReloadParsing re-parses all config files into in-memory collections.
@@ -154,6 +192,15 @@ func (l *ModelLoader) ReloadParsing() error {
 // performLeaderWrites executes database write operations: removing orphaned
 // models and loading all models from sources.
 func (l *ModelLoader) performLeaderWrites(ctx context.Context, allKnownSourceIDs mapset.Set[string]) error {
+	// Clear stale source statuses from the DB before reprocessing. This
+	// ensures that if the gate (sourceStatusReady) opens before the async
+	// source-processing goroutines have written fresh statuses, the API
+	// will not serve outdated error/status values from a previous pod
+	// lifecycle.
+	if err := l.clearStaleSourceStatuses(); err != nil {
+		return fmt.Errorf("failed to clear stale source statuses: %w", err)
+	}
+
 	if err := l.removeModelsFromMissingSources(allKnownSourceIDs); err != nil {
 		return fmt.Errorf("failed to remove models from missing sources: %w", err)
 	}
@@ -542,6 +589,43 @@ func (l *ModelLoader) setModelSourceID(model models.CatalogModel, sourceID strin
 		namespacedName := sourceID + ":" + *attr.Name
 		attr.Name = &namespacedName
 	}
+}
+
+// clearStaleSourceStatuses removes status/error properties from existing
+// CatalogSource records that belong to model sources managed by this loader.
+// This runs at the start of leader operations so that any status from a
+// previous pod lifecycle is wiped before source reprocessing begins. Each
+// source will get a fresh status once its provider goroutine finishes loading.
+//
+// Only model source IDs (from l.Sources.AllSources()) are cleared, leaving
+// MCP source records untouched.
+func (l *ModelLoader) clearStaleSourceStatuses() error {
+	for id := range l.Sources.AllSources() {
+		existing, err := l.services.CatalogSourceRepository.GetBySourceID(id)
+		if err != nil {
+			// Source not yet in DB — nothing stale to clear.
+			if errors.Is(err, service.ErrCatalogSourceNotFound) {
+				continue
+			}
+			return fmt.Errorf("failed to retrieve catalog source %s for status clearing: %w", id, err)
+		}
+		if existing == nil {
+			continue
+		}
+
+		// Save with empty properties to clear status and error.
+		sourceID := id
+		cleared := &sharedmodels.CatalogSourceImpl{
+			Attributes: &sharedmodels.CatalogSourceAttributes{
+				Name: &sourceID,
+			},
+			Properties: &[]mrmodels.Properties{},
+		}
+		if _, err := l.services.CatalogSourceRepository.Save(cleared); err != nil {
+			return fmt.Errorf("failed to clear stale status for source %s: %w", id, err)
+		}
+	}
+	return nil
 }
 
 func (l *ModelLoader) removeModelsFromMissingSources(allKnownSourceIDs mapset.Set[string]) error {

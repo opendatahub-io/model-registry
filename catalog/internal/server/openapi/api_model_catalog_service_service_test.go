@@ -8,11 +8,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog"
+	"github.com/kubeflow/hub/catalog/internal/db/models"
 	model "github.com/kubeflow/hub/catalog/pkg/openapi"
 	mrmodels "github.com/kubeflow/hub/internal/platform/db/entity"
 	"github.com/stretchr/testify/assert"
@@ -306,7 +308,7 @@ func TestFindModels(t *testing.T) {
 				models: tc.mockModels,
 			}
 
-			service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil, nil)
 
 			resp, err := service.FindModels(
 				context.Background(),
@@ -751,7 +753,7 @@ func TestFindSources(t *testing.T) {
 			sources := catalog.NewSourceCollection()
 			sources.Merge("", tc.catalogs)
 			sourceLabels := catalog.NewLabelCollection()
-			service := NewModelCatalogServiceAPIService(&mockModelProvider{}, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(&mockModelProvider{}, sources, nil, nil, sourceLabels, nil, nil)
 
 			// Call FindSources
 			resp, err := service.FindSources(
@@ -1126,7 +1128,7 @@ func TestFindLabels(t *testing.T) {
 			labelCollection := catalog.NewLabelCollection()
 			labelCollection.Merge("test-source", tc.labels)
 
-			service := NewModelCatalogServiceAPIService(&mockModelProvider{}, sources, nil, nil, labelCollection, nil)
+			service := NewModelCatalogServiceAPIService(&mockModelProvider{}, sources, nil, nil, labelCollection, nil, nil)
 
 			// Call FindLabels
 			resp, err := service.FindLabels(
@@ -1504,7 +1506,7 @@ func TestGetModel(t *testing.T) {
 			sources := catalog.NewSourceCollection()
 			sources.Merge("", tc.sources)
 			sourceLabels := catalog.NewLabelCollection()
-			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil, nil)
 
 			// Call GetModel
 			resp, _ := service.GetModel(
@@ -1615,7 +1617,7 @@ func TestGetAllModelArtifacts(t *testing.T) {
 			sources := catalog.NewSourceCollection()
 			sources.Merge("", tc.sources)
 			sourceLabels := catalog.NewLabelCollection()
-			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil, nil)
 
 			// Call GetAllModelArtifacts
 			resp, _ := service.GetAllModelArtifacts(
@@ -1674,7 +1676,7 @@ func TestFindModelsFilterOptions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			sources := catalog.NewSourceCollection()
 			sourceLabels := catalog.NewLabelCollection()
-			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil, nil)
 
 			resp, err := service.FindModelsFilterOptions(context.Background())
 
@@ -1834,7 +1836,7 @@ func TestGetAllModelPerformanceArtifacts(t *testing.T) {
 			})
 			sourceLabels := catalog.NewLabelCollection()
 
-			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil, nil)
 
 			resp, err := service.GetAllModelPerformanceArtifacts(
 				context.Background(),
@@ -1907,7 +1909,7 @@ func TestFindModelsRecommended(t *testing.T) {
 		},
 	}
 
-	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil)
+	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil, nil)
 
 	// Test recommended=true with default parameters
 	resp, err := service.FindModels(
@@ -1956,7 +1958,7 @@ func TestFindModelsRecommendedWithCustomParams(t *testing.T) {
 		},
 	}
 
-	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil)
+	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil, nil)
 
 	// Test with custom latency property and targetRPS
 	resp, err := service.FindModels(
@@ -2005,7 +2007,7 @@ func TestFindModelsRecommendedIgnoresOrderBy(t *testing.T) {
 		},
 	}
 
-	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil)
+	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil, nil)
 
 	// Test that orderBy is ignored when recommended=true
 	resp, err := service.FindModels(
@@ -2051,7 +2053,7 @@ func newTestServiceWithSources(models map[string]*model.CatalogModel) ModelCatal
 		models: models,
 	}
 
-	return NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil)
+	return NewModelCatalogServiceAPIService(provider, sources, nil, nil, sourceLabels, nil, nil)
 }
 
 func TestFindModelsRecommendedWithNumericNextPageToken(t *testing.T) {
@@ -2461,7 +2463,7 @@ func TestGetAllModelPerformanceArtifactsWithConfigurableProperties(t *testing.T)
 			})
 			sourceLabels := catalog.NewLabelCollection()
 
-			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil)
+			service := NewModelCatalogServiceAPIService(tc.provider, sources, nil, nil, sourceLabels, nil, nil)
 
 			resp, err := service.GetAllModelPerformanceArtifacts(
 				context.Background(),
@@ -2500,7 +2502,7 @@ func TestFindModelsOrderByRecommended(t *testing.T) {
 		},
 	}
 
-	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, catalog.NewLabelCollection(), nil)
+	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, catalog.NewLabelCollection(), nil, nil)
 
 	// orderBy=RECOMMENDED with recommendations=false should still use the recommendation path
 	resp, err := service.FindModels(
@@ -2548,7 +2550,7 @@ func TestFindModelsOrderByRecommendedDesc(t *testing.T) {
 		},
 	}
 
-	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, catalog.NewLabelCollection(), nil)
+	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, catalog.NewLabelCollection(), nil, nil)
 
 	// orderBy=RECOMMENDED with sortOrder=DESC
 	resp, err := service.FindModels(
@@ -2597,7 +2599,7 @@ func TestFindModelsOrderByRecommendedPagination(t *testing.T) {
 		},
 	}
 
-	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, catalog.NewLabelCollection(), nil)
+	service := NewModelCatalogServiceAPIService(provider, sources, nil, nil, catalog.NewLabelCollection(), nil, nil)
 
 	// Pass a numeric nextPageToken (the format produced by the recommended path).
 	// Before the fix, this was rejected with 400 because parsePaginationParams tried
@@ -2616,4 +2618,148 @@ func TestFindModelsOrderByRecommendedPagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.Code, "numeric nextPageToken must be accepted for orderBy=RECOMMENDED")
 	require.NoError(t, err)
+}
+
+// mockCatalogSourceRepository is a test double for CatalogSourceRepository
+// that returns preconfigured statuses.
+type mockCatalogSourceRepository struct {
+	statuses map[string]models.SourceStatus
+}
+
+func (m *mockCatalogSourceRepository) GetBySourceID(string) (models.CatalogSource, error) {
+	return nil, nil
+}
+
+func (m *mockCatalogSourceRepository) Save(source models.CatalogSource) (models.CatalogSource, error) {
+	return source, nil
+}
+
+func (m *mockCatalogSourceRepository) Delete(string) error { return nil }
+
+func (m *mockCatalogSourceRepository) GetAll() ([]models.CatalogSource, error) {
+	return nil, nil
+}
+
+func (m *mockCatalogSourceRepository) GetAllStatuses() (map[string]models.SourceStatus, error) {
+	return m.statuses, nil
+}
+
+func TestFindSources_StaleStatusNotServedBeforeLeaderReady(t *testing.T) {
+	trueValue := true
+	sources := catalog.NewSourceCollection()
+	sources.Merge("", map[string]catalog.ModelSource{
+		"error_catalog": {CatalogSource: model.CatalogSource{
+			Id:      "error_catalog",
+			Name:    "Error Catalog",
+			Enabled: &trueValue,
+		}},
+	})
+	sourceLabels := catalog.NewLabelCollection()
+
+	// Simulate stale DB status from a previous pod lifecycle (e.g., a yaml
+	// error from an old configmap that no longer applies).
+	staleRepo := &mockCatalogSourceRepository{
+		statuses: map[string]models.SourceStatus{
+			"error_catalog": {
+				Status: "error",
+				Error:  "stale error: yaml file not found at /old/path",
+			},
+		},
+	}
+
+	// sourceStatusReady starts as true (matching Plugin.Init behavior where
+	// the flag is initialized to true so non-leader pods always serve DB
+	// status). On a leader pod, PerformLeaderOperations resets it to false
+	// before reprocessing sources.
+	var ready atomic.Bool
+	ready.Store(true)
+
+	service := NewModelCatalogServiceAPIService(
+		&mockModelProvider{}, sources, nil, nil, sourceLabels, staleRepo, &ready,
+	)
+
+	// Simulate the leader resetting the gate during PerformLeaderOperations.
+	ready.Store(false)
+
+	// While leader operations are in progress, FindSources must NOT merge DB statuses.
+	resp, err := service.FindSources(
+		context.Background(), "", "", "10",
+		model.ORDERBYFIELD_ID, model.SORTORDER_ASC, "",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	sourceList, ok := resp.Body.(model.CatalogSourceList)
+	require.True(t, ok)
+	require.Len(t, sourceList.Items, 1)
+
+	item := sourceList.Items[0]
+	assert.Equal(t, "error_catalog", item.Id)
+	// Status and error must be empty — stale DB data should not appear.
+	assert.Nil(t, item.Status, "status should be nil while leader operations are in progress")
+	assert.True(t, item.Error.Get() == nil, "error should be nil while leader operations are in progress")
+
+	// Simulate leader operations completing (OnLeaderReady sets gate to true).
+	ready.Store(true)
+
+	// After leader operations, FindSources should merge DB statuses.
+	resp, err = service.FindSources(
+		context.Background(), "", "", "10",
+		model.ORDERBYFIELD_ID, model.SORTORDER_ASC, "",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	sourceList, ok = resp.Body.(model.CatalogSourceList)
+	require.True(t, ok)
+	require.Len(t, sourceList.Items, 1)
+
+	item = sourceList.Items[0]
+	assert.Equal(t, "error_catalog", item.Id)
+	// Now status should be merged from DB.
+	require.NotNil(t, item.Status, "status should be set after leader operations complete")
+	assert.Equal(t, model.CatalogSourceStatus("error"), *item.Status)
+	require.NotNil(t, item.Error.Get(), "error should be set after leader operations complete")
+	assert.Equal(t, "stale error: yaml file not found at /old/path", *item.Error.Get())
+}
+
+func TestFindSources_NilSourceStatusReadyMergesStatuses(t *testing.T) {
+	// When sourceStatusReady is nil (backwards-compatible mode, e.g., tests),
+	// DB statuses should always be merged.
+	trueValue := true
+	sources := catalog.NewSourceCollection()
+	sources.Merge("", map[string]catalog.ModelSource{
+		"src1": {CatalogSource: model.CatalogSource{
+			Id:      "src1",
+			Name:    "Source 1",
+			Enabled: &trueValue,
+		}},
+	})
+	sourceLabels := catalog.NewLabelCollection()
+
+	repo := &mockCatalogSourceRepository{
+		statuses: map[string]models.SourceStatus{
+			"src1": {Status: "available", Error: ""},
+		},
+	}
+
+	// nil sourceStatusReady = always merge (backwards compatible).
+	service := NewModelCatalogServiceAPIService(
+		&mockModelProvider{}, sources, nil, nil, sourceLabels, repo, nil,
+	)
+
+	resp, err := service.FindSources(
+		context.Background(), "", "", "10",
+		model.ORDERBYFIELD_ID, model.SORTORDER_ASC, "",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	sourceList, ok := resp.Body.(model.CatalogSourceList)
+	require.True(t, ok)
+	require.Len(t, sourceList.Items, 1)
+
+	item := sourceList.Items[0]
+	require.NotNil(t, item.Status, "status should be merged when sourceStatusReady is nil")
+	assert.Equal(t, model.CatalogSourceStatus("available"), *item.Status)
 }
