@@ -460,28 +460,62 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 		}
 	}
 
-	// Check performance artifacts
+	// Check performance artifacts and build a gpu_type+gpu_count index for cold-start merging
+	// The key is "gpu_type|gpu_count" and the value is the index into artifactsToInsert
+	perfGPUIndex := make(map[string]int, len(performanceRecords))
+	// existingPerfGPUKeys tracks GPU keys for performance artifacts that already exist in the DB.
+	// On re-ingest, cold-start data for these keys should be skipped because the merge already
+	// happened on the first ingest.
+	existingPerfGPUKeys := make(map[string]bool, len(performanceRecords))
 	for _, perfRecord := range performanceRecords {
 		if !existingArtifactsMap[perfRecord.ID] {
 			artifact := createPerformanceArtifact(perfRecord, modelID, metricsArtifactTypeID, nil, nil)
+			idx := len(artifactsToInsert)
 			artifactsToInsert = append(artifactsToInsert, artifact)
+			// Index by gpu_type+gpu_count for cold-start merging.
+			// Keep the first entry if duplicate GPU keys exist so that cold-start
+			// data merges into the first matching performance artifact.
+			if gpuKey := performanceRecordGPUKey(perfRecord); gpuKey != "" {
+				if _, exists := perfGPUIndex[gpuKey]; !exists {
+					perfGPUIndex[gpuKey] = idx
+				}
+			}
 		} else {
 			glog.V(2).Infof("Performance artifact %s already exists, skipping", perfRecord.ID)
+			// Track GPU key so cold-start entries for this key are skipped on re-ingest
+			if gpuKey := performanceRecordGPUKey(perfRecord); gpuKey != "" {
+				existingPerfGPUKeys[gpuKey] = true
+			}
 		}
 	}
 
-	// Check cold-start artifacts (one per GPU configuration from metadata.json)
+	// Merge cold-start metrics into matching performance artifacts by gpu_type + gpu_count.
+	// If a matching performance artifact was created above, merge the cold-start data into it.
+	// If the GPU key matches an existing DB artifact, skip (merge already happened on first ingest).
+	// Otherwise, create a standalone cold-start artifact.
 	for i, csEntry := range coldStartMatrix {
 		if csEntry.GPUType == "" || csEntry.GPUCount <= 0 {
 			glog.Warningf("Skipping cold-start entry %d for model %s: gpu_type and gpu_count (positive) are required", i, modelName)
 			continue
 		}
-		externalID := coldStartExternalID(modelID, csEntry)
-		if !existingArtifactsMap[externalID] {
-			artifact := createColdStartArtifact(csEntry, externalID, modelID, metricsArtifactTypeID)
-			artifactsToInsert = append(artifactsToInsert, artifact)
+		gpuKey := fmt.Sprintf("%s|%d", csEntry.GPUType, csEntry.GPUCount)
+		if idx, ok := perfGPUIndex[gpuKey]; ok {
+			// Merge cold-start data into the matching performance artifact
+			mergeColdStartIntoArtifact(artifactsToInsert[idx], csEntry)
+			glog.V(2).Infof("Merged cold-start data into performance artifact for %s (gpu_type=%s, gpu_count=%d)", modelName, csEntry.GPUType, csEntry.GPUCount)
+		} else if existingPerfGPUKeys[gpuKey] {
+			// Performance artifact already exists in DB with this GPU key — cold-start
+			// data was merged on the first ingest, so skip to avoid a duplicate standalone artifact.
+			glog.V(2).Infof("Skipping cold-start for %s (gpu_type=%s, gpu_count=%d): matching performance artifact already exists in DB", modelName, csEntry.GPUType, csEntry.GPUCount)
 		} else {
-			glog.V(2).Infof("Cold-start artifact %s already exists, skipping", externalID)
+			// No matching performance artifact — create a standalone cold-start artifact
+			externalID := coldStartExternalID(modelID, csEntry)
+			if !existingArtifactsMap[externalID] {
+				artifact := createColdStartArtifact(csEntry, externalID, modelID, metricsArtifactTypeID)
+				artifactsToInsert = append(artifactsToInsert, artifact)
+			} else {
+				glog.V(2).Infof("Cold-start artifact %s already exists, skipping", externalID)
+			}
 		}
 	}
 
@@ -765,6 +799,71 @@ func createPerformanceArtifact(perfRecord performanceRecord, modelID int32, type
 
 func coldStartExternalID(modelID int32, entry coldStartEntry) string {
 	return fmt.Sprintf("cold-start-model-%d-%s-%d", modelID, entry.GPUType, entry.GPUCount)
+}
+
+// performanceRecordGPUKey returns a "gpu_type|gpu_count" key for a performance record,
+// or "" if the record does not contain both gpu_type and gpu_count fields.
+func performanceRecordGPUKey(pr performanceRecord) string {
+	gpuType, ok := pr.CustomProperties["gpu_type"].(string)
+	if !ok || gpuType == "" {
+		return ""
+	}
+	var gpuCount int
+	switch v := pr.CustomProperties["gpu_count"].(type) {
+	case json.Number:
+		if n, err := v.Int64(); err == nil {
+			if n <= 0 {
+				return ""
+			}
+			gpuCount = int(n)
+		} else if f, err := v.Float64(); err == nil {
+			// Reject fractional gpu_count (e.g. 2.5) — only whole numbers
+			// are valid. Silent truncation would produce wrong merge keys.
+			if f != float64(int64(f)) {
+				return ""
+			}
+			if f <= 0 {
+				return ""
+			}
+			gpuCount = int(f)
+		} else {
+			return ""
+		}
+	case float64:
+		if v != float64(int64(v)) {
+			return ""
+		}
+		if v <= 0 {
+			return ""
+		}
+		gpuCount = int(v)
+	default:
+		return ""
+	}
+	return fmt.Sprintf("%s|%d", gpuType, gpuCount)
+}
+
+// mergeColdStartIntoArtifact adds cold-start metrics (cold_start_time_to_load_seconds
+// and runtime_command) into an existing performance artifact's custom properties.
+func mergeColdStartIntoArtifact(artifact *dbmodels.CatalogMetricsArtifactImpl, entry coldStartEntry) {
+	if artifact.CustomProperties == nil {
+		props := []models.Properties{}
+		artifact.CustomProperties = &props
+	}
+	if entry.ColdStartTimeToLoadSeconds != 0 {
+		seconds := entry.ColdStartTimeToLoadSeconds
+		*artifact.CustomProperties = append(*artifact.CustomProperties, models.Properties{
+			Name:        "cold_start_time_to_load_seconds",
+			DoubleValue: &seconds,
+		})
+	}
+	if entry.RuntimeCommand != "" {
+		cmd := entry.RuntimeCommand
+		*artifact.CustomProperties = append(*artifact.CustomProperties, models.Properties{
+			Name:        "runtime_command",
+			StringValue: &cmd,
+		})
+	}
 }
 
 // createColdStartArtifact creates a metrics artifact from a single cold-start matrix entry.

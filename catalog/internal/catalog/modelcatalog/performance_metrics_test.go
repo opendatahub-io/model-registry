@@ -1936,6 +1936,790 @@ func TestProcessModelArtifactsBatch_ColdStartNamesUniqueAcrossModels(t *testing.
 	}
 }
 
+func TestPerformanceRecordGPUKey(t *testing.T) {
+	tests := []struct {
+		name string
+		pr   performanceRecord
+		want string
+	}{
+		{
+			name: "valid gpu_type and gpu_count",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("4"),
+				},
+			},
+			want: "A100|4",
+		},
+		{
+			name: "missing gpu_type",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_count": json.Number("4"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "missing gpu_count",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type": "A100",
+				},
+			},
+			want: "",
+		},
+		{
+			name: "empty gpu_type",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "",
+					"gpu_count": json.Number("4"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "zero gpu_count",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("0"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "negative gpu_count",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("-1"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as float64",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "H100",
+					"gpu_count": float64(2),
+				},
+			},
+			want: "H100|2",
+		},
+		{
+			name: "gpu_count as decimal json.Number like 4.0",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("4.0"),
+				},
+			},
+			want: "A100|4",
+		},
+		{
+			name: "gpu_count as decimal json.Number with fractional part is rejected",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("2.5"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as negative decimal json.Number",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("-1.0"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "both fields absent",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as invalid json.Number (not a number)",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": json.Number("abc"),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as zero float64",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": float64(0),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as fractional float64 is rejected",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": float64(2.5),
+				},
+			},
+			want: "",
+		},
+		{
+			name: "gpu_count as negative float64",
+			pr: performanceRecord{
+				CustomProperties: map[string]any{
+					"gpu_type":  "A100",
+					"gpu_count": float64(-2),
+				},
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := performanceRecordGPUKey(tt.pr)
+			if got != tt.want {
+				t.Errorf("performanceRecordGPUKey() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMergeColdStartIntoArtifact(t *testing.T) {
+	t.Run("merges cold_start_time_to_load_seconds and runtime_command", func(t *testing.T) {
+		strVal := "existing_value"
+		artifact := &models.CatalogMetricsArtifactImpl{
+			CustomProperties: &[]dbmodels.Properties{
+				{Name: "gpu_type", StringValue: &strVal},
+			},
+		}
+		entry := coldStartEntry{
+			GPUType:                    "A100",
+			GPUCount:                   4,
+			ColdStartTimeToLoadSeconds: 587.3,
+			RuntimeCommand:             "python3 -m vllm.entrypoints.openai.api_server",
+		}
+
+		mergeColdStartIntoArtifact(artifact, entry)
+
+		props := *artifact.CustomProperties
+		if len(props) != 3 {
+			t.Fatalf("expected 3 custom properties (1 existing + 2 merged), got %d", len(props))
+		}
+
+		// Verify cold_start_time_to_load_seconds was added
+		found := false
+		for _, p := range props {
+			if p.Name == "cold_start_time_to_load_seconds" && p.DoubleValue != nil && *p.DoubleValue == 587.3 {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("cold_start_time_to_load_seconds not found or incorrect value")
+		}
+
+		// Verify runtime_command was added
+		found = false
+		for _, p := range props {
+			if p.Name == "runtime_command" && p.StringValue != nil && *p.StringValue == "python3 -m vllm.entrypoints.openai.api_server" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("runtime_command not found or incorrect value")
+		}
+	})
+
+	t.Run("skips zero cold_start_time and empty runtime_command", func(t *testing.T) {
+		artifact := &models.CatalogMetricsArtifactImpl{
+			CustomProperties: &[]dbmodels.Properties{},
+		}
+		entry := coldStartEntry{
+			GPUType:                    "H100",
+			GPUCount:                   1,
+			ColdStartTimeToLoadSeconds: 0,
+			RuntimeCommand:             "",
+		}
+
+		mergeColdStartIntoArtifact(artifact, entry)
+
+		props := *artifact.CustomProperties
+		if len(props) != 0 {
+			t.Errorf("expected 0 custom properties (nothing to merge), got %d", len(props))
+		}
+	})
+
+	t.Run("initializes nil custom properties", func(t *testing.T) {
+		artifact := &models.CatalogMetricsArtifactImpl{
+			CustomProperties: nil,
+		}
+		entry := coldStartEntry{
+			ColdStartTimeToLoadSeconds: 100.5,
+		}
+
+		mergeColdStartIntoArtifact(artifact, entry)
+
+		if artifact.CustomProperties == nil {
+			t.Fatal("expected custom properties to be initialized")
+		}
+		props := *artifact.CustomProperties
+		if len(props) != 1 {
+			t.Fatalf("expected 1 custom property, got %d", len(props))
+		}
+		if props[0].Name != "cold_start_time_to_load_seconds" || *props[0].DoubleValue != 100.5 {
+			t.Errorf("unexpected property: %+v", props[0])
+		}
+	})
+}
+
+func TestProcessModelArtifactsBatch_MergeColdStartIntoPerformance(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a performance.ndjson file with records that have gpu_type and gpu_count
+	perfLines := []string{
+		`{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5,"ttft_p90":50.0}`,
+		`{"id":"perf-h100-1","model_id":"test-model","gpu_type":"H100","gpu_count":1,"requests_per_second":200.0,"ttft_p90":30.0}`,
+	}
+	perfData := strings.Join(perfLines, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	// Cold-start entries that match the performance records
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3, RuntimeCommand: "python3 -m vllm serve"},
+		{GPUType: "H100", GPUCount: 1, ColdStartTimeToLoadSeconds: 68.9},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 performance artifacts (with cold-start merged), NOT 2 perf + 2 cold-start = 4
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// Verify the performance artifacts have cold-start data merged in
+	for _, a := range savedArtifacts {
+		if a.GetAttributes().MetricsType != models.MetricsTypePerformance {
+			t.Errorf("expected MetricsType %q, got %q", models.MetricsTypePerformance, a.GetAttributes().MetricsType)
+		}
+
+		props := a.GetCustomProperties()
+		if props == nil {
+			t.Fatal("expected custom properties to be set")
+		}
+
+		// Check that cold_start_time_to_load_seconds is present
+		foundColdStart := false
+		for _, p := range *props {
+			if p.Name == "cold_start_time_to_load_seconds" && p.DoubleValue != nil {
+				foundColdStart = true
+			}
+		}
+		if !foundColdStart {
+			t.Errorf("artifact %s missing cold_start_time_to_load_seconds", *a.GetAttributes().Name)
+		}
+
+		// Verify there is NO performance_sub_type property (it's a merge, not a cold-start artifact)
+		for _, p := range *props {
+			if p.Name == "performance_sub_type" {
+				t.Errorf("artifact %s should not have performance_sub_type (cold-start was merged, not standalone)", *a.GetAttributes().Name)
+			}
+		}
+	}
+}
+
+func TestProcessModelArtifactsBatch_DuplicateGPUKeyMergesIntoFirst(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Two performance records with the same gpu_type+gpu_count.
+	// Cold-start data should merge into the FIRST record, not the second.
+	perfLines := []string{
+		`{"id":"perf-a100-4-first","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5,"ttft_p90":50.0}`,
+		`{"id":"perf-a100-4-second","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":200.0,"ttft_p90":30.0}`,
+	}
+	perfData := strings.Join(perfLines, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3, RuntimeCommand: "python3 -m vllm serve"},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 performance artifacts (no standalone cold-start artifact)
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// The FIRST artifact (perf-a100-4-first) should have cold-start data merged
+	firstProps := savedArtifacts[0].GetCustomProperties()
+	if firstProps == nil {
+		t.Fatal("expected first artifact to have custom properties")
+	}
+	foundColdStartInFirst := false
+	for _, p := range *firstProps {
+		if p.Name == "cold_start_time_to_load_seconds" && p.DoubleValue != nil {
+			foundColdStartInFirst = true
+		}
+	}
+	if !foundColdStartInFirst {
+		t.Error("first artifact (first duplicate GPU key) should have cold_start_time_to_load_seconds merged")
+	}
+
+	// The SECOND artifact (perf-a100-4-second) should NOT have cold-start data
+	secondProps := savedArtifacts[1].GetCustomProperties()
+	hasColdStartInSecond := false
+	if secondProps != nil {
+		for _, p := range *secondProps {
+			if p.Name == "cold_start_time_to_load_seconds" {
+				hasColdStartInSecond = true
+			}
+		}
+	}
+	if hasColdStartInSecond {
+		t.Error("second artifact (duplicate GPU key) should NOT have cold_start_time_to_load_seconds; merge should target the first")
+	}
+}
+
+func TestProcessModelArtifactsBatch_ColdStartNoMatchFallback(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a performance.ndjson with one record that does NOT match the cold-start entry
+	perfData := `{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	// Cold-start entry for a different GPU config (no match)
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "H200", GPUCount: 2, ColdStartTimeToLoadSeconds: 300.0},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 artifacts: 1 performance + 1 standalone cold-start (no match)
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// Find the cold-start standalone artifact
+	var coldStartArtifact models.CatalogMetricsArtifact
+	for _, a := range savedArtifacts {
+		extID := a.GetAttributes().ExternalID
+		if extID != nil && strings.HasPrefix(*extID, "cold-start-") {
+			coldStartArtifact = a
+			break
+		}
+	}
+
+	if coldStartArtifact == nil {
+		t.Fatal("expected a standalone cold-start artifact when no matching performance artifact exists")
+	}
+
+	// Verify the cold-start artifact has performance_sub_type
+	props := coldStartArtifact.GetCustomProperties()
+	foundSubType := false
+	for _, p := range *props {
+		if p.Name == "performance_sub_type" && p.StringValue != nil && *p.StringValue == "cold-start" {
+			foundSubType = true
+		}
+	}
+	if !foundSubType {
+		t.Error("standalone cold-start artifact should have performance_sub_type=cold-start")
+	}
+}
+
+func TestProcessModelArtifactsBatch_MixedMergeAndStandalone(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Performance record matches only one of the cold-start entries
+	perfData := `{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3},  // matches perf record
+		{GPUType: "H200", GPUCount: 2, ColdStartTimeToLoadSeconds: 300.0},  // no match -> standalone
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 artifacts: 1 perf (with cold-start merged) + 1 standalone cold-start
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// One artifact should have cold_start_time_to_load_seconds merged (perf-a100-4)
+	// and one should be a standalone cold-start artifact
+	mergedCount := 0
+	standaloneCount := 0
+	for _, a := range savedArtifacts {
+		extID := a.GetAttributes().ExternalID
+		props := a.GetCustomProperties()
+
+		hasSubType := false
+		hasColdStart := false
+		for _, p := range *props {
+			if p.Name == "performance_sub_type" {
+				hasSubType = true
+			}
+			if p.Name == "cold_start_time_to_load_seconds" {
+				hasColdStart = true
+			}
+		}
+
+		if hasColdStart && !hasSubType {
+			mergedCount++
+			// Verify it's the performance artifact
+			if extID == nil || *extID != "perf-a100-4" {
+				t.Errorf("merged artifact should have externalID perf-a100-4, got %v", extID)
+			}
+		}
+		if hasSubType {
+			standaloneCount++
+			// Verify it's the standalone cold-start
+			if extID == nil || !strings.HasPrefix(*extID, "cold-start-") {
+				t.Errorf("standalone artifact should have cold-start externalID prefix, got %v", extID)
+			}
+		}
+	}
+
+	if mergedCount != 1 {
+		t.Errorf("expected 1 merged artifact, got %d", mergedCount)
+	}
+	if standaloneCount != 1 {
+		t.Errorf("expected 1 standalone cold-start artifact, got %d", standaloneCount)
+	}
+}
+
+func TestProcessModelArtifactsBatch_ReIngestSkipsColdStartForExistingPerf(t *testing.T) {
+	// Simulates re-ingest: performance artifacts already exist in the DB.
+	// Cold-start entries whose GPU key matches an existing performance artifact
+	// should be skipped (merge happened on the first ingest), NOT create standalone artifacts.
+	tmpDir := t.TempDir()
+
+	// Performance record with gpu_type=A100, gpu_count=4
+	perfData := `{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	// Cold-start entry matches the existing perf artifact's GPU key
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3, RuntimeCommand: "python3 -m vllm serve"},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+	existingPerfExtID := "perf-a100-4"
+
+	// Simulate that perf-a100-4 already exists in the DB (from a previous ingest)
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{
+			Items: []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						ExternalID: &existingPerfExtID,
+					},
+				},
+			},
+			Size: 1,
+		},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			// Nothing should be saved on re-ingest
+			t.Errorf("BatchSave called with %d artifacts, expected 0 (no new artifacts on re-ingest)", len(artifacts))
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// No new artifacts should be created — both the perf artifact and its cold-start
+	// data are already in the DB from the first ingest
+	if count != 0 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 0 (re-ingest should create nothing)", count)
+	}
+}
+
+func TestProcessModelArtifactsBatch_ReIngestMixedExistingAndNew(t *testing.T) {
+	// Simulates re-ingest with a mix: one perf artifact exists in the DB (with cold-start
+	// already merged), and one cold-start has no matching perf artifact at all.
+	tmpDir := t.TempDir()
+
+	// Two perf records
+	perfLines := []string{
+		`{"id":"perf-a100-4","model_id":"test-model","gpu_type":"A100","gpu_count":4,"requests_per_second":100.5}`,
+		`{"id":"perf-h100-1","model_id":"test-model","gpu_type":"H100","gpu_count":1,"requests_per_second":200.0}`,
+	}
+	perfData := strings.Join(perfLines, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3},  // matches existing perf -> skip
+		{GPUType: "H200", GPUCount: 2, ColdStartTimeToLoadSeconds: 300.0},  // no matching perf -> standalone (new)
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	// Only perf-a100-4 exists already. perf-h100-1 is new.
+	existingPerfExtID := "perf-a100-4"
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{
+			Items: []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						ExternalID: &existingPerfExtID,
+					},
+				},
+			},
+			Size: 1,
+		},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 new artifacts:
+	// - perf-h100-1 (new perf, no matching cold-start)
+	// - standalone cold-start for H200|2 (no matching perf)
+	// Should NOT create standalone cold-start for A100|4 (existing perf already has it merged)
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	if len(savedArtifacts) != 2 {
+		t.Fatalf("expected 2 saved artifacts, got %d", len(savedArtifacts))
+	}
+
+	// Verify that no artifact for A100|4 cold-start was created
+	for _, a := range savedArtifacts {
+		extID := a.GetAttributes().ExternalID
+		if extID != nil && *extID == "cold-start-model-1-A100-4" {
+			t.Error("should NOT create standalone cold-start artifact for A100|4 — matching perf artifact already exists in DB")
+		}
+	}
+}
+
+func TestProcessModelArtifactsBatch_ReIngestExistingPerfWithoutGPUFields(t *testing.T) {
+	// Regression test: when re-ingesting, an existing DB performance artifact
+	// that has no gpu_type/gpu_count fields should not pollute the
+	// existingPerfGPUKeys map (gpuKey is ""), so cold-start entries with valid
+	// GPU keys should still create standalone artifacts.
+	tmpDir := t.TempDir()
+
+	// Performance record WITHOUT gpu_type/gpu_count fields
+	perfData := `{"id":"perf-no-gpu","model_id":"test-model","requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	// Cold-start entry for a GPU config — no matching perf artifact
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+	existingPerfExtID := "perf-no-gpu"
+
+	// Simulate that perf-no-gpu already exists in the DB (from a previous ingest)
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{
+			Items: []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						ExternalID: &existingPerfExtID,
+					},
+				},
+			},
+			Size: 1,
+		},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 1 standalone cold-start artifact because:
+	// - perf-no-gpu already exists (skipped), and has no GPU key (gpuKey == "")
+	// - cold-start A100|4 has no matching perf -> standalone
+	if count != 1 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 1", count)
+	}
+
+	if len(savedArtifacts) != 1 {
+		t.Fatalf("expected 1 saved artifact, got %d", len(savedArtifacts))
+	}
+
+	// Verify it's a standalone cold-start artifact
+	extID := savedArtifacts[0].GetAttributes().ExternalID
+	if extID == nil || !strings.HasPrefix(*extID, "cold-start-") {
+		t.Errorf("expected standalone cold-start artifact, got externalID %v", extID)
+	}
+}
+
+func TestProcessModelArtifactsBatch_PerfWithoutGPUFields(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Performance record WITHOUT gpu_type/gpu_count fields
+	perfData := `{"id":"perf-no-gpu","model_id":"test-model","requests_per_second":100.5}` + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "performance.ndjson"), []byte(perfData), 0o644); err != nil {
+		t.Fatalf("failed to write performance.ndjson: %v", err)
+	}
+
+	coldStartMatrix := []coldStartEntry{
+		{GPUType: "A100", GPUCount: 4, ColdStartTimeToLoadSeconds: 587.3},
+	}
+
+	modelID := int32(1)
+	typeID := int32(7)
+
+	var savedArtifacts []models.CatalogMetricsArtifact
+	mockRepo := &mockMetricsArtifactRepo{
+		listResult: &dbmodels.ListWrapper[models.CatalogMetricsArtifact]{},
+		batchSaveFunc: func(artifacts []models.CatalogMetricsArtifact, parentID *int32) ([]models.CatalogMetricsArtifact, error) {
+			savedArtifacts = artifacts
+			return artifacts, nil
+		},
+	}
+
+	count, err := processModelArtifactsBatch(tmpDir, modelID, "test-model", nil, coldStartMatrix, mockRepo, typeID)
+	if err != nil {
+		t.Fatalf("processModelArtifactsBatch() error = %v", err)
+	}
+
+	// Should create 2 artifacts: 1 perf (no merge) + 1 standalone cold-start
+	if count != 2 {
+		t.Errorf("processModelArtifactsBatch() returned count = %d, want 2", count)
+	}
+
+	// Verify standalone cold-start artifact exists (no merge possible)
+	foundStandalone := false
+	for _, a := range savedArtifacts {
+		extID := a.GetAttributes().ExternalID
+		if extID != nil && strings.HasPrefix(*extID, "cold-start-") {
+			foundStandalone = true
+		}
+	}
+	if !foundStandalone {
+		t.Error("expected standalone cold-start artifact when performance record has no gpu_type/gpu_count")
+	}
+}
+
 // mockMetricsArtifactRepo is a minimal mock for CatalogMetricsArtifactRepository used in batch tests
 type mockMetricsArtifactRepo struct {
 	listResult    *dbmodels.ListWrapper[models.CatalogMetricsArtifact]
