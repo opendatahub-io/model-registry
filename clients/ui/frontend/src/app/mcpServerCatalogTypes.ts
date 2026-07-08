@@ -1,5 +1,40 @@
 import { PaginationParams } from '~/app/shared/types/catalogTypes';
 
+export enum MetadataType {
+  INT = 'MetadataIntValue',
+  DOUBLE = 'MetadataDoubleValue',
+  STRING = 'MetadataStringValue',
+  BOOL = 'MetadataBoolValue',
+}
+
+export type MetadataStringProperty = {
+  metadataType: MetadataType.STRING;
+  string_value: string;
+};
+
+export type MetadataBoolProperty = {
+  metadataType: MetadataType.BOOL;
+  bool_value: boolean;
+};
+
+export type MetadataIntProperty = {
+  metadataType: MetadataType.INT;
+  int_value: string;
+};
+
+export type MetadataDoubleProperty = {
+  metadataType: MetadataType.DOUBLE;
+  double_value: number;
+};
+
+export type MetadataProperty =
+  | MetadataStringProperty
+  | MetadataBoolProperty
+  | MetadataIntProperty
+  | MetadataDoubleProperty;
+
+export type McpCustomProperties = Record<string, MetadataProperty>;
+
 export type McpDeploymentMode = 'local' | 'remote';
 
 export type McpTransportType = 'stdio' | 'sse' | 'http';
@@ -148,6 +183,7 @@ export type McpServer = {
   deploymentMode?: McpDeploymentMode;
   endpoints?: McpEndpoints;
   runtimeMetadata?: McpRuntimeMetadata;
+  customProperties?: McpCustomProperties;
 };
 
 export type McpServerList = PaginationParams & { items?: McpServer[] };

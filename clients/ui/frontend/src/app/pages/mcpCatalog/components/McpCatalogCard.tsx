@@ -16,6 +16,8 @@ import { Link, type LinkProps } from 'react-router-dom';
 import type { McpServer } from '~/app/mcpServerCatalogTypes';
 import {
   getSecurityIndicatorLabels,
+  getSupportTierDisplayName,
+  getSupportTierFromCustomProperties,
   isMcpRemoteDeploymentMode,
 } from '~/app/pages/mcpCatalog/utils/mcpCatalogUtils';
 import {
@@ -41,6 +43,7 @@ const SecurityTag: React.FC<{ label: string }> = ({ label }) => (
 const McpCatalogCard: React.FC<McpCatalogCardProps> = React.memo(({ server }) => {
   const securityLabels = getSecurityIndicatorLabels(server.securityIndicators);
   const serverId = server.id;
+  const supportTier = getSupportTierFromCustomProperties(server.customProperties);
 
   return (
     <Card isFullHeight data-testid={`mcp-catalog-card-${serverId}`}>
@@ -68,13 +71,24 @@ const McpCatalogCard: React.FC<McpCatalogCardProps> = React.memo(({ server }) =>
               </span>
             )}
           </FlexItem>
-          {isMcpRemoteDeploymentMode(server.deploymentMode) && (
-            <FlexItem>
-              <Label data-testid={`mcp-catalog-card-deployment-${serverId}`}>
-                {getMcpCardIconConfig(McpCardIconType.REMOTE).label}
-              </Label>
-            </FlexItem>
-          )}
+          <FlexItem>
+            <Flex gap={{ default: 'gapSm' }}>
+              {supportTier && (
+                <FlexItem>
+                  <Label data-testid={`mcp-catalog-card-support-tier-${serverId}`}>
+                    {getSupportTierDisplayName(supportTier)}
+                  </Label>
+                </FlexItem>
+              )}
+              {isMcpRemoteDeploymentMode(server.deploymentMode) && (
+                <FlexItem>
+                  <Label data-testid={`mcp-catalog-card-deployment-${serverId}`}>
+                    {getMcpCardIconConfig(McpCardIconType.REMOTE).label}
+                  </Label>
+                </FlexItem>
+              )}
+            </Flex>
+          </FlexItem>
         </Flex>
         <CardTitle>
           <Button

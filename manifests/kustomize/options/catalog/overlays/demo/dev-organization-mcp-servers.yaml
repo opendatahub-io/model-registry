@@ -104,6 +104,9 @@ mcp_servers:
       readOnlyTools:
         metadataType: MetadataBoolValue
         bool_value: true
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "partnerSupported"
     createTimeSinceEpoch: "1746316800000"
     lastUpdateTimeSinceEpoch: "1746316800000"
 
@@ -212,6 +215,9 @@ mcp_servers:
       readOnlyTools:
         metadataType: MetadataBoolValue
         bool_value: false
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "partnerSupported"
     createTimeSinceEpoch: "1743724800000"
     lastUpdateTimeSinceEpoch: "1743724800000"
 
@@ -276,6 +282,9 @@ mcp_servers:
       notifications:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "partnerSupported"
     createTimeSinceEpoch: "1736337600000"
     lastUpdateTimeSinceEpoch: "1736337600000"
 
@@ -359,6 +368,9 @@ mcp_servers:
       agile:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "partnerSupported"
     createTimeSinceEpoch: "1736596800000"
     lastUpdateTimeSinceEpoch: "1736596800000"
 
@@ -421,5 +433,8 @@ mcp_servers:
       infrastructure:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "partnerSupported"
     createTimeSinceEpoch: "1736424000000"
     lastUpdateTimeSinceEpoch: "1736424000000"

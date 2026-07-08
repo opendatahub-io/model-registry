@@ -1,9 +1,11 @@
 import type { McpCatalogFiltersState } from '~/app/pages/mcpCatalog/types/mcpCatalogFilterOptions';
 import { BACKEND_TO_FRONTEND_FILTER_KEY, MCP_FILTER_KEYS } from '~/app/pages/mcpCatalog/const';
-import type {
-  McpDeploymentMode,
-  McpEndpoints,
-  McpSecurityIndicator,
+import {
+  MetadataType,
+  type McpCustomProperties,
+  type McpDeploymentMode,
+  type McpEndpoints,
+  type McpSecurityIndicator,
 } from '~/app/mcpServerCatalogTypes';
 import { stringFiltersToFilterQuery } from '~/app/shared/components/catalog';
 
@@ -74,3 +76,37 @@ const FRONTEND_TO_BACKEND_FILTER_KEY: Record<string, string> = Object.fromEntrie
 export function mcpFiltersToFilterQuery(filters: McpCatalogFiltersState): string {
   return stringFiltersToFilterQuery(filters, FRONTEND_TO_BACKEND_FILTER_KEY);
 }
+
+export enum SupportTier {
+  COMMUNITY = 'communitySupported',
+  PARTNER = 'partnerSupported',
+  RED_HAT = 'redHatSupported',
+}
+
+const SUPPORT_TIER_DISPLAY: Record<SupportTier, string> = {
+  [SupportTier.COMMUNITY]: 'Community Supported',
+  [SupportTier.PARTNER]: 'Partner Supported',
+  [SupportTier.RED_HAT]: 'Red Hat Supported',
+};
+
+
+export const getSupportTierFromCustomProperties = (
+  customProperties?: McpCustomProperties,
+): SupportTier | undefined => {
+  if (!customProperties?.supportTier) {
+    return undefined;
+  }
+  const prop = customProperties.supportTier;
+  if (prop.metadataType !== MetadataType.STRING) {
+    return undefined;
+  }
+  const value = prop.string_value;
+  if (Object.values<string>(SupportTier).includes(value)) {
+    return value as SupportTier;
+  }
+  return undefined;
+};
+
+export const getSupportTierDisplayName = (tier: SupportTier): string =>
+  SUPPORT_TIER_DISPLAY[tier];
+

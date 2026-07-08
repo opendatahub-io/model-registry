@@ -77,6 +77,9 @@ mcp_servers:
       alerting:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "communitySupported"
     createTimeSinceEpoch: "1736510400000"
     lastUpdateTimeSinceEpoch: "1736510400000"
 
@@ -173,6 +176,9 @@ mcp_servers:
       orchestration:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "communitySupported"
     createTimeSinceEpoch: "1736683200000"
     lastUpdateTimeSinceEpoch: "1736683200000"
 
@@ -237,6 +243,9 @@ mcp_servers:
       logging:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "communitySupported"
     createTimeSinceEpoch: "1734696000000"
     lastUpdateTimeSinceEpoch: "1734696000000"
 
@@ -279,3 +288,6 @@ mcp_servers:
       workspace:
         metadataType: MetadataStringValue
         string_value: ""
+      supportTier:
+        metadataType: MetadataStringValue
+        string_value: "communitySupported"

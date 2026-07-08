@@ -3,7 +3,7 @@ import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import McpCatalogCard from '~/app/pages/mcpCatalog/components/McpCatalogCard';
-import type { McpServer } from '~/app/mcpServerCatalogTypes';
+import { MetadataType, type McpServer } from '~/app/mcpServerCatalogTypes';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <MemoryRouter>{children}</MemoryRouter>
@@ -96,5 +96,91 @@ describe('McpCatalogCard', () => {
   it('renders default icon when no logo is provided', () => {
     render(<McpCatalogCard server={mockServer} />, { wrapper });
     expect(screen.queryByTestId('mcp-catalog-card-logo-1')).not.toBeInTheDocument();
+  });
+
+  it('renders support tier label when customProperties.supportTier is present', () => {
+    render(
+      <McpCatalogCard
+        server={{
+          ...mockServer,
+          id: '6',
+          customProperties: {
+            supportTier: {
+              metadataType: MetadataType.STRING,
+              string_value: 'partnerSupported',
+            },
+          },
+        }}
+      />,
+      { wrapper },
+    );
+    const tierLabel = screen.getByTestId('mcp-catalog-card-support-tier-6');
+    expect(tierLabel).toHaveTextContent('Partner Supported');
+  });
+
+  it('renders Red Hat Supported label for redHatSupported tier', () => {
+    render(
+      <McpCatalogCard
+        server={{
+          ...mockServer,
+          id: '7',
+          customProperties: {
+            supportTier: {
+              metadataType: MetadataType.STRING,
+              string_value: 'redHatSupported',
+            },
+          },
+        }}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByTestId('mcp-catalog-card-support-tier-7')).toHaveTextContent(
+      'Red Hat Supported',
+    );
+  });
+
+  it('renders Community Supported label for communitySupported tier', () => {
+    render(
+      <McpCatalogCard
+        server={{
+          ...mockServer,
+          id: '8',
+          customProperties: {
+            supportTier: {
+              metadataType: MetadataType.STRING,
+              string_value: 'communitySupported',
+            },
+          },
+        }}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByTestId('mcp-catalog-card-support-tier-8')).toHaveTextContent(
+      'Community Supported',
+    );
+  });
+
+  it('does not render support tier label when customProperties is absent', () => {
+    render(<McpCatalogCard server={mockServer} />, { wrapper });
+    expect(screen.queryByTestId('mcp-catalog-card-support-tier-1')).not.toBeInTheDocument();
+  });
+
+  it('does not render support tier label for unknown tier values', () => {
+    render(
+      <McpCatalogCard
+        server={{
+          ...mockServer,
+          id: '9',
+          customProperties: {
+            supportTier: {
+              metadataType: MetadataType.STRING,
+              string_value: 'unknownTier',
+            },
+          },
+        }}
+      />,
+      { wrapper },
+    );
+    expect(screen.queryByTestId('mcp-catalog-card-support-tier-9')).not.toBeInTheDocument();
   });
 });
