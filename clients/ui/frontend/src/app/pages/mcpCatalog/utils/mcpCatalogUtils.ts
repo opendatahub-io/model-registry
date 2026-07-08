@@ -89,6 +89,8 @@ const SUPPORT_TIER_DISPLAY: Record<SupportTier, string> = {
   [SupportTier.RED_HAT]: 'Red Hat Supported',
 };
 
+const isSupportTier = (value: string): value is SupportTier =>
+  Object.values<string>(SupportTier).includes(value);
 
 export const getSupportTierFromCustomProperties = (
   customProperties?: McpCustomProperties,
@@ -100,13 +102,10 @@ export const getSupportTierFromCustomProperties = (
   if (prop.metadataType !== MetadataType.STRING) {
     return undefined;
   }
-  const value = prop.string_value;
-  if (Object.values<string>(SupportTier).includes(value)) {
-    return value as SupportTier;
+  if (isSupportTier(prop.string_value)) {
+    return prop.string_value;
   }
   return undefined;
 };
 
-export const getSupportTierDisplayName = (tier: SupportTier): string =>
-  SUPPORT_TIER_DISPLAY[tier];
-
+export const getSupportTierDisplayName = (tier: SupportTier): string => SUPPORT_TIER_DISPLAY[tier];
