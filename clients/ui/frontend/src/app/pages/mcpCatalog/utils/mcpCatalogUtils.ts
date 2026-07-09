@@ -89,8 +89,9 @@ const SUPPORT_TIER_DISPLAY: Record<SupportTier, string> = {
   [SupportTier.RED_HAT]: 'Red Hat Supported',
 };
 
-const isSupportTier = (value: string): value is SupportTier =>
-  Object.values<string>(SupportTier).includes(value);
+const SUPPORT_TIER_VALUES = new Set<string>(Object.values(SupportTier));
+
+const isSupportTier = (value: string): value is SupportTier => SUPPORT_TIER_VALUES.has(value);
 
 export const getSupportTierFromCustomProperties = (
   customProperties?: McpCustomProperties,

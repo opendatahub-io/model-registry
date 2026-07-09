@@ -99,66 +99,24 @@ describe('McpCatalogCard', () => {
     expect(screen.queryByTestId('mcp-catalog-card-logo-1')).not.toBeInTheDocument();
   });
 
-  it('renders support tier label when customProperties.supportTier is present', () => {
+  it.each([
+    ['partnerSupported', 'Partner Supported', '6'],
+    ['redHatSupported', 'Red Hat Supported', '7'],
+    ['communitySupported', 'Community Supported', '8'],
+  ])('renders %s as "%s"', (tier, display, id) => {
     render(
       <McpCatalogCard
         server={{
           ...mockServer,
-          id: '6',
+          id,
           customProperties: {
-            supportTier: {
-              metadataType: MetadataType.STRING,
-              string_value: 'partnerSupported',
-            },
+            supportTier: { metadataType: MetadataType.STRING, string_value: tier },
           },
         }}
       />,
       { wrapper },
     );
-    const tierLabel = screen.getByTestId('mcp-catalog-card-support-tier-6');
-    expect(tierLabel).toHaveTextContent('Partner Supported');
-  });
-
-  it('renders Red Hat Supported label for redHatSupported tier', () => {
-    render(
-      <McpCatalogCard
-        server={{
-          ...mockServer,
-          id: '7',
-          customProperties: {
-            supportTier: {
-              metadataType: MetadataType.STRING,
-              string_value: 'redHatSupported',
-            },
-          },
-        }}
-      />,
-      { wrapper },
-    );
-    expect(screen.getByTestId('mcp-catalog-card-support-tier-7')).toHaveTextContent(
-      'Red Hat Supported',
-    );
-  });
-
-  it('renders Community Supported label for communitySupported tier', () => {
-    render(
-      <McpCatalogCard
-        server={{
-          ...mockServer,
-          id: '8',
-          customProperties: {
-            supportTier: {
-              metadataType: MetadataType.STRING,
-              string_value: 'communitySupported',
-            },
-          },
-        }}
-      />,
-      { wrapper },
-    );
-    expect(screen.getByTestId('mcp-catalog-card-support-tier-8')).toHaveTextContent(
-      'Community Supported',
-    );
+    expect(screen.getByTestId(`mcp-catalog-card-support-tier-${id}`)).toHaveTextContent(display);
   });
 
   it('does not render support tier label when customProperties is absent', () => {
@@ -183,6 +141,22 @@ describe('McpCatalogCard', () => {
       { wrapper },
     );
     expect(screen.queryByTestId('mcp-catalog-card-support-tier-9')).not.toBeInTheDocument();
+  });
+
+  it('does not render support tier label when metadataType is not STRING', () => {
+    render(
+      <McpCatalogCard
+        server={{
+          ...mockServer,
+          id: '10',
+          customProperties: {
+            supportTier: { metadataType: MetadataType.BOOL, bool_value: true },
+          },
+        }}
+      />,
+      { wrapper },
+    );
+    expect(screen.queryByTestId('mcp-catalog-card-support-tier-10')).not.toBeInTheDocument();
   });
 
   it('renders displayName when provided', () => {
