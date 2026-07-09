@@ -154,7 +154,7 @@ func applyAgentListFilters(query *gorm.DB, listOptions *models.AgentListOptions)
 	contextTable := utils.GetTableName(query.Statement.DB, &schema.Context{})
 
 	if listOptions.Name != nil {
-		query = query.Where(fmt.Sprintf("%s.name LIKE ?", contextTable), listOptions.Name)
+		query = query.Where(fmt.Sprintf("%s.name LIKE ?", contextTable), fmt.Sprintf("%%:%s", *listOptions.Name))
 	}
 
 	if listOptions.Query != nil && *listOptions.Query != "" {

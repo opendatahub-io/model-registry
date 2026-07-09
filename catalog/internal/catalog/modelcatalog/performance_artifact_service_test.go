@@ -639,6 +639,168 @@ func TestGetMinimumRecommendedLatency(t *testing.T) {
 	assert.Equal(t, 150.0, *minLatency) // Expected minimum from test data
 }
 
+func TestGetArtifacts_WithColdStartAndRuntimeCommand(t *testing.T) {
+	mockArtifactRepo := &mockPerfArtifactRepo{}
+	service := NewPerformanceArtifactService(mockArtifactRepo, nil)
+
+	id1 := int32(1)
+	id2 := int32(2)
+
+	runtimeCmd := "python3 -m vllm.entrypoints.openai.api_server --model provider1-granite/granite-3.1-8b-instruct --tensor-parallel-size 8"
+	testArtifacts := []sharedmodels.CatalogArtifact{
+		{
+			CatalogMetricsArtifact: &dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:        new("perf-with-coldstart"),
+					MetricsType: models.MetricsTypePerformance,
+				},
+				Properties: &[]dbmodels.Properties{},
+				CustomProperties: &[]dbmodels.Properties{
+					dbmodels.NewDoubleProperty("requests_per_second", 150.0, true),
+					dbmodels.NewDoubleProperty("ttft_p90", 40.0, true),
+					dbmodels.NewIntProperty("hardware_count", 8, true),
+					dbmodels.NewStringProperty("hardware_type", "A100", true),
+					dbmodels.NewDoubleProperty("cold_start_time_to_load_seconds", 85.2, true),
+					dbmodels.NewStringProperty("runtime_command", runtimeCmd, true),
+				},
+			},
+		},
+		{
+			CatalogMetricsArtifact: &dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:        new("perf-without-coldstart"),
+					MetricsType: models.MetricsTypePerformance,
+				},
+				Properties: &[]dbmodels.Properties{},
+				CustomProperties: &[]dbmodels.Properties{
+					dbmodels.NewDoubleProperty("requests_per_second", 200.0, true),
+					dbmodels.NewDoubleProperty("ttft_p90", 55.0, true),
+					dbmodels.NewIntProperty("hardware_count", 4, true),
+					dbmodels.NewStringProperty("hardware_type", "H100", true),
+				},
+			},
+		},
+	}
+	testArtifacts[0].CatalogMetricsArtifact.SetID(id1)
+	testArtifacts[1].CatalogMetricsArtifact.SetID(id2)
+
+	mockArtifactRepo.On("List", mock.AnythingOfType("models.CatalogArtifactListOptions")).
+		Return(&dbmodels.ListWrapper[sharedmodels.CatalogArtifact]{Items: testArtifacts}, nil)
+
+	params := PerformanceArtifactParams{
+		ModelID:         123,
+		TargetRPS:       300,
+		Recommendations: false,
+		PageSize:        10,
+	}
+
+	result, err := service.GetArtifacts(params)
+
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+
+	// Verify cold_start and runtime_command are preserved on the first artifact
+	props := result.Items[0].GetCustomProperties()
+	var foundColdStart, foundRuntimeCmd bool
+	for _, prop := range *props {
+		if prop.Name == "cold_start_time_to_load_seconds" {
+			foundColdStart = true
+			require.NotNil(t, prop.DoubleValue)
+			assert.Equal(t, 85.2, *prop.DoubleValue)
+		}
+		if prop.Name == "runtime_command" {
+			foundRuntimeCmd = true
+			require.NotNil(t, prop.StringValue)
+			assert.Equal(t, runtimeCmd, *prop.StringValue)
+		}
+	}
+	assert.True(t, foundColdStart, "cold_start_time_to_load_seconds should be preserved")
+	assert.True(t, foundRuntimeCmd, "runtime_command should be preserved")
+
+	// Verify replicas are calculated correctly for both artifacts
+	replicas1 := service.extractCustomPropertiesIntValue(result.Items[0].GetCustomProperties(), "replicas", 0)
+	assert.Equal(t, int32(2), replicas1) // ceil(300/150) = 2
+
+	replicas2 := service.extractCustomPropertiesIntValue(result.Items[1].GetCustomProperties(), "replicas", 0)
+	assert.Equal(t, int32(2), replicas2) // ceil(300/200) = 2
+}
+
+func TestProcessArtifacts_ColdStartPreservedWithRecommendations(t *testing.T) {
+	service := NewPerformanceArtifactService(nil, nil)
+
+	id1 := int32(1)
+	id2 := int32(2)
+	id3 := int32(3)
+
+	runtimeCmd1 := "vllm serve provider1-granite/granite-3.1-8b-instruct --tensor-parallel-size 2"
+	runtimeCmd2 := "vllm serve provider1-granite/granite-3.1-8b-instruct --tensor-parallel-size 8"
+	artifacts := []sharedmodels.CatalogMetricsArtifact{
+		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
+			Attributes: &models.CatalogMetricsArtifactAttributes{
+				Name: new("config-a100-80-2gpu"),
+			},
+			CustomProperties: &[]dbmodels.Properties{
+				dbmodels.NewStringProperty("hardware_type", "A100-80", true),
+				dbmodels.NewIntProperty("hardware_count", 2, true),
+				dbmodels.NewDoubleProperty("requests_per_second", 25.0, true),
+				dbmodels.NewDoubleProperty("ttft_p90", 38.7, true),
+				dbmodels.NewDoubleProperty("cold_start_time_to_load_seconds", 73.6, true),
+				dbmodels.NewStringProperty("runtime_command", runtimeCmd1, true),
+			},
+		},
+		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
+			Attributes: &models.CatalogMetricsArtifactAttributes{
+				Name: new("config-a100-8gpu"),
+			},
+			CustomProperties: &[]dbmodels.Properties{
+				dbmodels.NewStringProperty("hardware_type", "A100", true),
+				dbmodels.NewIntProperty("hardware_count", 8, true),
+				dbmodels.NewDoubleProperty("requests_per_second", 15.0, true),
+				dbmodels.NewDoubleProperty("ttft_p90", 58.5, true),
+				dbmodels.NewDoubleProperty("cold_start_time_to_load_seconds", 85.2, true),
+				dbmodels.NewStringProperty("runtime_command", runtimeCmd2, true),
+			},
+		},
+		// Dominated: slower latency AND higher cost than config-a100-80-2gpu
+		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
+			Attributes: &models.CatalogMetricsArtifactAttributes{
+				Name: new("config-dominated"),
+			},
+			CustomProperties: &[]dbmodels.Properties{
+				dbmodels.NewStringProperty("hardware_type", "A100-80", true),
+				dbmodels.NewIntProperty("hardware_count", 4, true),
+				dbmodels.NewDoubleProperty("requests_per_second", 25.0, true),
+				dbmodels.NewDoubleProperty("ttft_p90", 45.0, true),
+				dbmodels.NewDoubleProperty("cold_start_time_to_load_seconds", 95.0, true),
+				dbmodels.NewStringProperty("runtime_command", runtimeCmd1, true),
+			},
+		},
+	}
+
+	artifacts[0].SetID(id1)
+	artifacts[1].SetID(id2)
+	artifacts[2].SetID(id3)
+
+	params := PerformanceArtifactParams{
+		TargetRPS:       50,
+		Recommendations: true,
+	}
+
+	result := service.processArtifacts(artifacts, params)
+
+	// With recommendations, dominated artifacts are filtered out
+	require.Less(t, len(result), 3, "dominated artifact should be filtered")
+
+	// Verify cold_start and runtime_command survive on remaining artifacts
+	for _, artifact := range result {
+		coldStart := service.extractCustomPropertiesDoubleValue(artifact.GetCustomProperties(), "cold_start_time_to_load_seconds", 0)
+		assert.Greater(t, coldStart, 0.0, "cold_start_time_to_load_seconds should be preserved")
+
+		rtCmd := service.extractCustomPropertiesStringValue(artifact.GetCustomProperties(), "runtime_command")
+		assert.NotEmpty(t, rtCmd, "runtime_command should be preserved")
+	}
+}
+
 func TestGetMinimumRecommendedLatency_NoArtifacts(t *testing.T) {
 	// Mock repositories for testing
 	mockArtifactRepo := &mockPerfArtifactRepo{}
@@ -669,226 +831,4 @@ func TestGetMinimumRecommendedLatency_NoArtifacts(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Nil(t, minLatency) // Should return nil for models without data
-}
-
-func TestPartitionBySubType(t *testing.T) {
-	service := NewPerformanceArtifactService(nil, nil)
-
-	id1 := int32(1)
-	id2 := int32(2)
-	id3 := int32(3)
-
-	coldStart := "cold-start"
-	artifacts := []sharedmodels.CatalogMetricsArtifact{
-		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-			Attributes: &models.CatalogMetricsArtifactAttributes{
-				Name: new("perf-benchmark"),
-			},
-			CustomProperties: &[]dbmodels.Properties{
-				dbmodels.NewDoubleProperty("requests_per_second", 100.0, true),
-				dbmodels.NewDoubleProperty("ttft_p90", 50.0, true),
-				dbmodels.NewIntProperty("hardware_count", 2, true),
-				dbmodels.NewStringProperty("hardware_type", "A100", true),
-			},
-		},
-		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-			Attributes: &models.CatalogMetricsArtifactAttributes{
-				Name: new("cold-start-entry"),
-			},
-			CustomProperties: &[]dbmodels.Properties{
-				{Name: "performance_sub_type", StringValue: &coldStart},
-				dbmodels.NewStringProperty("gpu_type", "A100", true),
-				dbmodels.NewIntProperty("gpu_count", 2, true),
-			},
-		},
-		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-			Attributes: &models.CatalogMetricsArtifactAttributes{
-				Name: new("another-benchmark"),
-			},
-			CustomProperties: &[]dbmodels.Properties{
-				dbmodels.NewDoubleProperty("requests_per_second", 200.0, true),
-				dbmodels.NewDoubleProperty("ttft_p90", 30.0, true),
-				dbmodels.NewIntProperty("hardware_count", 4, true),
-				dbmodels.NewStringProperty("hardware_type", "H100", true),
-			},
-		},
-	}
-	artifacts[0].SetID(id1)
-	artifacts[1].SetID(id2)
-	artifacts[2].SetID(id3)
-
-	benchmarks, coldStarts := service.partitionBySubType(artifacts)
-
-	require.Len(t, benchmarks, 2)
-	require.Len(t, coldStarts, 1)
-	assert.Equal(t, id1, *benchmarks[0].GetID())
-	assert.Equal(t, id3, *benchmarks[1].GetID())
-	assert.Equal(t, id2, *coldStarts[0].GetID())
-}
-
-func TestPartitionBySubType_AllColdStart(t *testing.T) {
-	service := NewPerformanceArtifactService(nil, nil)
-
-	coldStart := "cold-start"
-	id1 := int32(1)
-	artifacts := []sharedmodels.CatalogMetricsArtifact{
-		&dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-			Attributes: &models.CatalogMetricsArtifactAttributes{
-				Name: new("cold-start-only"),
-			},
-			CustomProperties: &[]dbmodels.Properties{
-				{Name: "performance_sub_type", StringValue: &coldStart},
-				dbmodels.NewStringProperty("gpu_type", "A100", true),
-				dbmodels.NewIntProperty("gpu_count", 1, true),
-			},
-		},
-	}
-	artifacts[0].SetID(id1)
-
-	benchmarks, coldStarts := service.partitionBySubType(artifacts)
-	require.Empty(t, benchmarks)
-	require.Len(t, coldStarts, 1)
-}
-
-func TestGetArtifacts_OnlyColdStartArtifacts(t *testing.T) {
-	mockArtifactRepo := &mockPerfArtifactRepo{}
-	service := NewPerformanceArtifactService(mockArtifactRepo, nil)
-
-	coldStart := "cold-start"
-	id1 := int32(1)
-	testArtifacts := []sharedmodels.CatalogArtifact{
-		{
-			CatalogMetricsArtifact: &dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-				Attributes: &models.CatalogMetricsArtifactAttributes{
-					Name:        new("cold-start-artifact"),
-					MetricsType: models.MetricsTypePerformance,
-				},
-				Properties: &[]dbmodels.Properties{},
-				CustomProperties: &[]dbmodels.Properties{
-					{Name: "performance_sub_type", StringValue: &coldStart},
-					dbmodels.NewStringProperty("gpu_type", "A100", true),
-					dbmodels.NewIntProperty("gpu_count", 2, true),
-				},
-			},
-		},
-	}
-	testArtifacts[0].CatalogMetricsArtifact.SetID(id1)
-
-	mockArtifactRepo.On("List", mock.AnythingOfType("models.CatalogArtifactListOptions")).
-		Return(&dbmodels.ListWrapper[sharedmodels.CatalogArtifact]{
-			Items: testArtifacts,
-		}, nil)
-
-	params := PerformanceArtifactParams{
-		ModelID:         123,
-		TargetRPS:       100,
-		Recommendations: false,
-		PageSize:        10,
-	}
-
-	result, err := service.GetArtifacts(params)
-
-	require.NoError(t, err, "should not error when only cold-start artifacts are present")
-	require.Len(t, result.Items, 1, "cold-start artifacts should be included in results")
-	assert.Equal(t, id1, *result.Items[0].GetID())
-}
-
-func TestGetArtifacts_MixedBenchmarkAndColdStart(t *testing.T) {
-	mockArtifactRepo := &mockPerfArtifactRepo{}
-	service := NewPerformanceArtifactService(mockArtifactRepo, nil)
-
-	coldStart := "cold-start"
-	id1 := int32(1)
-	id2 := int32(2)
-	id3 := int32(3)
-
-	// Repository returns: benchmark, cold-start, benchmark (interleaved)
-	testArtifacts := []sharedmodels.CatalogArtifact{
-		{
-			CatalogMetricsArtifact: &dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-				Attributes: &models.CatalogMetricsArtifactAttributes{
-					Name:        new("benchmark-1"),
-					MetricsType: models.MetricsTypePerformance,
-				},
-				Properties: &[]dbmodels.Properties{},
-				CustomProperties: &[]dbmodels.Properties{
-					dbmodels.NewDoubleProperty("requests_per_second", 150.0, true),
-					dbmodels.NewDoubleProperty("ttft_p90", 40.0, true),
-					dbmodels.NewIntProperty("hardware_count", 2, true),
-					dbmodels.NewStringProperty("hardware_type", "A100", true),
-				},
-			},
-		},
-		{
-			CatalogMetricsArtifact: &dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-				Attributes: &models.CatalogMetricsArtifactAttributes{
-					Name:        new("cold-start-artifact"),
-					MetricsType: models.MetricsTypePerformance,
-				},
-				Properties: &[]dbmodels.Properties{},
-				CustomProperties: &[]dbmodels.Properties{
-					{Name: "performance_sub_type", StringValue: &coldStart},
-					dbmodels.NewStringProperty("gpu_type", "A100", true),
-					dbmodels.NewIntProperty("gpu_count", 2, true),
-				},
-			},
-		},
-		{
-			CatalogMetricsArtifact: &dbmodels.BaseEntity[models.CatalogMetricsArtifactAttributes]{
-				Attributes: &models.CatalogMetricsArtifactAttributes{
-					Name:        new("benchmark-2"),
-					MetricsType: models.MetricsTypePerformance,
-				},
-				Properties: &[]dbmodels.Properties{},
-				CustomProperties: &[]dbmodels.Properties{
-					dbmodels.NewDoubleProperty("requests_per_second", 300.0, true),
-					dbmodels.NewDoubleProperty("ttft_p90", 80.0, true),
-					dbmodels.NewIntProperty("hardware_count", 4, true),
-					dbmodels.NewStringProperty("hardware_type", "A100", true),
-				},
-			},
-		},
-	}
-	testArtifacts[0].CatalogMetricsArtifact.SetID(id1)
-	testArtifacts[1].CatalogMetricsArtifact.SetID(id2)
-	testArtifacts[2].CatalogMetricsArtifact.SetID(id3)
-
-	mockArtifactRepo.On("List", mock.AnythingOfType("models.CatalogArtifactListOptions")).
-		Return(&dbmodels.ListWrapper[sharedmodels.CatalogArtifact]{
-			Items: testArtifacts,
-		}, nil)
-
-	params := PerformanceArtifactParams{
-		ModelID:         123,
-		TargetRPS:       300,
-		Recommendations: false,
-		PageSize:        10,
-	}
-
-	result, err := service.GetArtifacts(params)
-
-	require.NoError(t, err, "should handle mixed artifact types without error")
-	require.Len(t, result.Items, 3, "all artifacts should be returned")
-
-	// Verify order matches repository order: benchmark-1, cold-start, benchmark-2
-	assert.Equal(t, id1, *result.Items[0].GetID())
-	assert.Equal(t, id2, *result.Items[1].GetID())
-	assert.Equal(t, id3, *result.Items[2].GetID())
-
-	// Benchmark artifact should have targetRPS calculations added
-	benchProps := result.Items[0].GetCustomProperties()
-	var hasReplicas bool
-	for _, prop := range *benchProps {
-		if prop.Name == "replicas" {
-			hasReplicas = true
-			require.Equal(t, int32(2), *prop.IntValue) // ceil(300/150) = 2
-		}
-	}
-	assert.True(t, hasReplicas, "benchmark artifact should have replicas calculated")
-
-	// Cold-start artifact should NOT have replicas added
-	coldProps := result.Items[1].GetCustomProperties()
-	for _, prop := range *coldProps {
-		assert.NotEqual(t, "replicas", prop.Name, "cold-start artifact should not have replicas")
-	}
 }

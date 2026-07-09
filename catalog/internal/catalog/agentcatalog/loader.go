@@ -130,8 +130,28 @@ func (l *AgentLoader) loadFromYAML(ctx context.Context, sourceID string, source 
 			defer l.state.WriteComplete()
 
 			entity := yamlAgentToEntity(ya, sourceID)
-			if _, err := l.services.AgentRepository.Save(entity); err != nil {
+			saved, err := l.services.AgentRepository.Save(entity)
+			if err != nil {
 				glog.Errorf("error saving agent %s from source %s: %v", ya.Name, sourceID, err)
+				return
+			}
+
+			agentID := saved.GetID()
+			if agentID == nil {
+				glog.Errorf("saved agent %s has no ID", ya.Name)
+				return
+			}
+
+			if l.services.AgentTemplateArtifactRepository != nil && len(ya.Templates) > 0 {
+				if err := l.services.AgentTemplateArtifactRepository.DeleteByParentID(*agentID); err != nil {
+					glog.Errorf("error deleting existing template artifacts for agent %s: %v", ya.Name, err)
+				}
+				for _, tmpl := range ya.Templates {
+					tmplEntity := yamlTemplateToEntity(tmpl, ya.Name, sourceID)
+					if _, err := l.services.AgentTemplateArtifactRepository.Save(tmplEntity, agentID); err != nil {
+						glog.Errorf("error saving template artifact for agent %s: %v", ya.Name, err)
+					}
+				}
 			}
 		}()
 	}
@@ -184,6 +204,13 @@ func (l *AgentLoader) updateSources(path string, config *basecatalog.SourceConfi
 		source.Origin = path
 		sources[source.GetId()] = source
 		glog.Infof("loaded agent source %s of type %s", source.GetId(), source.Type)
+	}
+
+	if config.NamedQueries != nil {
+		filtered := basecatalog.FilterNamedQueriesByAssetType(config.NamedQueries, basecatalog.AssetTypeAgents)
+		if len(filtered) > 0 {
+			return l.Sources.MergeWithNamedQueries(path, sources, filtered)
+		}
 	}
 
 	return l.Sources.Merge(path, sources)

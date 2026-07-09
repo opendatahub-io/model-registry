@@ -80,10 +80,10 @@ class ModelRegistry:
     def __init__(  # noqa: C901
         self,
         server_address: str,
-        port: int = 443,
+        port: int | None = None,
         *,
         author: str,
-        is_secure: bool = True,
+        is_secure: bool | None = None,
         user_token: str | None = None,
         user_token_envvar: str | None = None,
         custom_ca: str | None = None,
@@ -95,11 +95,12 @@ class ModelRegistry:
 
         Args:
             server_address: Server address.
-            port: Server port. Defaults to 443.
+            port: Server port. Inferred from URL scheme if not provided;
+                defaults to 8080 for http:// URLs and 443 otherwise.
 
         Keyword Args:
             author: Name of the author.
-            is_secure: Whether to use a secure connection. Defaults to True.
+            is_secure: Whether to use a secure connection. Inferred from URL scheme if not provided; defaults to True.
             user_token: The PEM-encoded user token as a string.
             user_token_envvar: Environment variable to read the user token from if it's not passed as an arg. Defaults to KF_PIPELINES_SA_TOKEN_PATH.
             custom_ca: Path to the PEM-encoded root certificates as a string.
@@ -128,6 +129,22 @@ class ModelRegistry:
             if not user_token:
                 warn("User access token is missing", stacklevel=2)
 
+        from urllib.parse import urlparse
+
+        parsed = urlparse(server_address)
+        if parsed.scheme in ("http", "https"):
+            if parsed.port:
+                port = parsed.port
+            elif port is None:
+                port = 8080 if parsed.scheme == "http" else 443
+            # Infer is_secure from scheme only if user didn't explicitly pass it
+            if is_secure is None:
+                is_secure = parsed.scheme == "https"
+        elif port is None:
+            port = 443
+        # Fall back to secure by default if still unset
+        if is_secure is None:
+            is_secure = True
         self.hint_server_address_port(server_address, port)
         if is_secure:
             if not custom_ca and custom_ca_envvar and (cert := os.getenv(custom_ca_envvar)):

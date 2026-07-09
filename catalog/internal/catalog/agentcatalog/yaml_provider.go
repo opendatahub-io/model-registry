@@ -24,6 +24,11 @@ type yamlAgentArtifact struct {
 	URI string `yaml:"uri" json:"uri"`
 }
 
+type yamlAgentTemplate struct {
+	Name    *string `yaml:"name,omitempty" json:"name,omitempty"`
+	Content string  `yaml:"content" json:"content"`
+}
+
 type yamlAgent struct {
 	Name             string                              `yaml:"name" json:"name"`
 	ExternalID       *string                             `yaml:"externalId,omitempty" json:"externalId,omitempty"`
@@ -31,14 +36,12 @@ type yamlAgent struct {
 	Description      *string                             `yaml:"description,omitempty" json:"description,omitempty"`
 	Readme           *string                             `yaml:"readme,omitempty" json:"readme,omitempty"`
 	Framework        *string                             `yaml:"framework,omitempty" json:"framework,omitempty"`
-	AgentType        *string                             `yaml:"agentType,omitempty" json:"agentType,omitempty"`
-	Tags             []string                            `yaml:"tags,omitempty" json:"tags,omitempty"`
-	Models           []string                            `yaml:"models,omitempty" json:"models,omitempty"`
+	Labels           []string                            `yaml:"labels,omitempty" json:"labels,omitempty"`
 	Logo             *string                             `yaml:"logo,omitempty" json:"logo,omitempty"`
 	RepositoryUrl    *string                             `yaml:"repositoryUrl,omitempty" json:"repositoryUrl,omitempty"`
-	PublishedDate    *string                             `yaml:"publishedDate,omitempty" json:"publishedDate,omitempty"`
 	Env              []yamlAgentEnvVar                   `yaml:"env,omitempty" json:"env,omitempty"`
 	Artifacts        []yamlAgentArtifact                 `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
+	Templates        []yamlAgentTemplate                 `yaml:"templates,omitempty" json:"templates,omitempty"`
 	CustomProperties *map[string]openapi.MetadataValue   `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
 	CreateTimeSinceEpoch     *string                     `yaml:"createTimeSinceEpoch,omitempty" json:"createTimeSinceEpoch,omitempty"`
 	LastUpdateTimeSinceEpoch *string                     `yaml:"lastUpdateTimeSinceEpoch,omitempty" json:"lastUpdateTimeSinceEpoch,omitempty"`
@@ -100,28 +103,16 @@ func yamlAgentToEntity(ya yamlAgent, sourceID string) models.Agent {
 	if ya.Framework != nil {
 		properties = append(properties, dbmodels.NewStringProperty("framework", *ya.Framework, false))
 	}
-	if ya.AgentType != nil {
-		properties = append(properties, dbmodels.NewStringProperty("agentType", *ya.AgentType, false))
+	if len(ya.Labels) > 0 {
+		if jsonBytes, err := json.Marshal(ya.Labels); err == nil {
+			properties = append(properties, dbmodels.NewStringProperty("labels", string(jsonBytes), false))
+		}
 	}
 	if ya.Logo != nil {
 		properties = append(properties, dbmodels.NewStringProperty("logo", *ya.Logo, false))
 	}
 	if ya.RepositoryUrl != nil {
 		properties = append(properties, dbmodels.NewStringProperty("repositoryUrl", *ya.RepositoryUrl, false))
-	}
-	if ya.PublishedDate != nil {
-		properties = append(properties, dbmodels.NewStringProperty("publishedDate", *ya.PublishedDate, false))
-	}
-
-	if len(ya.Tags) > 0 {
-		if jsonBytes, err := json.Marshal(ya.Tags); err == nil {
-			properties = append(properties, dbmodels.NewStringProperty("tags", string(jsonBytes), false))
-		}
-	}
-	if len(ya.Models) > 0 {
-		if jsonBytes, err := json.Marshal(ya.Models); err == nil {
-			properties = append(properties, dbmodels.NewStringProperty("models", string(jsonBytes), false))
-		}
 	}
 	if len(ya.Env) > 0 {
 		if jsonBytes, err := json.Marshal(ya.Env); err == nil {
@@ -167,6 +158,33 @@ func convertAgentMetadataToProperty(key string, value openapi.MetadataValue) dbm
 	}
 	return dbmodels.NewStringProperty(key, "", true)
 }
+
+func yamlTemplateToEntity(tmpl yamlAgentTemplate, agentName string, sourceID string) models.AgentTemplateArtifact {
+	name := "agent.yaml"
+	if tmpl.Name != nil && *tmpl.Name != "" {
+		name = *tmpl.Name
+	}
+	qualifiedName := sourceID + ":" + agentName + ":" + name
+
+	attrs := &models.AgentTemplateArtifactAttributes{
+		Name:         &qualifiedName,
+		Content:      &tmpl.Content,
+		ArtifactType: strPtr(models.AgentTemplateArtifactType),
+	}
+
+	entity := &models.AgentTemplateArtifactImpl{
+		Attributes: attrs,
+	}
+
+	properties := []dbmodels.Properties{
+		dbmodels.NewStringProperty("content", tmpl.Content, false),
+	}
+	entity.Properties = &properties
+
+	return entity
+}
+
+func strPtr(s string) *string { return &s }
 
 func resolveYAMLPath(source basecatalog.PluginSource) (string, error) {
 	yamlPath, ok := source.Properties["yamlCatalogPath"].(string)

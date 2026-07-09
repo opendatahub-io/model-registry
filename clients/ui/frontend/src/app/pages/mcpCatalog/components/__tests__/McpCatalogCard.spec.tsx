@@ -184,4 +184,11 @@ describe('McpCatalogCard', () => {
     );
     expect(screen.queryByTestId('mcp-catalog-card-support-tier-9')).not.toBeInTheDocument();
   });
+
+  it('renders displayName when provided', () => {
+    render(<McpCatalogCard server={{ ...mockServer, displayName: 'My Display Name' }} />, {
+      wrapper,
+    });
+    expect(screen.getByTestId('mcp-catalog-card-name-1')).toHaveTextContent('My Display Name');
+  });
 });

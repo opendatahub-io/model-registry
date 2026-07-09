@@ -21,6 +21,7 @@ import { ApplicationsPage } from 'mod-arch-shared';
 import { useMcpServerWithAPI } from '~/app/hooks/mcpServerCatalog/useMcpServer';
 import { McpCatalogContext } from '~/app/context/mcpCatalog/McpCatalogContext';
 import { mcpCatalogUrl } from '~/app/routes/mcpCatalog/mcpCatalog';
+import { MCP_CATALOG_TITLE } from '~/app/pages/mcpCatalog/const';
 import ScrollViewOnMount from '~/app/shared/components/ScrollViewOnMount';
 import {
   McpCardIconType,
@@ -43,10 +44,10 @@ const McpServerDetailsPage: React.FC = () => {
         breadcrumb={
           <Breadcrumb>
             <BreadcrumbItem>
-              <Link to={mcpCatalogUrl()}>MCP Catalog</Link>
+              <Link to={mcpCatalogUrl()}>{MCP_CATALOG_TITLE}</Link>
             </BreadcrumbItem>
             <BreadcrumbItem isActive data-testid="breadcrumb-server-name">
-              {server?.name || 'Details'}
+              {server?.displayName || server?.name || 'Details'}
             </BreadcrumbItem>
           </Breadcrumb>
         }
@@ -75,7 +76,7 @@ const McpServerDetailsPage: React.FC = () => {
                     alignItems={{ default: 'alignItemsCenter' }}
                     flexWrap={{ default: 'wrap' }}
                   >
-                    <FlexItem>{server.name}</FlexItem>
+                    <FlexItem>{server.displayName || server.name}</FlexItem>
                     {isMcpRemoteDeploymentMode(server.deploymentMode) && (
                       <FlexItem>
                         <Label data-testid="mcp-server-details-remote-label">
@@ -108,7 +109,7 @@ const McpServerDetailsPage: React.FC = () => {
                   variant="primary"
                   component={(props) => <Link {...props} to={mcpCatalogUrl()} />}
                 >
-                  Return to MCP Catalog
+                  Return to {MCP_CATALOG_TITLE}
                 </Button>
               </EmptyStateFooter>
             </EmptyState>
