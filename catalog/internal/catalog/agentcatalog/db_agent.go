@@ -226,7 +226,8 @@ func mapDBTemplateArtifactToAPI(dbArtifact models.AgentTemplateArtifact) openapi
 	attrs := dbArtifact.GetAttributes()
 	if attrs != nil {
 		if attrs.Name != nil {
-			tmpl.Name = attrs.Name
+			name := templateDisplayNameFromStoredName(*attrs.Name)
+			tmpl.Name = &name
 		}
 		if attrs.Content != nil {
 			tmpl.Content = *attrs.Content
@@ -248,6 +249,15 @@ func mapDBTemplateArtifactToAPI(dbArtifact models.AgentTemplateArtifact) openapi
 func displayNameFromStoredName(storedName string) string {
 	if _, after, ok := strings.Cut(storedName, ":"); ok {
 		return after
+	}
+	return storedName
+}
+
+// templateDisplayNameFromStoredName extracts the template name from a
+// qualified artifact name stored as "source_id:agent_name:template_name".
+func templateDisplayNameFromStoredName(storedName string) string {
+	if idx := strings.LastIndex(storedName, ":"); idx >= 0 {
+		return storedName[idx+1:]
 	}
 	return storedName
 }
