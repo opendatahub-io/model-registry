@@ -2,7 +2,6 @@ import { APIOptions } from 'mod-arch-core';
 import { PaginationParams } from '~/app/shared/types/catalogTypes';
 import { PreviewCatalogSourceQueryParams } from '~/app/modelCatalogTypes';
 import {
-  ModelRegistryMetadataType,
   ModelRegistryCustomPropertyInt,
   ModelRegistryCustomPropertyDouble,
   ModelRegistryCustomPropertyString,
@@ -13,8 +12,7 @@ import {
  * Re-export ModelRegistryMetadataType as MetadataType for MCP consumers.
  * MCP only uses INT, DOUBLE, STRING, BOOL (no STRUCT/PROTO).
  */
-export const MetadataType = ModelRegistryMetadataType;
-export type MetadataType = ModelRegistryMetadataType;
+export { ModelRegistryMetadataType as MetadataType } from '~/app/types';
 
 export type MetadataProperty =
   | ModelRegistryCustomPropertyInt
