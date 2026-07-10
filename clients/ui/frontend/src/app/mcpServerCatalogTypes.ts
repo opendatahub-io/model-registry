@@ -1,39 +1,26 @@
 import { APIOptions } from 'mod-arch-core';
 import { PaginationParams } from '~/app/shared/types/catalogTypes';
 import { PreviewCatalogSourceQueryParams } from '~/app/modelCatalogTypes';
+import {
+  ModelRegistryMetadataType,
+  ModelRegistryCustomPropertyInt,
+  ModelRegistryCustomPropertyDouble,
+  ModelRegistryCustomPropertyString,
+  ModelRegistryCustomPropertyBool,
+} from '~/app/types';
 
-export enum MetadataType {
-  INT = 'MetadataIntValue',
-  DOUBLE = 'MetadataDoubleValue',
-  STRING = 'MetadataStringValue',
-  BOOL = 'MetadataBoolValue',
-}
-
-export type MetadataStringProperty = {
-  metadataType: MetadataType.STRING;
-  string_value: string;
-};
-
-export type MetadataBoolProperty = {
-  metadataType: MetadataType.BOOL;
-  bool_value: boolean;
-};
-
-export type MetadataIntProperty = {
-  metadataType: MetadataType.INT;
-  int_value: string;
-};
-
-export type MetadataDoubleProperty = {
-  metadataType: MetadataType.DOUBLE;
-  double_value: number;
-};
+/**
+ * Re-export ModelRegistryMetadataType as MetadataType for MCP consumers.
+ * MCP only uses INT, DOUBLE, STRING, BOOL (no STRUCT/PROTO).
+ */
+export const MetadataType = ModelRegistryMetadataType;
+export type MetadataType = ModelRegistryMetadataType;
 
 export type MetadataProperty =
-  | MetadataStringProperty
-  | MetadataBoolProperty
-  | MetadataIntProperty
-  | MetadataDoubleProperty;
+  | ModelRegistryCustomPropertyInt
+  | ModelRegistryCustomPropertyDouble
+  | ModelRegistryCustomPropertyString
+  | ModelRegistryCustomPropertyBool;
 
 export type McpCustomProperties = Record<string, MetadataProperty>;
 
