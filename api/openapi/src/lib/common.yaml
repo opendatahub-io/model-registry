@@ -296,6 +296,12 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
       description: Unauthorized
+    MethodNotAllowed:
+      content:
+        text/plain:
+          schema:
+            type: string
+      description: Method not allowed for the requested resource
     UnprocessableEntity:
       content:
         application/json:
