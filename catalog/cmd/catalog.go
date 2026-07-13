@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/golang/glog"
 	"github.com/kubeflow/hub/catalog/internal/db/service"
 	"github.com/kubeflow/hub/catalog/internal/leader"
@@ -181,6 +182,21 @@ func runCatalogServer(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("error mounting routes: %w", err)
 	}
 
+	// Collect route definitions so the OpenAPI validation middleware knows
+	// which methods are valid for each path pattern.
+	var routeDefs []middleware.RouteDefinition
+	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		// Skip non-API routes (health and readiness endpoints).
+		if route == "/healthz" || route == "/readyz" {
+			return nil
+		}
+		routeDefs = append(routeDefs, middleware.RouteDefinition{
+			Method:  method,
+			Pattern: route,
+		})
+		return nil
+	})
+
 	if err := pluginServer.Start(ctx); err != nil {
 		return fmt.Errorf("error starting plugins: %w", err)
 	}
@@ -196,9 +212,14 @@ func runCatalogServer(_ *cobra.Command, _ []string) error {
 		cancel()
 	}()
 
+	// Chain: OpenAPI validation -> null-byte validation -> chi router.
 	server := &http.Server{
-		Addr:    catalogCfg.ListenAddress,
-		Handler: middleware.ValidationMiddleware(router),
+		Addr:              catalogCfg.ListenAddress,
+		Handler:           middleware.OpenAPIValidationMiddleware(routeDefs, middleware.ValidationMiddleware(router)),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	g, gctx := errgroup.WithContext(ctx)
