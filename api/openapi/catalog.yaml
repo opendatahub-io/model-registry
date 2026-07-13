@@ -2458,6 +2458,12 @@ components:
           schema:
             $ref: "#/components/schemas/MCPToolsList"
       description: A response containing a list of MCP tool entities.
+    MethodNotAllowed:
+      content:
+        text/plain:
+          schema:
+            type: string
+      description: Method not allowed for the requested resource
     NotFound:
       content:
         application/json:
@@ -2597,12 +2603,6 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
       description: Unauthorized
-    MethodNotAllowed:
-      content:
-        text/plain:
-          schema:
-            type: string
-      description: Method not allowed for the requested resource
     UnprocessableEntity:
       content:
         application/json:

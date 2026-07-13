@@ -1955,8 +1955,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/DocArtifactCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -1999,8 +1997,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/DataSetCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2058,8 +2054,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/MetricCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2112,8 +2106,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/ParameterCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2260,8 +2252,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/ModelArtifactCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string

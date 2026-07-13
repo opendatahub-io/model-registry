@@ -2073,8 +2073,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/DataSetCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2132,8 +2130,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/DocArtifactCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2546,8 +2542,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/MetricCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2613,8 +2607,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/ModelArtifactCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -2771,8 +2763,6 @@ components:
         - $ref: "#/components/schemas/BaseArtifact"
         - $ref: "#/components/schemas/ParameterCreate"
         - type: object
-          required:
-            - artifactType
           properties:
             artifactType:
               type: string
@@ -3104,6 +3094,12 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
       description: Unexpected internal server error
+    MethodNotAllowed:
+      content:
+        text/plain:
+          schema:
+            type: string
+      description: Method not allowed for the requested resource
     MetricListResponse:
       content:
         application/json:
@@ -3264,12 +3260,6 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
       description: Unauthorized
-    MethodNotAllowed:
-      content:
-        text/plain:
-          schema:
-            type: string
-      description: Method not allowed for the requested resource
     UnprocessableEntity:
       content:
         application/json:
