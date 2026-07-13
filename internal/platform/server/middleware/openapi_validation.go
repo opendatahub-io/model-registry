@@ -130,8 +130,8 @@ func patternToRegex(pattern string) *regexp.Regexp {
 	buf.WriteString("^")
 
 	for i := 0; i < len(pattern); {
-		switch {
-		case pattern[i] == '{':
+		switch pattern[i] {
+		case '{':
 			j := strings.IndexByte(pattern[i:], '}')
 			if j < 0 {
 				// Malformed -- treat remainder as literal.
@@ -141,7 +141,7 @@ func patternToRegex(pattern string) *regexp.Regexp {
 				buf.WriteString("[^/]+")
 				i += j + 1
 			}
-		case pattern[i] == '*':
+		case '*':
 			buf.WriteString(".*")
 			i++
 		default:
@@ -171,8 +171,9 @@ func hasRequestBody(r *http.Request) bool {
 	return r.ContentLength > 0 || r.ContentLength == -1
 }
 
-// isAcceptableContentType checks whether ct is one of the JSON media types
-// accepted by the API.
+// isAcceptableContentType checks whether ct is one of the media types
+// accepted by the API (JSON variants and multipart/form-data for file
+// upload endpoints such as the catalog source preview).
 func isAcceptableContentType(ct string) bool {
 	mediaType := strings.TrimSpace(ct)
 	if idx := strings.IndexByte(mediaType, ';'); idx != -1 {
@@ -180,7 +181,8 @@ func isAcceptableContentType(ct string) bool {
 	}
 	mediaType = strings.ToLower(mediaType)
 	return mediaType == "application/json" ||
-		mediaType == "application/merge-patch+json"
+		mediaType == "application/merge-patch+json" ||
+		mediaType == "multipart/form-data"
 }
 
 // sortedMethods returns the allowed methods in deterministic sorted order

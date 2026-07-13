@@ -172,6 +172,8 @@ func TestValidContentTypes(t *testing.T) {
 		"application/json; charset=utf-8",
 		"application/merge-patch+json",
 		"Application/JSON",
+		"multipart/form-data",
+		"multipart/form-data; boundary=----WebKitFormBoundary",
 	}
 
 	for _, ct := range types {

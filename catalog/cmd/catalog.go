@@ -214,8 +214,12 @@ func runCatalogServer(_ *cobra.Command, _ []string) error {
 
 	// Chain: OpenAPI validation -> null-byte validation -> chi router.
 	server := &http.Server{
-		Addr:    catalogCfg.ListenAddress,
-		Handler: middleware.OpenAPIValidationMiddleware(routeDefs, middleware.ValidationMiddleware(router)),
+		Addr:              catalogCfg.ListenAddress,
+		Handler:           middleware.OpenAPIValidationMiddleware(routeDefs, middleware.ValidationMiddleware(router)),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	g, gctx := errgroup.WithContext(ctx)
