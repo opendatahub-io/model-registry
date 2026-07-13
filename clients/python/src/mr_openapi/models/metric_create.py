@@ -15,7 +15,7 @@ import pprint
 import re  # noqa: F401
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
 from typing_extensions import Self
 
 from mr_openapi.models.artifact_state import ArtifactState
@@ -59,6 +59,17 @@ class MetricCreate(BaseModel):
         "step",
         "state",
     ]
+
+    @field_validator("artifact_type")
+    def artifact_type_validate_enum(cls, value):
+        """Validates the enum."""
+        if value is None:
+            return value
+
+        if value not in {"metric"}:
+            msg = "must be one of enum values ('metric')"
+            raise ValueError(msg)
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
