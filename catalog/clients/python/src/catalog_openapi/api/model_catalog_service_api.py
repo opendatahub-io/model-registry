@@ -119,11 +119,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogLabelList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -206,11 +207,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogLabelList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -293,11 +295,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogLabelList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -364,7 +367,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -497,11 +501,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogModelList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -619,11 +624,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogModelList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -741,11 +747,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogModelList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -859,7 +866,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -936,10 +944,11 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "FilterOptionsList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1001,10 +1010,11 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "FilterOptionsList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1066,10 +1076,11 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "FilterOptionsList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1111,7 +1122,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -1213,11 +1225,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogSourceList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1304,11 +1317,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogSourceList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1395,11 +1409,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogSourceList",
-            '400': "Error",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1471,7 +1486,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -1584,10 +1600,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogArtifactList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1685,10 +1703,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogArtifactList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1786,10 +1806,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogArtifactList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1874,7 +1896,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -2003,10 +2026,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogArtifactList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2120,10 +2145,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogArtifactList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2237,10 +2264,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogArtifactList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2343,7 +2372,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -2428,10 +2458,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogModel",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2501,10 +2533,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogModel",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2574,10 +2608,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogModel",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2625,7 +2661,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
@@ -2723,11 +2760,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogSourcePreviewResponse",
-            '400': "Error",
-            '401': "Error",
-            '422': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "422": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2810,11 +2848,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogSourcePreviewResponse",
-            '400': "Error",
-            '401': "Error",
-            '422': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "422": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2897,11 +2936,12 @@ class ModelCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CatalogSourcePreviewResponse",
-            '400': "Error",
-            '401': "Error",
-            '422': "Error",
-            '500': "Error",
+            "200": "None",
+            "400": "Error",
+            "401": "Error",
+            "422": "Error",
+            "405": "str",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2964,7 +3004,8 @@ class ModelCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json'
+                    'application/json',
+                    'text/plain'
                 ]
             )
 
