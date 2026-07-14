@@ -118,11 +118,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPToolsList",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -209,11 +209,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPToolsList",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -300,11 +300,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPToolsList",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -375,8 +375,7 @@ class MCPCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json',
-                    'text/plain'
+                    'application/json'
                 ]
             )
 
@@ -497,10 +496,10 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPServerList",
             "400": "Error",
             "401": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -607,10 +606,10 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPServerList",
             "400": "Error",
             "401": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -717,10 +716,10 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPServerList",
             "400": "Error",
             "401": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -819,8 +818,7 @@ class MCPCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json',
-                    'text/plain'
+                    'application/json'
                 ]
             )
 
@@ -897,10 +895,10 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "FilterOptionsList",
             "400": "Error",
             "401": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -963,10 +961,10 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "FilterOptionsList",
             "400": "Error",
             "401": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1029,10 +1027,10 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "FilterOptionsList",
             "400": "Error",
             "401": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1075,8 +1073,7 @@ class MCPCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json',
-                    'text/plain'
+                    'application/json'
                 ]
             )
 
@@ -1165,11 +1162,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPServer",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1244,11 +1241,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPServer",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1323,11 +1320,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPServer",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1383,8 +1380,7 @@ class MCPCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json',
-                    'text/plain'
+                    'application/json'
                 ]
             )
 
@@ -1469,11 +1465,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPToolWithServer",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1544,11 +1540,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPToolWithServer",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1619,11 +1615,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "None",
+            "200": "MCPToolWithServer",
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
         }
         response_data = self.api_client.call_api(
@@ -1672,8 +1668,7 @@ class MCPCatalogServiceApi:
         if 'Accept' not in _header_params:
             _header_params['Accept'] = self.api_client.select_header_accept(
                 [
-                    'application/json',
-                    'text/plain'
+                    'application/json'
                 ]
             )
 

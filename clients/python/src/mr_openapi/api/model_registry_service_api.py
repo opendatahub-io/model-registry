@@ -120,7 +120,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -183,7 +183,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -246,7 +246,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -283,7 +283,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -372,7 +372,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -444,7 +444,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -516,7 +516,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -556,7 +556,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -636,7 +636,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -699,7 +699,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -762,7 +762,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -799,7 +799,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -884,7 +884,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -952,7 +952,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1020,7 +1020,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1060,7 +1060,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1143,7 +1143,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "409": "Error",
             "422": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1209,7 +1209,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "409": "Error",
             "422": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1275,7 +1275,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "409": "Error",
             "422": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1312,7 +1312,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1394,7 +1394,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1459,7 +1459,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1524,7 +1524,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1561,7 +1561,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1650,7 +1650,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1722,7 +1722,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1794,7 +1794,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1834,7 +1834,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -1916,7 +1916,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -1981,7 +1981,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2046,7 +2046,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2083,7 +2083,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2164,7 +2164,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "409": "Error",
             "422": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2228,7 +2228,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "409": "Error",
             "422": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2292,7 +2292,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "409": "Error",
             "422": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2329,7 +2329,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2411,7 +2411,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2476,7 +2476,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2541,7 +2541,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2578,7 +2578,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2665,7 +2665,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2735,7 +2735,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2805,7 +2805,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2845,7 +2845,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -2927,7 +2927,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -2992,7 +2992,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3057,7 +3057,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3094,7 +3094,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -3189,7 +3189,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3267,7 +3267,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3345,7 +3345,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3391,7 +3391,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -3471,7 +3471,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3542,7 +3542,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3613,7 +3613,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3655,7 +3655,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -3742,7 +3742,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3820,7 +3820,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3898,7 +3898,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -3944,7 +3944,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4031,7 +4031,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4109,7 +4109,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4187,7 +4187,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4233,7 +4233,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4320,7 +4320,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4398,7 +4398,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4476,7 +4476,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4522,7 +4522,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4609,7 +4609,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4687,7 +4687,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4765,7 +4765,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4811,7 +4811,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -4891,7 +4891,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -4962,7 +4962,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5033,7 +5033,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5075,7 +5075,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -5155,7 +5155,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5226,7 +5226,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5297,7 +5297,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5339,7 +5339,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -5407,7 +5407,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5466,7 +5466,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5525,7 +5525,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5562,7 +5562,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -5672,7 +5672,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5773,7 +5773,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5874,7 +5874,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -5932,7 +5932,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -6054,7 +6054,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6167,7 +6167,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6280,7 +6280,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6345,7 +6345,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -6417,7 +6417,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6480,7 +6480,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6543,7 +6543,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6580,7 +6580,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -6700,7 +6700,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6811,7 +6811,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6922,7 +6922,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -6987,7 +6987,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -7061,7 +7061,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7126,7 +7126,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7191,7 +7191,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7228,7 +7228,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -7354,7 +7354,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7471,7 +7471,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7588,7 +7588,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7657,7 +7657,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -7780,7 +7780,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -7894,7 +7894,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8008,7 +8008,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8073,7 +8073,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -8177,7 +8177,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8272,7 +8272,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8367,7 +8367,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8421,7 +8421,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -8538,7 +8538,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8646,7 +8646,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8754,7 +8754,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -8816,7 +8816,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -8920,7 +8920,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9015,7 +9015,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9110,7 +9110,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9164,7 +9164,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -9238,7 +9238,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9303,7 +9303,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9368,7 +9368,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9405,7 +9405,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -9479,7 +9479,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9544,7 +9544,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9609,7 +9609,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9646,7 +9646,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -9768,7 +9768,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9881,7 +9881,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -9994,7 +9994,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10059,7 +10059,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10133,7 +10133,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10198,7 +10198,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10263,7 +10263,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10300,7 +10300,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10404,7 +10404,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10499,7 +10499,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10594,7 +10594,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10648,7 +10648,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10720,7 +10720,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10783,7 +10783,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10846,7 +10846,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -10883,7 +10883,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -10987,7 +10987,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11082,7 +11082,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11177,7 +11177,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11231,7 +11231,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -11303,7 +11303,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11366,7 +11366,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11429,7 +11429,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11466,7 +11466,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -11590,7 +11590,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11705,7 +11705,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11820,7 +11820,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -11889,7 +11889,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -11993,7 +11993,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12088,7 +12088,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12183,7 +12183,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12237,7 +12237,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -12311,7 +12311,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12376,7 +12376,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12441,7 +12441,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12478,7 +12478,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -12600,7 +12600,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12713,7 +12713,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12826,7 +12826,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -12891,7 +12891,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -12995,7 +12995,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13090,7 +13090,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13185,7 +13185,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13239,7 +13239,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -13313,7 +13313,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13378,7 +13378,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13443,7 +13443,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13480,7 +13480,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -13584,7 +13584,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13679,7 +13679,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13774,7 +13774,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13828,7 +13828,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: list[str] = ["Bearer"]
@@ -13904,7 +13904,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -13971,7 +13971,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14038,7 +14038,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14078,7 +14078,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14162,7 +14162,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14229,7 +14229,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14296,7 +14296,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14336,7 +14336,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14424,7 +14424,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14495,7 +14495,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14566,7 +14566,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14606,7 +14606,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14694,7 +14694,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14765,7 +14765,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14836,7 +14836,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -14876,7 +14876,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -14962,7 +14962,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15031,7 +15031,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15100,7 +15100,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15140,7 +15140,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -15224,7 +15224,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15291,7 +15291,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15358,7 +15358,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15398,7 +15398,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -15486,7 +15486,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15557,7 +15557,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15628,7 +15628,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15668,7 +15668,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -15756,7 +15756,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15827,7 +15827,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15898,7 +15898,7 @@ class ModelRegistryServiceApi:
             "400": "Error",
             "401": "Error",
             "404": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -15938,7 +15938,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -16028,7 +16028,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -16101,7 +16101,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -16174,7 +16174,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -16214,7 +16214,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:
@@ -16302,7 +16302,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -16373,7 +16373,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -16444,7 +16444,7 @@ class ModelRegistryServiceApi:
             "401": "Error",
             "404": "Error",
             "409": "Error",
-            "405": "str",
+            "405": "Error",
             "500": "Error",
             "503": "Error",
         }
@@ -16484,7 +16484,7 @@ class ModelRegistryServiceApi:
 
         # set the HTTP header `Accept`
         if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/plain"])
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # set the HTTP header `Content-Type`
         if _content_type:

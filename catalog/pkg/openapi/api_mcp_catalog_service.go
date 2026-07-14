@@ -131,7 +131,7 @@ func (a *MCPCatalogServiceAPIService) FindMCPServerToolsExecute(r ApiFindMCPServ
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -171,7 +171,6 @@ func (a *MCPCatalogServiceAPIService) FindMCPServerToolsExecute(r ApiFindMCPServ
 			newErr.model = v
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
-
 		if localVarHTTPResponse.StatusCode == 401 {
 			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
@@ -195,7 +194,7 @@ func (a *MCPCatalogServiceAPIService) FindMCPServerToolsExecute(r ApiFindMCPServ
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -410,7 +409,7 @@ func (a *MCPCatalogServiceAPIService) FindMCPServersExecute(r ApiFindMCPServersR
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -462,7 +461,7 @@ func (a *MCPCatalogServiceAPIService) FindMCPServersExecute(r ApiFindMCPServersR
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -551,7 +550,7 @@ func (a *MCPCatalogServiceAPIService) FindMCPServersFilterOptionsExecute(r ApiFi
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -603,7 +602,7 @@ func (a *MCPCatalogServiceAPIService) FindMCPServersFilterOptionsExecute(r ApiFi
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -724,7 +723,7 @@ func (a *MCPCatalogServiceAPIService) GetMCPServerExecute(r ApiGetMCPServerReque
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -764,7 +763,6 @@ func (a *MCPCatalogServiceAPIService) GetMCPServerExecute(r ApiGetMCPServerReque
 			newErr.model = v
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
-
 		if localVarHTTPResponse.StatusCode == 401 {
 			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
@@ -788,7 +786,7 @@ func (a *MCPCatalogServiceAPIService) GetMCPServerExecute(r ApiGetMCPServerReque
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -885,7 +883,7 @@ func (a *MCPCatalogServiceAPIService) GetMCPServerToolExecute(r ApiGetMCPServerT
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -925,7 +923,6 @@ func (a *MCPCatalogServiceAPIService) GetMCPServerToolExecute(r ApiGetMCPServerT
 			newErr.model = v
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
-
 		if localVarHTTPResponse.StatusCode == 401 {
 			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
@@ -949,7 +946,7 @@ func (a *MCPCatalogServiceAPIService) GetMCPServerToolExecute(r ApiGetMCPServerT
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()

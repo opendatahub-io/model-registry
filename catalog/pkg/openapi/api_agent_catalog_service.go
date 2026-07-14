@@ -183,7 +183,7 @@ func (a *AgentCatalogServiceAPIService) FindAgentsExecute(r ApiFindAgentsRequest
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -235,7 +235,7 @@ func (a *AgentCatalogServiceAPIService) FindAgentsExecute(r ApiFindAgentsRequest
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -324,7 +324,7 @@ func (a *AgentCatalogServiceAPIService) FindAgentsFilterOptionsExecute(r ApiFind
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -376,7 +376,7 @@ func (a *AgentCatalogServiceAPIService) FindAgentsFilterOptionsExecute(r ApiFind
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -469,7 +469,7 @@ func (a *AgentCatalogServiceAPIService) GetAgentExecute(r ApiGetAgentRequest) (*
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -509,7 +509,6 @@ func (a *AgentCatalogServiceAPIService) GetAgentExecute(r ApiGetAgentRequest) (*
 			newErr.model = v
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
-
 		if localVarHTTPResponse.StatusCode == 401 {
 			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
@@ -533,7 +532,7 @@ func (a *AgentCatalogServiceAPIService) GetAgentExecute(r ApiGetAgentRequest) (*
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
@@ -684,7 +683,7 @@ func (a *AgentCatalogServiceAPIService) GetAgentArtifactsExecute(r ApiGetAgentAr
 	}
 
 	// to determine the Accept header
-	localVarHTTPHeaderAccepts := []string{"application/json", "text/plain"}
+	localVarHTTPHeaderAccepts := []string{"application/json"}
 
 	// set Accept header
 	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
@@ -724,7 +723,6 @@ func (a *AgentCatalogServiceAPIService) GetAgentArtifactsExecute(r ApiGetAgentAr
 			newErr.model = v
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
-
 		if localVarHTTPResponse.StatusCode == 401 {
 			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
@@ -748,7 +746,7 @@ func (a *AgentCatalogServiceAPIService) GetAgentArtifactsExecute(r ApiGetAgentAr
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 405 {
-			var v string
+			var v Error
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()

@@ -298,9 +298,9 @@ components:
       description: Unauthorized
     MethodNotAllowed:
       content:
-        text/plain:
+        application/json:
           schema:
-            type: string
+            $ref: "#/components/schemas/Error"
       description: Method not allowed for the requested resource
     UnprocessableEntity:
       content:
