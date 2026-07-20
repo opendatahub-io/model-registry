@@ -328,3 +328,52 @@ func TestDisplayNameFromStoredName(t *testing.T) {
 		})
 	}
 }
+
+func TestMapDBAgentToAPI_ResolvesReadmeLinks(t *testing.T) {
+	id := int32(1)
+	name := "test-source:test-agent"
+	readmeContent := `# Agent
+
+<img src="/images/arch.png" alt="architecture">
+
+![diagram](/images/diagram.png)`
+	repoURL := "https://github.com/owner/repo/tree/main/agents/test-agent"
+
+	props := []dbmodels.Properties{
+		dbmodels.NewStringProperty("readme", readmeContent, false),
+		dbmodels.NewStringProperty("repositoryUrl", repoURL, false),
+	}
+	agent := &models.AgentImpl{
+		ID:         &id,
+		Attributes: &models.AgentAttributes{Name: &name},
+		Properties: &props,
+	}
+
+	result := mapDBAgentToAPI(agent)
+
+	require.NotNil(t, result.Readme)
+	assert.Contains(t, *result.Readme, "https://raw.githubusercontent.com/owner/repo/main/images/arch.png")
+	assert.Contains(t, *result.Readme, "https://raw.githubusercontent.com/owner/repo/main/images/diagram.png")
+	assert.NotContains(t, *result.Readme, `src="/images/arch.png"`)
+	assert.NotContains(t, *result.Readme, `](/images/diagram.png)`)
+}
+
+func TestMapDBAgentToAPI_NoRepoURLLeavesReadmeUnchanged(t *testing.T) {
+	id := int32(1)
+	name := "test-source:test-agent"
+	readmeContent := `<img src="/images/arch.png" alt="architecture">`
+
+	props := []dbmodels.Properties{
+		dbmodels.NewStringProperty("readme", readmeContent, false),
+	}
+	agent := &models.AgentImpl{
+		ID:         &id,
+		Attributes: &models.AgentAttributes{Name: &name},
+		Properties: &props,
+	}
+
+	result := mapDBAgentToAPI(agent)
+
+	require.NotNil(t, result.Readme)
+	assert.Equal(t, readmeContent, *result.Readme)
+}

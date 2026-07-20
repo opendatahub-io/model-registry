@@ -323,6 +323,12 @@ func mapDBAgentToAPI(dbAgent models.Agent) openapi.Agent {
 		}
 	}
 
+	// Resolve relative links in readme content using the repository URL
+	if res.Readme != nil && res.RepositoryUrl != nil {
+		resolved := resolveReadmeLinks(*res.Readme, *res.RepositoryUrl)
+		res.Readme = &resolved
+	}
+
 	if dbAgent.GetCustomProperties() != nil {
 		customProps := make(map[string]openapi.MetadataValue)
 		for _, prop := range *dbAgent.GetCustomProperties() {
