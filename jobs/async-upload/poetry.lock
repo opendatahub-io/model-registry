@@ -1475,20 +1475,20 @@ files = [
 
 [[package]]
 name = "model-registry"
-version = "0.3.9"
+version = "0.3.14"
 description = "Client for Kubeflow Model Registry"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "model_registry-0.3.9-py3-none-any.whl", hash = "sha256:7ec9fc8d5b60600f81006e9870097e3cb20125bd06784472def8b3a379c49e7b"},
-    {file = "model_registry-0.3.9.tar.gz", hash = "sha256:e3077dcb724b5be968b99c49f773edf633a16dde53a92fb9d95c0871df13e9db"},
+    {file = "model_registry-0.3.14-py3-none-any.whl", hash = "sha256:e65254629ada714da8c5e890e26ff7a6ad99007452c86ee32af22fb53dc9359f"},
+    {file = "model_registry-0.3.14.tar.gz", hash = "sha256:e73d099dcabee8d47e08efd8c58a18c3ac2144ccb4f34c9076b534396d43b8b6"},
 ]
 
 [package.dependencies]
 aiohttp = ">=3.9.5,<4.0.0"
 aiohttp-retry = ">=2.8.3,<3.0.0"
-boto3 = {version = ">=1.37.34,<2.0.0", optional = true, markers = "extra == \"boto3\""}
+boto3 = {version = ">=1.37.34,<2.0.0", optional = true, markers = "extra == \"boto3\" or extra == \"s3\""}
 nest-asyncio2 = ">=1.7.1,<2.0.0"
 olot = {version = ">=0.1.17,<0.2.0", optional = true, markers = "extra == \"olot\""}
 pydantic = ">=2.7.4,<3.0.0"
@@ -1497,9 +1497,10 @@ typing-extensions = ">=4.8,<5.0"
 
 [package.extras]
 boto3 = ["boto3 (>=1.37.34,<2.0.0)"]
-hf = ["huggingface-hub (>=0.20.1,<1.13.0)"]
+hf = ["huggingface-hub (>=0.20.1,<1.18.0)"]
 olot = ["olot (>=0.1.17,<0.2.0)"]
-signing = ["platformdirs (>=4.0.0,<5.0.0)", "rh-model-signing (==1.0.1)"]
+s3 = ["boto3 (>=1.37.34,<2.0.0)"]
+signing = ["platformdirs (>=4.0.0,<5.0.0)", "rh-model-signing (>=1.0.2,<2.0.0)"]
 
 [[package]]
 name = "multidict"
