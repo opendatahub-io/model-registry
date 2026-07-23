@@ -3,13 +3,13 @@ module github.com/kubeflow/hub/cmd/controller
 go 1.26
 
 require (
-	github.com/kserve/kserve v0.17.0-rc1
+	github.com/kserve/kserve v0.19.0
 	github.com/kubeflow/hub/pkg/inferenceservice-controller v0.0.0-00010101000000-000000000000
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	k8s.io/apimachinery v0.35.2
-	k8s.io/client-go v0.34.4
-	sigs.k8s.io/controller-runtime v0.22.4
+	k8s.io/client-go v0.34.5
+	sigs.k8s.io/controller-runtime v0.22.5
 )
 
 require (
@@ -61,7 +61,7 @@ require (
 	github.com/google/go-containerregistry v0.20.3 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.19 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
@@ -116,7 +116,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/api v0.34.4 // indirect
+	k8s.io/api v0.34.5 // indirect
 	k8s.io/apiextensions-apiserver v0.34.3 // indirect
 	k8s.io/apiserver v0.34.3 // indirect
 	k8s.io/component-base v0.34.3 // indirect
@@ -128,7 +128,7 @@ require (
 	knative.dev/serving v0.48.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/gateway-api v1.4.2-0.20260116062110-0d0ca872766e // indirect
-	sigs.k8s.io/gateway-api-inference-extension v1.3.0 // indirect
+	sigs.k8s.io/gateway-api-inference-extension v1.3.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
@@ -153,7 +153,7 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
 
 replace github.com/kubeflow/hub/pkg/openapi => ../../pkg/openapi
