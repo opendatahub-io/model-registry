@@ -100,9 +100,9 @@ describe('McpCatalogCard', () => {
   });
 
   it.each([
-    ['partnerSupported', 'Partner Supported', '6'],
-    ['redHatSupported', 'Red Hat Supported', '7'],
-    ['communitySupported', 'Community Supported', '8'],
+    ['partnerSupported', 'Partner supported', '6'],
+    ['redHatSupported', 'Red Hat supported', '7'],
+    ['communitySupported', 'Community supported', '8'],
   ])('renders %s as "%s"', (tier, display, id) => {
     render(
       <McpCatalogCard
