@@ -62,6 +62,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findAgents
@@ -78,6 +80,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findAgentsFilterOptions
@@ -98,10 +102,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/AgentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getAgent
@@ -121,10 +129,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/AgentArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getAgentArtifacts
@@ -182,6 +194,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findMCPServers
@@ -198,6 +212,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findMCPServersFilterOptions
@@ -211,10 +227,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/MCPServerResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getMCPServer
@@ -243,10 +263,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/MCPToolsListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findMCPServerTools
@@ -267,10 +291,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/MCPToolWithServerResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getMCPServerTool
@@ -310,6 +338,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findLabels
@@ -446,6 +476,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findModels
@@ -462,6 +494,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findModelsFilterOptions
@@ -489,6 +523,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findSources
@@ -677,6 +713,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: previewCatalogSource
@@ -690,10 +728,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/CatalogModelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getModel
@@ -720,10 +762,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/CatalogArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getAllModelArtifacts
@@ -757,10 +803,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/CatalogArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getAllModelPerformanceArtifacts
@@ -1204,6 +1254,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - metrics-artifact
               default: metrics-artifact
             metricsType:
               type: string
@@ -1262,6 +1314,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - model-artifact
               default: model-artifact
             uri:
               type: string
@@ -2404,6 +2458,12 @@ components:
           schema:
             $ref: "#/components/schemas/MCPToolsList"
       description: A response containing a list of MCP tool entities.
+    MethodNotAllowed:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Method not allowed for the requested resource
     NotFound:
       content:
         application/json:
