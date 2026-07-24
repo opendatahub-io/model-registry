@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/kserve/kserve v0.17.0-rc1
-	github.com/kubeflow/hub/pkg/openapi v0.0.0
+	github.com/kubeflow/hub/pkg/openapi v0.3.14
 	github.com/stretchr/testify v1.11.1
 )
 
