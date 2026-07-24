@@ -1,6 +1,12 @@
 import * as React from 'react';
-import { ApplicationsPage, ProjectObjectType, TitleWithIcon } from 'mod-arch-shared';
-import { SearchIcon } from '@patternfly/react-icons';
+import {
+  ApplicationsPage,
+  KubeflowDocs,
+  ProjectObjectType,
+  TitleWithIcon,
+  WhosMyAdministrator,
+} from 'mod-arch-shared';
+import { useThemeContext } from 'mod-arch-kubeflow';
 import { AgentsCatalogContext } from '~/app/context/agentsCatalog/AgentsCatalogContext';
 import { hasAgentFiltersApplied } from '~/app/pages/agentsCatalog/utils/agentsCatalogUtils';
 import AgentsCatalogFilters from '~/app/pages/agentsCatalog/components/AgentsCatalogFilters';
@@ -24,6 +30,7 @@ const AgentsCatalog: React.FC = () => {
     emptyCategoryLabels,
     setCategoryCount,
   } = React.useContext(AgentsCatalogContext);
+  const { isMUITheme } = useThemeContext();
 
   const filtersApplied = hasAgentFiltersApplied(filters, searchQuery);
   const isAllAgentsView = selectedSourceLabel === undefined && !filtersApplied;
@@ -65,9 +72,14 @@ const AgentsCatalog: React.FC = () => {
         renderEmptyCategoriesState={() => (
           <EmptyCatalogState
             testid="empty-agents-catalog-no-categories"
-            title="No agents available"
-            headerIcon={SearchIcon}
-            description="There are no agent categories available. Configure sources in settings to get started."
+            title="Configure agent template sources"
+            headerIcon={null}
+            description={
+              isMUITheme
+                ? 'There are no agent templates to display. Follow the instructions in the docs below to add agent templates.'
+                : 'There are no agent templates to display. Use the OpenShift console to add agent templates to the catalog.'
+            }
+            primaryAction={isMUITheme ? <KubeflowDocs /> : <WhosMyAdministrator />}
           />
         )}
         renderFilterSidebar={() => <AgentsCatalogFilters />}
