@@ -126,7 +126,7 @@
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.2",
     "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "14.6.1",
+    "@testing-library/user-event": "14.6.3",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "cypress": "^15.17.0",
