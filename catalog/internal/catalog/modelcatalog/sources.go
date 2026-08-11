@@ -67,8 +67,8 @@ func (sc *SourceCollection) MergeWithNamedQueries(origin string, sources map[str
 		return err
 	}
 
-	// Replace named queries for this origin (clears any previously contributed entries)
-	sc.namedQueryEntries[origin] = namedQueries
+	// Deep-copy and store named queries for this origin (clears any previously contributed entries)
+	sc.namedQueryEntries[origin] = cloneNamedQueries(namedQueries)
 
 	return nil
 }
@@ -113,14 +113,35 @@ func (sc *SourceCollection) GetNamedQueries() map[string]map[string]basecatalog.
 	sc.mu.RLock()
 	defer sc.mu.RUnlock()
 
-	// Return a copy to prevent external modification
-	merged := sc.mergedNamedQueries()
-	result := make(map[string]map[string]basecatalog.FieldFilter, len(merged))
-	for queryName, fieldFilters := range merged {
-		result[queryName] = make(map[string]basecatalog.FieldFilter, len(fieldFilters))
-		maps.Copy(result[queryName], fieldFilters)
+	return cloneNamedQueries(sc.mergedNamedQueries())
+}
+
+// cloneNamedQueries returns a deep copy of the entire named-queries map,
+// including mutable FieldFilter.Value slices, so that later caller
+// mutations cannot affect stored state.
+func cloneNamedQueries(src map[string]map[string]basecatalog.FieldFilter) map[string]map[string]basecatalog.FieldFilter {
+	if src == nil {
+		return nil
 	}
-	return result
+	dst := make(map[string]map[string]basecatalog.FieldFilter, len(src))
+	for queryName, fieldFilters := range src {
+		dstFilters := make(map[string]basecatalog.FieldFilter, len(fieldFilters))
+		for field, ff := range fieldFilters {
+			dstFilters[field] = deepCopyFieldFilter(ff)
+		}
+		dst[queryName] = dstFilters
+	}
+	return dst
+}
+
+// deepCopyFieldFilter returns a copy of ff where slice values are cloned.
+func deepCopyFieldFilter(ff basecatalog.FieldFilter) basecatalog.FieldFilter {
+	if vals, ok := ff.Value.([]any); ok {
+		cp := make([]any, len(vals))
+		copy(cp, vals)
+		ff.Value = cp
+	}
+	return ff
 }
 
 // mergeSources performs field-level merging of two Source structs.

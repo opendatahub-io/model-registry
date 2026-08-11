@@ -7,6 +7,8 @@ import (
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
 	model "github.com/kubeflow/hub/catalog/pkg/openapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSourceCollection_ByLabel(t *testing.T) {
@@ -1323,5 +1325,69 @@ func TestSourceCollection_NamedQueriesClearedOnMerge(t *testing.T) {
 		if _, ok := result["quality"]["rating"]; ok {
 			t.Error("rating field should have been cleared")
 		}
+	})
+}
+
+func TestSourceCollection_MergeWithNamedQueries_InputMutationIsolation(t *testing.T) {
+	t.Run("mutating input map after MergeWithNamedQueries does not affect stored state", func(t *testing.T) {
+		sc := NewSourceCollection()
+		sources := map[string]basecatalog.ModelSource{}
+		queries := map[string]map[string]basecatalog.FieldFilter{
+			"my_query": {
+				"status": {Operator: "=", Value: "active"},
+			},
+		}
+
+		require.NoError(t, sc.MergeWithNamedQueries("origin", sources, queries))
+
+		// Mutate the input maps after merge
+		queries["my_query"]["status"] = basecatalog.FieldFilter{Operator: "!=", Value: "mutated"}
+		queries["injected"] = map[string]basecatalog.FieldFilter{
+			"field": {Operator: "=", Value: "injected"},
+		}
+
+		// Internal state must be unchanged
+		result := sc.GetNamedQueries()
+		require.Len(t, result, 1)
+		assert.NotContains(t, result, "injected")
+		assert.Equal(t, "=", result["my_query"]["status"].Operator)
+		assert.Equal(t, "active", result["my_query"]["status"].Value)
+	})
+
+	t.Run("mutating input slice Value after MergeWithNamedQueries does not affect stored state", func(t *testing.T) {
+		sc := NewSourceCollection()
+		sources := map[string]basecatalog.ModelSource{}
+		sliceVal := []any{"active", "beta"}
+		queries := map[string]map[string]basecatalog.FieldFilter{
+			"in_query": {
+				"status": {Operator: "IN", Value: sliceVal},
+			},
+		}
+
+		require.NoError(t, sc.MergeWithNamedQueries("origin", sources, queries))
+
+		// Mutate the original slice after merge
+		sliceVal[0] = "mutated"
+
+		// Internal state must be unchanged
+		result := sc.GetNamedQueries()
+		assert.Equal(t, "active", result["in_query"]["status"].Value.([]any)[0])
+	})
+
+	t.Run("GetNamedQueries returns deep copy including slice Values", func(t *testing.T) {
+		sc := NewSourceCollection()
+		queries := map[string]map[string]basecatalog.FieldFilter{
+			"in_query": {"status": {Operator: "IN", Value: []any{"active", "beta"}}},
+		}
+		require.NoError(t, sc.MergeWithNamedQueries("origin", map[string]basecatalog.ModelSource{}, queries))
+
+		// Mutate the slice returned by GetNamedQueries
+		result := sc.GetNamedQueries()
+		sliceVal := result["in_query"]["status"].Value.([]any)
+		sliceVal[0] = "mutated"
+
+		// Internal state must be unchanged
+		result2 := sc.GetNamedQueries()
+		assert.Equal(t, "active", result2["in_query"]["status"].Value.([]any)[0])
 	})
 }

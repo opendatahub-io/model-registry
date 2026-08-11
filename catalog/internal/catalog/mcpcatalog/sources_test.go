@@ -861,6 +861,53 @@ func TestMCPSourceCollection_GetNamedQuery_SliceDeepCopy(t *testing.T) {
 	assert.Equal(t, "active", filters2["status"].Value.([]any)[0])
 }
 
+func TestMCPSourceCollection_MergeWithNamedQueries_InputMutationIsolation(t *testing.T) {
+	t.Run("mutating input map after MergeWithNamedQueries does not affect stored state", func(t *testing.T) {
+		coll := NewMCPSourceCollection()
+		sources := map[string]basecatalog.MCPSource{}
+		queries := map[string]map[string]basecatalog.FieldFilter{
+			"my_query": {
+				"status": {Operator: "=", Value: "active"},
+			},
+		}
+
+		require.NoError(t, coll.MergeWithNamedQueries("origin", sources, queries))
+
+		// Mutate the input maps after merge
+		queries["my_query"]["status"] = basecatalog.FieldFilter{Operator: "!=", Value: "mutated"}
+		queries["injected"] = map[string]basecatalog.FieldFilter{
+			"field": {Operator: "=", Value: "injected"},
+		}
+
+		// Internal state must be unchanged
+		result := coll.GetNamedQueries()
+		require.Len(t, result, 1)
+		assert.NotContains(t, result, "injected")
+		assert.Equal(t, "=", result["my_query"]["status"].Operator)
+		assert.Equal(t, "active", result["my_query"]["status"].Value)
+	})
+
+	t.Run("mutating input slice Value after MergeWithNamedQueries does not affect stored state", func(t *testing.T) {
+		coll := NewMCPSourceCollection()
+		sources := map[string]basecatalog.MCPSource{}
+		sliceVal := []any{"active", "beta"}
+		queries := map[string]map[string]basecatalog.FieldFilter{
+			"in_query": {
+				"status": {Operator: "IN", Value: sliceVal},
+			},
+		}
+
+		require.NoError(t, coll.MergeWithNamedQueries("origin", sources, queries))
+
+		// Mutate the original slice after merge
+		sliceVal[0] = "mutated"
+
+		// Internal state must be unchanged
+		result := coll.GetNamedQueries()
+		assert.Equal(t, "active", result["in_query"]["status"].Value.([]any)[0])
+	})
+}
+
 func TestMCPSourceCollection_ByLabel(t *testing.T) {
 	makeCollection := func(sources map[string]basecatalog.MCPSource) *MCPSourceCollection {
 		coll := NewMCPSourceCollection()

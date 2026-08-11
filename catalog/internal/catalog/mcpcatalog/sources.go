@@ -67,8 +67,8 @@ func (msc *MCPSourceCollection) MergeWithNamedQueries(origin string, sources map
 		return err
 	}
 
-	// Replace named queries for this origin (clears any previously contributed entries)
-	msc.namedQueryEntries[origin] = namedQueries
+	// Deep-copy and store named queries for this origin (clears any previously contributed entries)
+	msc.namedQueryEntries[origin] = cloneNamedQueries(namedQueries)
 
 	return nil
 }
@@ -111,6 +111,24 @@ func (msc *MCPSourceCollection) GetNamedQuery(name string) (map[string]basecatal
 		result[field] = deepCopyFieldFilter(ff)
 	}
 	return result, true
+}
+
+// cloneNamedQueries returns a deep copy of the entire named-queries map,
+// including mutable FieldFilter.Value slices, so that later caller
+// mutations cannot affect stored state.
+func cloneNamedQueries(src map[string]map[string]basecatalog.FieldFilter) map[string]map[string]basecatalog.FieldFilter {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]map[string]basecatalog.FieldFilter, len(src))
+	for queryName, fieldFilters := range src {
+		dstFilters := make(map[string]basecatalog.FieldFilter, len(fieldFilters))
+		for field, ff := range fieldFilters {
+			dstFilters[field] = deepCopyFieldFilter(ff)
+		}
+		dst[queryName] = dstFilters
+	}
+	return dst
 }
 
 // deepCopyFieldFilter returns a copy of ff where slice values are cloned.
