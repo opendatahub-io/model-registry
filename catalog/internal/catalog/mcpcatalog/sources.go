@@ -19,9 +19,9 @@ type mcpOriginEntry struct {
 // MCPSourceCollection manages MCP catalog sources from multiple origins with priority-based merging.
 // Later entries in the slice take precedence over earlier ones.
 type MCPSourceCollection struct {
-	mu           sync.RWMutex
-	entries      []mcpOriginEntry
-	namedQueries map[string]map[string]basecatalog.FieldFilter
+	mu                sync.RWMutex
+	entries           []mcpOriginEntry
+	namedQueryEntries map[string]map[string]map[string]basecatalog.FieldFilter // origin -> queryName -> fieldName -> FieldFilter
 }
 
 // NewMCPSourceCollection creates a new MCPSourceCollection with the given origin order.
@@ -34,8 +34,8 @@ func NewMCPSourceCollection(originOrder ...string) *MCPSourceCollection {
 		entries[i] = mcpOriginEntry{origin: origin, sources: nil}
 	}
 	return &MCPSourceCollection{
-		entries:      entries,
-		namedQueries: make(map[string]map[string]basecatalog.FieldFilter),
+		entries:           entries,
+		namedQueryEntries: make(map[string]map[string]map[string]basecatalog.FieldFilter),
 	}
 }
 
@@ -51,6 +51,9 @@ func (msc *MCPSourceCollection) Merge(origin string, sources map[string]basecata
 	msc.mu.Lock()
 	defer msc.mu.Unlock()
 
+	// Clear any previously contributed named queries for this origin
+	delete(msc.namedQueryEntries, origin)
+
 	return msc.mergeSourcesInternal(origin, sources)
 }
 
@@ -64,15 +67,30 @@ func (msc *MCPSourceCollection) MergeWithNamedQueries(origin string, sources map
 		return err
 	}
 
-	// Merge named queries (later origins override earlier ones at field level)
-	for queryName, fieldFilters := range namedQueries {
-		if msc.namedQueries[queryName] == nil {
-			msc.namedQueries[queryName] = make(map[string]basecatalog.FieldFilter)
-		}
-		maps.Copy(msc.namedQueries[queryName], fieldFilters)
-	}
+	// Replace named queries for this origin (clears any previously contributed entries)
+	msc.namedQueryEntries[origin] = namedQueries
 
 	return nil
+}
+
+// mergedNamedQueries computes the merged view of all named queries across origins.
+// Later origins (by entry order) override earlier ones at the field level.
+// Must be called with lock held.
+func (msc *MCPSourceCollection) mergedNamedQueries() map[string]map[string]basecatalog.FieldFilter {
+	result := make(map[string]map[string]basecatalog.FieldFilter)
+	for _, entry := range msc.entries {
+		originQueries, ok := msc.namedQueryEntries[entry.origin]
+		if !ok {
+			continue
+		}
+		for queryName, fieldFilters := range originQueries {
+			if result[queryName] == nil {
+				result[queryName] = make(map[string]basecatalog.FieldFilter)
+			}
+			maps.Copy(result[queryName], fieldFilters)
+		}
+	}
+	return result
 }
 
 // GetNamedQuery returns a copy of a single named query by name.
@@ -83,7 +101,8 @@ func (msc *MCPSourceCollection) GetNamedQuery(name string) (map[string]basecatal
 	msc.mu.RLock()
 	defer msc.mu.RUnlock()
 
-	fieldFilters, ok := msc.namedQueries[name]
+	merged := msc.mergedNamedQueries()
+	fieldFilters, ok := merged[name]
 	if !ok {
 		return nil, false
 	}
@@ -109,8 +128,9 @@ func (msc *MCPSourceCollection) GetNamedQueries() map[string]map[string]basecata
 	msc.mu.RLock()
 	defer msc.mu.RUnlock()
 
-	result := make(map[string]map[string]basecatalog.FieldFilter, len(msc.namedQueries))
-	for queryName, fieldFilters := range msc.namedQueries {
+	merged := msc.mergedNamedQueries()
+	result := make(map[string]map[string]basecatalog.FieldFilter, len(merged))
+	for queryName, fieldFilters := range merged {
 		result[queryName] = make(map[string]basecatalog.FieldFilter, len(fieldFilters))
 		for field, ff := range fieldFilters {
 			result[queryName][field] = deepCopyFieldFilter(ff)
