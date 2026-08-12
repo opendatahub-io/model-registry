@@ -131,19 +131,18 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 	inputToUnique := make([]int, numArtifacts) // maps each input index -> index in uniqueArtifacts
 
 	for i, sa := range allSchemaArtifacts {
-		key := ""
 		if sa.ExternalID != nil {
-			key = *sa.ExternalID
-		}
-		if idx, exists := externalIDIndex[key]; exists && key != "" {
-			inputToUnique[i] = idx
-		} else {
-			idx := len(uniqueArtifacts)
-			uniqueArtifacts = append(uniqueArtifacts, sa)
-			if key != "" {
-				externalIDIndex[key] = idx
+			key := *sa.ExternalID
+			if idx, exists := externalIDIndex[key]; exists {
+				inputToUnique[i] = idx
+				continue
 			}
-			inputToUnique[i] = idx
+			inputToUnique[i] = len(uniqueArtifacts)
+			externalIDIndex[key] = inputToUnique[i]
+			uniqueArtifacts = append(uniqueArtifacts, sa)
+		} else {
+			inputToUnique[i] = len(uniqueArtifacts)
+			uniqueArtifacts = append(uniqueArtifacts, sa)
 		}
 	}
 

@@ -816,4 +816,41 @@ func TestCatalogMetricsArtifactRepository(t *testing.T) {
 		assert.Equal(t, *saved[0].GetID(), *saved[1].GetID(),
 			"duplicate external_id entries should share the same artifact ID")
 	})
+
+	t.Run("TestBatchSaveDuplicateEmptyExternalIDWithinBatch", func(t *testing.T) {
+		catalogModel := &models.CatalogModelImpl{
+			Attributes: &models.CatalogModelAttributes{
+				Name:       new("test-model-empty-extid-dup"),
+				ExternalID: new("empty-extid-dup-model-ext"),
+			},
+		}
+		savedModel, err := catalogModelRepo.Save(catalogModel)
+		require.NoError(t, err)
+
+		artifacts := []models.CatalogMetricsArtifact{
+			&models.CatalogMetricsArtifactImpl{
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:        new("empty-extid-artifact-1"),
+					ExternalID:  new(""),
+					MetricsType: models.MetricsTypePerformance,
+				},
+			},
+			&models.CatalogMetricsArtifactImpl{
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:        new("empty-extid-artifact-2"),
+					ExternalID:  new(""),
+					MetricsType: models.MetricsTypePerformance,
+				},
+			},
+		}
+
+		saved, err := repo.BatchSave(artifacts, savedModel.GetID())
+		require.NoError(t, err, "BatchSave must not fail when two artifacts have empty-string external_id")
+		require.Len(t, saved, 2)
+
+		require.NotNil(t, saved[0].GetID())
+		require.NotNil(t, saved[1].GetID())
+		assert.Equal(t, *saved[0].GetID(), *saved[1].GetID(),
+			"empty-string external_id entries should be deduplicated to the same artifact")
+	})
 }
