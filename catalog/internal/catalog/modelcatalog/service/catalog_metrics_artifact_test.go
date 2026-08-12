@@ -765,4 +765,55 @@ func TestCatalogMetricsArtifactRepository(t *testing.T) {
 		}
 		assert.True(t, foundThroughput, "throughput custom property should still be present after upsert")
 	})
+
+	t.Run("TestBatchSaveDuplicateExternalIDWithinBatch", func(t *testing.T) {
+		// When a single BatchSave call contains two artifacts with the same
+		// external_id, PostgreSQL rejects the ON CONFLICT DO UPDATE with
+		// "cannot affect row a second time".  BatchSave must deduplicate
+		// within the batch before insertion and propagate the ID back to
+		// every input that shares the external_id.
+
+		catalogModel := &models.CatalogModelImpl{
+			Attributes: &models.CatalogModelAttributes{
+				Name:       new("test-model-intra-batch-dup"),
+				ExternalID: new("intra-batch-dup-model-ext"),
+			},
+		}
+		savedModel, err := catalogModelRepo.Save(catalogModel)
+		require.NoError(t, err)
+
+		sharedExtID := "intra-batch-dup-ext-001"
+		artifacts := []models.CatalogMetricsArtifact{
+			&models.CatalogMetricsArtifactImpl{
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:        new("perf-intra-dup-001"),
+					ExternalID:  new(sharedExtID),
+					MetricsType: models.MetricsTypePerformance,
+				},
+				CustomProperties: &[]dbmodels.Properties{
+					{Name: "latency_ms", DoubleValue: new(12.3)},
+				},
+			},
+			&models.CatalogMetricsArtifactImpl{
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:        new("perf-intra-dup-001"),
+					ExternalID:  new(sharedExtID),
+					MetricsType: models.MetricsTypePerformance,
+				},
+				CustomProperties: &[]dbmodels.Properties{
+					{Name: "latency_ms", DoubleValue: new(12.3)},
+				},
+			},
+		}
+
+		saved, err := repo.BatchSave(artifacts, savedModel.GetID())
+		require.NoError(t, err, "BatchSave must not fail when the same external_id appears twice in one call")
+		require.Len(t, saved, 2)
+
+		// Both entries should resolve to the same artifact row
+		require.NotNil(t, saved[0].GetID())
+		require.NotNil(t, saved[1].GetID())
+		assert.Equal(t, *saved[0].GetID(), *saved[1].GetID(),
+			"duplicate external_id entries should share the same artifact ID")
+	})
 }

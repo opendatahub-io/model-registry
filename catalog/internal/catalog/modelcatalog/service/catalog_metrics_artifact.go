@@ -96,10 +96,8 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 
 	config := r.GetConfig()
 
-	// Pre-allocate schema artifacts slice
-	schemaArtifacts := make([]schema.Artifact, numArtifacts)
-
 	// Validate, prepare, and convert all artifacts in one pass
+	allSchemaArtifacts := make([]schema.Artifact, numArtifacts)
 	for i, ma := range artifacts {
 		if ma.GetTypeID() == nil {
 			if config.TypeID > 0 && config.TypeID < math.MaxInt32 {
@@ -119,8 +117,34 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 			return nil, fmt.Errorf("invalid artifact at index %d: unknown metrics type: %s", i, attr.MetricsType)
 		}
 
-		schemaArtifacts[i] = mapCatalogMetricsArtifactToArtifact(ma)
+		allSchemaArtifacts[i] = mapCatalogMetricsArtifactToArtifact(ma)
 		artifacts[i] = ma
+	}
+
+	// Deduplicate by external_id before insertion: PostgreSQL rejects
+	// ON CONFLICT DO UPDATE when the same row would be affected twice
+	// within a single INSERT.  Keep a map from external_id to the index
+	// in the deduplicated slice so we can propagate IDs back to every
+	// original input that shares the same external_id.
+	externalIDIndex := make(map[string]int, numArtifacts)
+	uniqueArtifacts := make([]schema.Artifact, 0, numArtifacts)
+	inputToUnique := make([]int, numArtifacts) // maps each input index -> index in uniqueArtifacts
+
+	for i, sa := range allSchemaArtifacts {
+		key := ""
+		if sa.ExternalID != nil {
+			key = *sa.ExternalID
+		}
+		if idx, exists := externalIDIndex[key]; exists && key != "" {
+			inputToUnique[i] = idx
+		} else {
+			idx := len(uniqueArtifacts)
+			uniqueArtifacts = append(uniqueArtifacts, sa)
+			if key != "" {
+				externalIDIndex[key] = idx
+			}
+			inputToUnique[i] = idx
+		}
 	}
 
 	// Execute all batch operations in a single transaction.
@@ -135,28 +159,30 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 		if err := tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "external_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{"last_update_time_since_epoch"}),
-		}).CreateInBatches(&schemaArtifacts, 100).Error; err != nil {
+		}).CreateInBatches(&uniqueArtifacts, 100).Error; err != nil {
 			return fmt.Errorf("failed to batch insert artifacts: %w", err)
 		}
 
+		// Propagate IDs from deduplicated results back to every input
+		for i := range allSchemaArtifacts {
+			allSchemaArtifacts[i].ID = uniqueArtifacts[inputToUnique[i]].ID
+		}
+
 		// Pre-allocate slices for properties and attributions
-		// Estimate ~10 properties per artifact on average
 		allProperties := []schema.ArtifactProperty{}
 		var allAttributions []schema.Attribution
 		if parentResourceID != nil {
 			allAttributions = make([]schema.Attribution, 0, numArtifacts)
 		}
 
-		// Collect all properties and attributions
-		for i, schemaArtifact := range schemaArtifacts {
+		// Collect properties and attributions from ALL original inputs
+		for i, schemaArtifact := range allSchemaArtifacts {
 			artifactID := schemaArtifact.ID
 			artifacts[i].SetID(artifactID)
 
-			// Collect properties
 			properties := mapCatalogMetricsArtifactToArtifactProperties(artifacts[i], artifactID)
 			allProperties = append(allProperties, properties...)
 
-			// Collect attribution if parentResourceID is provided
 			if parentResourceID != nil {
 				allAttributions = append(allAttributions, schema.Attribution{
 					ContextID:  *parentResourceID,
