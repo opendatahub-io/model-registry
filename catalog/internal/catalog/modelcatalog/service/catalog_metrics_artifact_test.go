@@ -681,4 +681,88 @@ func TestCatalogMetricsArtifactRepository(t *testing.T) {
 		}
 		assert.True(t, foundRate, "attack_success_rate custom property should be present")
 	})
+
+	t.Run("TestBatchSaveDuplicateArtifactsAcrossSources", func(t *testing.T) {
+		// Simulate the scenario where the same model appears in two catalog
+		// sources and the performance metrics loader calls BatchSave for each.
+		// The second call must succeed (upsert) instead of failing with a
+		// "duplicated key not allowed" error.
+
+		// Create two catalog models representing the same model in two sources
+		catalogModel1 := &models.CatalogModelImpl{
+			Attributes: &models.CatalogModelAttributes{
+				Name:       new("source1:RedHatAI/TestModel"),
+				ExternalID: new("source1-test-model-dup-ext"),
+			},
+		}
+		savedModel1, err := catalogModelRepo.Save(catalogModel1)
+		require.NoError(t, err)
+
+		catalogModel2 := &models.CatalogModelImpl{
+			Attributes: &models.CatalogModelAttributes{
+				Name:       new("source2:RedHatAI/TestModel"),
+				ExternalID: new("source2-test-model-dup-ext"),
+			},
+		}
+		savedModel2, err := catalogModelRepo.Save(catalogModel2)
+		require.NoError(t, err)
+
+		// Artifacts with the same external_id and name (as would happen
+		// with identical performance/security metrics data).
+		makeArtifacts := func() []models.CatalogMetricsArtifact {
+			return []models.CatalogMetricsArtifact{
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						Name:        new("performance-perf-dup-001"),
+						ExternalID:  new("perf-dup-001"),
+						MetricsType: models.MetricsTypePerformance,
+					},
+					CustomProperties: &[]dbmodels.Properties{
+						{Name: "throughput", DoubleValue: new(42.5)},
+					},
+				},
+				&models.CatalogMetricsArtifactImpl{
+					Attributes: &models.CatalogMetricsArtifactAttributes{
+						Name:        new("security-sec-dup-001"),
+						ExternalID:  new("sec-dup-001"),
+						MetricsType: models.MetricsTypeSecurityMetrics,
+					},
+				},
+			}
+		}
+
+		// First BatchSave for source 1 -- should succeed normally
+		saved1, err := repo.BatchSave(makeArtifacts(), savedModel1.GetID())
+		require.NoError(t, err)
+		require.Len(t, saved1, 2)
+		for _, a := range saved1 {
+			require.NotNil(t, a.GetID())
+		}
+
+		// Second BatchSave with identical artifacts for source 2 -- must
+		// NOT fail with "duplicated key not allowed".
+		saved2, err := repo.BatchSave(makeArtifacts(), savedModel2.GetID())
+		require.NoError(t, err, "BatchSave should handle duplicate artifacts gracefully")
+		require.Len(t, saved2, 2)
+
+		// The returned artifacts should have the same IDs as the first batch
+		// (upserted, not duplicated).
+		assert.Equal(t, *saved1[0].GetID(), *saved2[0].GetID(), "upserted artifact should reuse existing ID")
+		assert.Equal(t, *saved1[1].GetID(), *saved2[1].GetID(), "upserted artifact should reuse existing ID")
+
+		// Verify properties are still intact after upsert
+		retrieved, err := repo.GetByID(*saved1[0].GetID())
+		require.NoError(t, err)
+		assert.Equal(t, models.MetricsTypePerformance, retrieved.GetAttributes().MetricsType)
+		require.NotNil(t, retrieved.GetCustomProperties())
+		props := *retrieved.GetCustomProperties()
+		var foundThroughput bool
+		for _, p := range props {
+			if p.Name == "throughput" {
+				foundThroughput = true
+				assert.Equal(t, 42.5, *p.DoubleValue)
+			}
+		}
+		assert.True(t, foundThroughput, "throughput custom property should still be present after upsert")
+	})
 }

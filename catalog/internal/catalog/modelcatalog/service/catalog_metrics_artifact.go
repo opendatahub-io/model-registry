@@ -13,6 +13,7 @@ import (
 	"github.com/kubeflow/hub/internal/platform/db/schema"
 	"github.com/kubeflow/hub/internal/platform/db/utils"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Register the mapping function for CatalogMetricsArtifact
@@ -122,10 +123,19 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 		artifacts[i] = ma
 	}
 
-	// Execute all batch operations in a single transaction
+	// Execute all batch operations in a single transaction.
+	// Use upsert (ON CONFLICT) semantics so that duplicate artifacts
+	// (e.g. when the same model appears in multiple catalog sources)
+	// are handled gracefully instead of failing with a unique-constraint
+	// violation.
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
-		// Batch insert artifacts (batch size of 100)
-		if err := tx.CreateInBatches(&schemaArtifacts, 100).Error; err != nil {
+		// Batch upsert artifacts: on external_id conflict, update
+		// last_update_time_since_epoch so the RETURNING clause still
+		// yields the existing row's ID.
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "external_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"last_update_time_since_epoch"}),
+		}).CreateInBatches(&schemaArtifacts, 100).Error; err != nil {
 			return fmt.Errorf("failed to batch insert artifacts: %w", err)
 		}
 
@@ -155,16 +165,18 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 			}
 		}
 
-		// Batch insert all properties
+		// Batch upsert properties: skip duplicates (data is identical
+		// when the same metrics are loaded for a second catalog source).
 		if len(allProperties) > 0 {
-			if err := tx.CreateInBatches(&allProperties, 100).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&allProperties, 100).Error; err != nil {
 				return fmt.Errorf("failed to batch insert properties: %w", err)
 			}
 		}
 
-		// Batch insert all attributions
+		// Batch upsert attributions: skip duplicates when the same
+		// artifact is already linked to this parent model.
 		if len(allAttributions) > 0 {
-			if err := tx.CreateInBatches(&allAttributions, 100).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&allAttributions, 100).Error; err != nil {
 				return fmt.Errorf("failed to batch insert attributions: %w", err)
 			}
 		}
