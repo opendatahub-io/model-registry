@@ -26,6 +26,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -60,6 +62,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -86,6 +90,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -109,6 +115,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -135,6 +143,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -167,6 +177,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -200,6 +212,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -226,6 +240,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -243,10 +259,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/InferenceServiceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -273,6 +293,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -299,10 +321,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/RegisteredModelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -337,10 +363,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ServeModelListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -369,6 +399,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -395,10 +427,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ModelVersionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -431,6 +467,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -464,6 +502,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -490,6 +530,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -507,10 +549,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ModelArtifactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -537,6 +583,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -569,6 +617,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -596,8 +646,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ModelVersionListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -626,6 +682,8 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -643,10 +701,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ModelVersionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -673,6 +735,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -708,10 +772,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -741,6 +809,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -767,10 +837,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/RegisteredModelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -797,8 +871,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/RegisteredModelListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -825,6 +905,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -842,10 +924,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/RegisteredModelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -872,6 +958,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -906,10 +994,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ModelVersionListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -938,6 +1030,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -964,10 +1058,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ServingEnvironmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -994,8 +1092,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ServingEnvironmentListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1022,6 +1126,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1039,10 +1145,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ServingEnvironmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1069,6 +1179,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1103,10 +1215,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/InferenceServiceListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1135,6 +1251,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1161,10 +1279,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ExperimentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1191,8 +1313,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ExperimentListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1219,6 +1347,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1236,10 +1366,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ExperimentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1266,6 +1400,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1300,10 +1436,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ExperimentRunListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1332,6 +1472,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1364,6 +1506,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1391,8 +1535,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ExperimentRunListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1421,6 +1571,8 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1438,10 +1590,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ExperimentRunResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1468,6 +1624,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1503,10 +1661,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/ArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1536,6 +1698,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1570,10 +1734,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/MetricListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1599,10 +1767,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/MetricListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -1786,6 +1958,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "doc-artifact"
               default: "doc-artifact"
     DocArtifactCreate:
       description: A document artifact to be created.
@@ -1796,6 +1970,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "doc-artifact"
               default: "doc-artifact"
     DocArtifactUpdate:
       description: A document artifact to be updated.
@@ -1805,6 +1981,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "doc-artifact"
               default: "doc-artifact"
             uri:
               description: |-
@@ -1822,6 +2000,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "dataset-artifact"
               default: "dataset-artifact"
     DataSetCreate:
       description: A dataset artifact to be created.
@@ -1832,6 +2012,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "dataset-artifact"
               default: "dataset-artifact"
     DataSetUpdate:
       description: A dataset artifact to be updated.
@@ -1841,6 +2023,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "dataset-artifact"
               default: "dataset-artifact"
             digest:
               description: A unique hash or identifier for the dataset content.
@@ -1873,6 +2057,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "metric"
               default: "metric"
     MetricCreate:
       description: A metric to be created.
@@ -1883,6 +2069,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "metric"
               default: "metric"
             name:
               description: The name/key of the metric (e.g., "accuracy", "loss", "f1_score").
@@ -1895,6 +2083,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "metric"
               default: "metric"
             value:
               description: The numeric value of the metric.
@@ -1919,6 +2109,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "parameter"
               default: "parameter"
     ParameterCreate:
       description: A parameter to be created.
@@ -1929,6 +2121,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "parameter"
               default: "parameter"
             name:
               description: The name/key of the parameter (e.g., "learning_rate", "batch_size", "epochs").
@@ -1948,6 +2142,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "parameter"
               default: "parameter"
             value:
               description: The value of the parameter.
@@ -2059,12 +2255,16 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "model-artifact"
               default: "model-artifact"
     ModelArtifactCreate:
       description: An ML model artifact.
       properties:
         artifactType:
           type: string
+          enum:
+            - "model-artifact"
           default: "model-artifact"
       allOf:
         - $ref: "#/components/schemas/BaseResourceCreate"
@@ -2103,6 +2303,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - "model-artifact"
               default: "model-artifact"
             modelFormatName:
               description: Name of the model format.

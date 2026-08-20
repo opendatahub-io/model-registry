@@ -118,10 +118,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPToolsList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPToolsList",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -207,10 +209,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPToolsList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPToolsList",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -296,10 +300,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPToolsList",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPToolsList",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -490,10 +496,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPServerList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "MCPServerList",
+            "400": "Error",
+            "401": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -599,10 +606,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPServerList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "MCPServerList",
+            "400": "Error",
+            "401": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -708,10 +716,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPServerList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "MCPServerList",
+            "400": "Error",
+            "401": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -886,10 +895,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "FilterOptionsList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "FilterOptionsList",
+            "400": "Error",
+            "401": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -951,10 +961,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "FilterOptionsList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "FilterOptionsList",
+            "400": "Error",
+            "401": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1016,10 +1027,11 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "FilterOptionsList",
-            '400': "Error",
-            '401': "Error",
-            '500': "Error",
+            "200": "FilterOptionsList",
+            "400": "Error",
+            "401": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1150,10 +1162,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPServer",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPServer",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1227,10 +1241,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPServer",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPServer",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1304,10 +1320,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPServer",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPServer",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1447,10 +1465,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPToolWithServer",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPToolWithServer",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1520,10 +1540,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPToolWithServer",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPToolWithServer",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1593,10 +1615,12 @@ class MCPCatalogServiceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MCPToolWithServer",
-            '401': "Error",
-            '404': "Error",
-            '500': "Error",
+            "200": "MCPToolWithServer",
+            "400": "Error",
+            "401": "Error",
+            "404": "Error",
+            "405": "Error",
+            "500": "Error",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -132,6 +132,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findModels
@@ -148,6 +150,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: findModelsFilterOptions
@@ -161,10 +165,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/CatalogModelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getModel
@@ -191,10 +199,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/CatalogArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getAllModelArtifacts
@@ -228,10 +240,14 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/CatalogArtifactListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
         "500":
           $ref: "#/components/responses/InternalServerError"
       operationId: getAllModelPerformanceArtifacts
@@ -332,6 +348,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - metrics-artifact
               default: metrics-artifact
             metricsType:
               type: string
@@ -427,6 +445,8 @@ components:
           properties:
             artifactType:
               type: string
+              enum:
+                - model-artifact
               default: model-artifact
             uri:
               type: string

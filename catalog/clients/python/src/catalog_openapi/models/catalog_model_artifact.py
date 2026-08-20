@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from catalog_openapi.models.metadata_value import MetadataValue
 from typing import Optional, Set
@@ -37,6 +37,17 @@ class CatalogModelArtifact(BaseModel):
     artifact_type: StrictStr = Field(alias="artifactType")
     uri: StrictStr = Field(description="URI where the model can be retrieved.")
     __properties: ClassVar[List[str]] = ["customProperties", "description", "externalId", "name", "id", "createTimeSinceEpoch", "lastUpdateTimeSinceEpoch", "artifactType", "uri"]
+
+    @field_validator("artifact_type")
+    def artifact_type_validate_enum(cls, value):
+        """Validates the enum."""
+        if value is None:
+            return value
+
+        if value not in {"model-artifact"}:
+            msg = "must be one of enum values ('model-artifact')"
+            raise ValueError(msg)
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,

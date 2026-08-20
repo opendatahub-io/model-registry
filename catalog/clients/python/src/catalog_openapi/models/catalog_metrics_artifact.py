@@ -45,6 +45,17 @@ class CatalogMetricsArtifact(BaseModel):
             raise ValueError("must be one of enum values ('performance-metrics', 'accuracy-metrics')")
         return value
 
+    @field_validator("artifact_type")
+    def artifact_type_validate_enum(cls, value):
+        """Validates the enum."""
+        if value is None:
+            return value
+
+        if value not in {"metrics-artifact"}:
+            msg = "must be one of enum values ('metrics-artifact')"
+            raise ValueError(msg)
+        return value
+
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
