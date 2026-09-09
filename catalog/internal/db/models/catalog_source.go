@@ -24,8 +24,11 @@ type CatalogSourceImpl = models.BaseEntity[CatalogSourceAttributes]
 
 // SourceStatus holds the operational status and error for a source.
 type SourceStatus struct {
-	Status string
-	Error  string
+	Status        string
+	Error         string
+	HasApiKey     *bool
+	Authenticated *bool
+	HfUsername    *string
 }
 
 // CatalogSourceRepository defines the interface for catalog source persistence.
@@ -45,4 +48,8 @@ type CatalogSourceRepository interface {
 
 	// GetAllStatuses returns a map of source ID to status/error for all sources.
 	GetAllStatuses() (map[string]SourceStatus, error)
+
+	// GetStatus returns the status/error persisted for a single source. It returns an empty
+	// SourceStatus (not an error) if the source does not exist.
+	GetStatus(sourceID string) (SourceStatus, error)
 }
