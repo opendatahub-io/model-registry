@@ -3,7 +3,7 @@ module github.com/kubeflow/hub/pkg/inferenceservice-controller
 go 1.25.8
 
 require (
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/kserve/kserve v0.19.0
 	github.com/kubeflow/hub/pkg/openapi v0.0.0
 	github.com/onsi/ginkgo v1.16.5
