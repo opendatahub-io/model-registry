@@ -1,6 +1,6 @@
 module github.com/kubeflow/hub/cmd/csi
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/kserve/kserve v0.17.0-rc1
@@ -61,7 +61,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
+	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/api v0.264.0 // indirect
