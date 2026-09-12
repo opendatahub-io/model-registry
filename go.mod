@@ -23,7 +23,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/mysql v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	google.golang.org/protobuf v1.36.12
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.2
@@ -101,7 +101,7 @@ require (
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
+	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
