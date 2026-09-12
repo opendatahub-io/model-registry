@@ -9,15 +9,20 @@ import {
 } from '@patternfly/react-core';
 import { ExclamationTriangleIcon } from '@patternfly/react-icons';
 import type { CatalogModel } from '~/app/modelCatalogTypes';
+import { renderGatedAccessRequiredDescription } from '~/app/pages/modelCatalog/utils/gatedAccessRequiredUtils';
 import { getHuggingFaceModelUrl } from '~/app/pages/modelCatalog/utils/modelCatalogUtils';
 import ExternalLink from '~/app/shared/components/ExternalLink';
 import { MODEL_CATALOG_GATED_ACCESS_REQUIRED } from '~/concepts/modelCatalog/const';
 
 type ModelGatedAccessRequiredViewProps = {
   model: CatalogModel;
+  hfUsername?: string;
 };
 
-const ModelGatedAccessRequiredView: React.FC<ModelGatedAccessRequiredViewProps> = ({ model }) => (
+const ModelGatedAccessRequiredView: React.FC<ModelGatedAccessRequiredViewProps> = ({
+  model,
+  hfUsername,
+}) => (
   <PageSection hasBodyWrapper={false} isFilled padding={{ default: 'noPadding' }}>
     <EmptyState
       headingLevel="h2"
@@ -26,7 +31,7 @@ const ModelGatedAccessRequiredView: React.FC<ModelGatedAccessRequiredViewProps> 
       variant={EmptyStateVariant.lg}
       data-testid="model-gated-access-required"
     >
-      <EmptyStateBody>{MODEL_CATALOG_GATED_ACCESS_REQUIRED.DESCRIPTION}</EmptyStateBody>
+      <EmptyStateBody>{renderGatedAccessRequiredDescription(hfUsername)}</EmptyStateBody>
       <EmptyStateFooter>
         <EmptyStateActions>
           <ExternalLink
