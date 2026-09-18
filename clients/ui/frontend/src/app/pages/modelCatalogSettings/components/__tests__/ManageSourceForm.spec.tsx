@@ -9,6 +9,7 @@ import {
   ModelCatalogSettingsContextType,
 } from '~/app/context/modelCatalogSettings/ModelCatalogSettingsContext';
 import { CatalogSourceType } from '~/app/modelCatalogTypes';
+import { CatalogSourceStatus } from '~/app/shared/types/catalogTypes';
 
 const mockNavigate = jest.fn();
 
@@ -65,7 +66,37 @@ describe('ManageSourceForm — markSourcePending on create', () => {
     jest.clearAllMocks();
   });
 
-  it('should call markSourcePending after creating a new source', async () => {
+  it('should call markSourcePending after creating a new source with a token', async () => {
+    const user = userEvent.setup();
+    const mockContext = createMockContext();
+
+    render(
+      <MemoryRouter>
+        <ModelCatalogSettingsContext.Provider value={mockContext}>
+          <ManageSourceForm isEditMode={false} />
+        </ModelCatalogSettingsContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const nameInput = screen.getByTestId('source-name-input');
+    await user.type(nameInput, 'My New Source');
+
+    const orgInput = screen.getByTestId('organization-input');
+    await user.type(orgInput, 'test-org');
+
+    const tokenInput = screen.getByTestId('access-token-input');
+    await user.type(tokenInput, 'hf_test_token');
+
+    const submitButton = screen.getByTestId('submit-button');
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockContext.apiState.api.createCatalogSourceConfig).toHaveBeenCalled();
+      expect(mockContext.markSourcePending).toHaveBeenCalledWith('my_new_source', '');
+    });
+  });
+
+  it('should not call markSourcePending when creating a source without a token', async () => {
     const user = userEvent.setup();
     const mockContext = createMockContext();
 
@@ -88,7 +119,7 @@ describe('ManageSourceForm — markSourcePending on create', () => {
 
     await waitFor(() => {
       expect(mockContext.apiState.api.createCatalogSourceConfig).toHaveBeenCalled();
-      expect(mockContext.markSourcePending).toHaveBeenCalledWith('my_new_source', '');
+      expect(mockContext.markSourcePending).not.toHaveBeenCalled();
     });
   });
 
@@ -103,7 +134,7 @@ describe('ManageSourceForm — markSourcePending on create', () => {
     };
     const mockContext = createMockContext({
       catalogSources: {
-        items: [{ id: 'existing_source', name: 'Existing', labels: [], status: 'available' }],
+        items: [{ id: 'existing_source', name: 'Existing', labels: [], status: CatalogSourceStatus.AVAILABLE }],
         size: 1,
         pageSize: 10,
         nextPageToken: '',
@@ -127,7 +158,7 @@ describe('ManageSourceForm — markSourcePending on create', () => {
 
     await waitFor(() => {
       expect(mockContext.apiState.api.updateCatalogSourceConfig).toHaveBeenCalled();
-      expect(mockContext.markSourcePending).toHaveBeenCalledWith('existing_source', 'available');
+      expect(mockContext.markSourcePending).toHaveBeenCalledWith('existing_source', CatalogSourceStatus.AVAILABLE);
     });
   });
 });
