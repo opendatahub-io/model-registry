@@ -120,6 +120,9 @@ const ManageSourceForm: React.FC<ManageSourceFormProps> = ({
         }
       } else {
         await apiState.api.createCatalogSourceConfig({}, payload);
+        if (formData.accessToken.trim()) {
+          markSourcePending(sourceConfig.id, '');
+        }
       }
 
       refreshCatalogSourceConfigs();
