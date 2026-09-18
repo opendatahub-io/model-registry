@@ -27,8 +27,19 @@ jest.mock('~/app/pages/modelCatalogSettings/useSourcePreview', () => ({
     clearValidationSuccess: jest.fn(),
     canPreview: false,
     handlePreview: jest.fn(),
+    handleTabChange: jest.fn(),
+    handleLoadMore: jest.fn(),
+    hasFormChanged: false,
     previewDisabledTooltip: '',
-    previewState: { isLoadingInitial: false },
+    previewState: {
+      isLoadingInitial: false,
+      isLoadingMore: false,
+      activeTab: 'included',
+      tabStates: {
+        included: { items: [], hasMore: false },
+        excluded: { items: [], hasMore: false },
+      },
+    },
   }),
 }));
 
