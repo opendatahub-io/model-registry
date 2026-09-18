@@ -134,7 +134,14 @@ describe('ManageSourceForm — markSourcePending on create', () => {
     };
     const mockContext = createMockContext({
       catalogSources: {
-        items: [{ id: 'existing_source', name: 'Existing', labels: [], status: CatalogSourceStatus.AVAILABLE }],
+        items: [
+          {
+            id: 'existing_source',
+            name: 'Existing',
+            labels: [],
+            status: CatalogSourceStatus.AVAILABLE,
+          },
+        ],
         size: 1,
         pageSize: 10,
         nextPageToken: '',
@@ -158,7 +165,10 @@ describe('ManageSourceForm — markSourcePending on create', () => {
 
     await waitFor(() => {
       expect(mockContext.apiState.api.updateCatalogSourceConfig).toHaveBeenCalled();
-      expect(mockContext.markSourcePending).toHaveBeenCalledWith('existing_source', CatalogSourceStatus.AVAILABLE);
+      expect(mockContext.markSourcePending).toHaveBeenCalledWith(
+        'existing_source',
+        CatalogSourceStatus.AVAILABLE,
+      );
     });
   });
 });
