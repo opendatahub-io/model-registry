@@ -8,21 +8,21 @@ import (
 	"testing"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // mockReloader tracks calls and allows configurable errors.
 type mockReloader struct {
-	mu                     sync.Mutex
-	parseAllCalled         atomic.Bool
-	reloadParsingCalled    atomic.Int32
-	leaderOpsCalled        atomic.Int32
-	lastLeaderSourceIDs    mapset.Set[string]
-	parseAllErr            error
-	reloadParsingErr       error
-	leaderOpsErr           error
+	mu                  sync.Mutex
+	parseAllCalled      atomic.Bool
+	reloadParsingCalled atomic.Int32
+	leaderOpsCalled     atomic.Int32
+	lastLeaderSourceIDs mapset.Set[string]
+	parseAllErr         error
+	reloadParsingErr    error
+	leaderOpsErr        error
 }
 
 func (m *mockReloader) ParseAllConfigs() error {

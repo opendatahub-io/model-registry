@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/golang/glog"
 	"golang.org/x/sync/semaphore"
 

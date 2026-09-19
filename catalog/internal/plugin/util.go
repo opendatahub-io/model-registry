@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 
 	"github.com/kubeflow/hub/internal/platform/datastore"
 )

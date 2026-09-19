@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log/slog"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
