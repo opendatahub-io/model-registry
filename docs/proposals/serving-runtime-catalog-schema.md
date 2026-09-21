@@ -59,8 +59,7 @@ New asset-type registration (Step 2 of the plugin guide):
 
 ## Endpoints
 
-Base path: `/api/serving_runtime_catalog/v1alpha1` (matches the `v1alpha1`
-convention used by the model, mcp, and agent plugins).
+Base path: `/api/serving_runtime_catalog/v1`
 
 | Method & Path | Operation | Purpose |
 |---|---|---|
