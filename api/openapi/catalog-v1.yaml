@@ -2592,7 +2592,7 @@ components:
               description: Human-friendly display label.
               example: vLLM
               maxLength: 255
-            source_id:
+            sourceId:
               type: string
               description: Catalog source that provides this runtime.
             provider:

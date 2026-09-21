@@ -37,7 +37,7 @@ type ServingRuntime struct {
 	// Human-friendly display label.
 	DisplayName *string `json:"displayName,omitempty"`
 	// Catalog source that provides this runtime.
-	SourceId *string `json:"source_id,omitempty"`
+	SourceId *string `json:"sourceId,omitempty"`
 	// Organization providing the runtime.
 	Provider *string `json:"provider,omitempty"`
 	// Full Markdown documentation for this runtime.
@@ -821,7 +821,7 @@ func (o ServingRuntime) ToMap() (map[string]interface{}, error) {
 		toSerialize["displayName"] = o.DisplayName
 	}
 	if !IsNil(o.SourceId) {
-		toSerialize["source_id"] = o.SourceId
+		toSerialize["sourceId"] = o.SourceId
 	}
 	if !IsNil(o.Provider) {
 		toSerialize["provider"] = o.Provider

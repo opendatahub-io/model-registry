@@ -101,7 +101,7 @@ components:
               description: Human-friendly display label.
               example: vLLM
               maxLength: 255
-            source_id:
+            sourceId:
               type: string
               description: Catalog source that provides this runtime.
             provider:
@@ -475,7 +475,7 @@ serving_runtimes:
 4. **Scope of v1alpha2 LLMInferenceService.** The RFE scopes MVP to
    InferenceService v1beta1. The schema above is CRD-version-agnostic; confirm
    whether `protocolVersions`/`template` need to distinguish the two paths.
-5. **API version.** `v1alpha1` (matching model/mcp/agent) vs `v1` (matching
-   skill). Recommend `v1alpha1` for consistency with the deployment-oriented
-   plugins.
+5. **API version.** *Resolved:* the plugin ships **`v1` only** (matching the
+   `skill` plugin), under `/api/serving_runtime_catalog/v1`. There is no
+   `v1alpha1` surface for this catalog.
 ```
