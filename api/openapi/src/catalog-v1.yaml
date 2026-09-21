@@ -493,6 +493,7 @@ components:
         - mcp_servers
         - agents
         - skills
+        - serving_runtimes
       default: models
     CatalogSourcePreviewResponse:
       description: Response containing models and their inclusion/exclusion status.

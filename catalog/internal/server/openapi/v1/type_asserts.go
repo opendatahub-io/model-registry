@@ -1448,6 +1448,16 @@ func AssertOrderByFieldRequired(obj model.OrderByField) error {
 	return nil
 }
 
+// AssertResourceTierConstraints checks if the values respects the defined constraints
+func AssertResourceTierConstraints(obj model.ResourceTier) error {
+	return nil
+}
+
+// AssertResourceTierRequired checks if the required fields are not zero-ed
+func AssertResourceTierRequired(obj model.ResourceTier) error {
+	return nil
+}
+
 // AssertServingConfigConstraints checks if the values respects the defined constraints
 func AssertServingConfigConstraints(obj model.ServingConfig) error {
 	if obj.ToolCalling != nil {
@@ -1462,6 +1472,230 @@ func AssertServingConfigConstraints(obj model.ServingConfig) error {
 func AssertServingConfigRequired(obj model.ServingConfig) error {
 	if obj.ToolCalling != nil {
 		if err := AssertToolCallingConfigRequired(*obj.ToolCalling); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeCapabilitiesConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeCapabilitiesConstraints(obj model.ServingRuntimeCapabilities) error {
+	return nil
+}
+
+// AssertServingRuntimeCapabilitiesRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeCapabilitiesRequired(obj model.ServingRuntimeCapabilities) error {
+	return nil
+}
+
+// AssertServingRuntimeConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeConstraints(obj model.ServingRuntime) error {
+	for _, el := range obj.SupportedModelFormats {
+		if err := AssertSupportedModelFormatConstraints(el); err != nil {
+			return err
+		}
+	}
+	if obj.Capabilities != nil {
+		if err := AssertServingRuntimeCapabilitiesConstraints(*obj.Capabilities); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeEnvVarConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeEnvVarConstraints(obj model.ServingRuntimeEnvVar) error {
+	return nil
+}
+
+// AssertServingRuntimeEnvVarRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeEnvVarRequired(obj model.ServingRuntimeEnvVar) error {
+	elements := map[string]interface{}{
+		"name": obj.Name,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	return nil
+}
+
+// AssertServingRuntimeListConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeListConstraints(obj model.ServingRuntimeList) error {
+	for _, el := range obj.Items {
+		if err := AssertServingRuntimeConstraints(el); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeListRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeListRequired(obj model.ServingRuntimeList) error {
+	elements := map[string]interface{}{
+		"nextPageToken": obj.NextPageToken,
+		"pageSize":      obj.PageSize,
+		"size":          obj.Size,
+		"items":         obj.Items,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	for _, el := range obj.Items {
+		if err := AssertServingRuntimeRequired(el); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeRequired(obj model.ServingRuntime) error {
+	for _, el := range obj.SupportedModelFormats {
+		if err := AssertSupportedModelFormatRequired(el); err != nil {
+			return err
+		}
+	}
+	if obj.Capabilities != nil {
+		if err := AssertServingRuntimeCapabilitiesRequired(*obj.Capabilities); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeResourceRecommendationConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeResourceRecommendationConstraints(obj model.ServingRuntimeResourceRecommendation) error {
+	if obj.Minimal != nil {
+		if err := AssertResourceTierConstraints(*obj.Minimal); err != nil {
+			return err
+		}
+	}
+	if obj.Recommended != nil {
+		if err := AssertResourceTierConstraints(*obj.Recommended); err != nil {
+			return err
+		}
+	}
+	if obj.High != nil {
+		if err := AssertResourceTierConstraints(*obj.High); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeResourceRecommendationRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeResourceRecommendationRequired(obj model.ServingRuntimeResourceRecommendation) error {
+	if obj.Minimal != nil {
+		if err := AssertResourceTierRequired(*obj.Minimal); err != nil {
+			return err
+		}
+	}
+	if obj.Recommended != nil {
+		if err := AssertResourceTierRequired(*obj.Recommended); err != nil {
+			return err
+		}
+	}
+	if obj.High != nil {
+		if err := AssertResourceTierRequired(*obj.High); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeSupportLevelConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeSupportLevelConstraints(obj model.ServingRuntimeSupportLevel) error {
+	return nil
+}
+
+// AssertServingRuntimeSupportLevelRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeSupportLevelRequired(obj model.ServingRuntimeSupportLevel) error {
+	return nil
+}
+
+// AssertServingRuntimeVersionConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeVersionConstraints(obj model.ServingRuntimeVersion) error {
+	for _, el := range obj.SupportedModelFormats {
+		if err := AssertSupportedModelFormatConstraints(el); err != nil {
+			return err
+		}
+	}
+	if obj.RecommendedResources != nil {
+		if err := AssertServingRuntimeResourceRecommendationConstraints(*obj.RecommendedResources); err != nil {
+			return err
+		}
+	}
+	for _, el := range obj.Env {
+		if err := AssertServingRuntimeEnvVarConstraints(el); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeVersionListConstraints checks if the values respects the defined constraints
+func AssertServingRuntimeVersionListConstraints(obj model.ServingRuntimeVersionList) error {
+	for _, el := range obj.Items {
+		if err := AssertServingRuntimeVersionConstraints(el); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeVersionListRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeVersionListRequired(obj model.ServingRuntimeVersionList) error {
+	elements := map[string]interface{}{
+		"nextPageToken": obj.NextPageToken,
+		"pageSize":      obj.PageSize,
+		"size":          obj.Size,
+		"items":         obj.Items,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	for _, el := range obj.Items {
+		if err := AssertServingRuntimeVersionRequired(el); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AssertServingRuntimeVersionRequired checks if the required fields are not zero-ed
+func AssertServingRuntimeVersionRequired(obj model.ServingRuntimeVersion) error {
+	elements := map[string]interface{}{
+		"artifactType": obj.ArtifactType,
+		"version":      obj.Version,
+		"image":        obj.Image,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
+	for _, el := range obj.SupportedModelFormats {
+		if err := AssertSupportedModelFormatRequired(el); err != nil {
+			return err
+		}
+	}
+	if obj.RecommendedResources != nil {
+		if err := AssertServingRuntimeResourceRecommendationRequired(*obj.RecommendedResources); err != nil {
+			return err
+		}
+	}
+	for _, el := range obj.Env {
+		if err := AssertServingRuntimeEnvVarRequired(el); err != nil {
 			return err
 		}
 	}
@@ -1546,6 +1780,25 @@ func AssertSourceStatusConstraints(obj model.SourceStatus) error {
 
 // AssertSourceStatusRequired checks if the required fields are not zero-ed
 func AssertSourceStatusRequired(obj model.SourceStatus) error {
+	return nil
+}
+
+// AssertSupportedModelFormatConstraints checks if the values respects the defined constraints
+func AssertSupportedModelFormatConstraints(obj model.SupportedModelFormat) error {
+	return nil
+}
+
+// AssertSupportedModelFormatRequired checks if the required fields are not zero-ed
+func AssertSupportedModelFormatRequired(obj model.SupportedModelFormat) error {
+	elements := map[string]interface{}{
+		"name": obj.Name,
+	}
+	for name, el := range elements {
+		if isZero := IsZeroValue(el); isZero {
+			return &RequiredError{Field: name}
+		}
+	}
+
 	return nil
 }
 
