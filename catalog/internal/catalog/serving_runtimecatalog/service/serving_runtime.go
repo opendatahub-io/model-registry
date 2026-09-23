@@ -42,6 +42,7 @@ func NewServingRuntimeRepository(db *gorm.DB, typeID int32) models.ServingRuntim
 		HasCustomProperties:     func(entity models.ServingRuntime) bool { return entity.GetCustomProperties() != nil },
 		EntityMappingFuncs:      newServingRuntimeEntityMappings(),
 		PreserveHistoricalTimes: true,
+		DeleteMissingProperties: true,
 	})
 
 	return r
@@ -129,6 +130,17 @@ func mapServingRuntimeToProperties(entity models.ServingRuntime, entityID int32)
 }
 
 func applyServingRuntimeListFilters(query *gorm.DB, listOptions *models.ServingRuntimeListOptions) *gorm.DB {
+	// Filter by name (matched against the unqualified base_name property) when provided.
+	if listOptions.Name != nil {
+		contextTable := utils.GetTableName(query.Statement.DB, &schema.Context{})
+		propertyTable := utils.GetTableName(query.Statement.DB, &schema.ContextProperty{})
+		query = query.Where(
+			fmt.Sprintf("EXISTS (SELECT 1 FROM %s cp WHERE cp.context_id = %s.id AND cp.name = 'base_name' AND cp.string_value LIKE ?)",
+				propertyTable, contextTable),
+			listOptions.Name,
+		)
+	}
+
 	// Filter by source_id when provided.
 	if listOptions.SourceIDs != nil && len(*listOptions.SourceIDs) > 0 {
 		propTable := utils.GetTableName(query, &schema.ContextProperty{})

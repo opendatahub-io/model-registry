@@ -8,6 +8,7 @@ import (
 // ServingRuntimeListOptions holds the options for listing ServingRuntime entities.
 type ServingRuntimeListOptions struct {
 	dbmodels.Pagination
+	Name        *string
 	SourceIDs   *[]string
 	FilterQuery *string
 }

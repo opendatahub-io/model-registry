@@ -42,6 +42,7 @@ func NewServingRuntimeVersionRepository(db *gorm.DB, typeID int32) models.Servin
 		HasCustomProperties:     func(entity models.ServingRuntimeVersion) bool { return entity.GetCustomProperties() != nil },
 		EntityMappingFuncs:      newServingRuntimeVersionEntityMappings(),
 		PreserveHistoricalTimes: true,
+		DeleteMissingProperties: true,
 	})
 
 	return r
@@ -207,6 +208,17 @@ func (r *ServingRuntimeVersionRepositoryImpl) DeleteBySource(sourceID string) er
 			tableName+".type_id = ?",
 			"source_id", sourceID, config.TypeID)
 
+	return config.DB.Where("id IN (?)", subQuery).Delete(&schema.Artifact{}).Error
+}
+
+func (r *ServingRuntimeVersionRepositoryImpl) DeleteByParentID(parentID int32) error {
+	config := r.GetConfig()
+	attributionTable := utils.GetTableName(config.DB, &schema.Attribution{})
+	artifactTable := utils.GetTableName(config.DB, &schema.Artifact{})
+	subQuery := config.DB.Table(attributionTable).
+		Select(attributionTable+".artifact_id").
+		Joins(fmt.Sprintf("INNER JOIN %s ON %s.artifact_id = %s.id", artifactTable, attributionTable, artifactTable)).
+		Where(fmt.Sprintf("%s.context_id = ? AND %s.type_id = ?", attributionTable, artifactTable), parentID, config.TypeID)
 	return config.DB.Where("id IN (?)", subQuery).Delete(&schema.Artifact{}).Error
 }
 
