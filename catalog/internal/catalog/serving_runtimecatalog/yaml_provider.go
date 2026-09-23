@@ -3,6 +3,7 @@ package serving_runtimecatalog
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	openapi "github.com/kubeflow/hub/catalog/pkg/openapi"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -33,7 +34,7 @@ type yamlServingRuntime struct {
 	PublishedDate         *string                             `yaml:"publishedDate,omitempty" json:"publishedDate,omitempty"`
 	LastUpdated           *string                             `yaml:"lastUpdated,omitempty" json:"lastUpdated,omitempty"`
 	ExternalID            *string                             `yaml:"externalId,omitempty" json:"externalId,omitempty"`
-	CustomProperties      map[string]any                      `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
+	CustomProperties      *map[string]openapi.MetadataValue   `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
 	Versions              []yamlServingRuntimeVersion         `yaml:"versions,omitempty" json:"versions,omitempty"`
 }
 
@@ -69,6 +70,26 @@ func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
 	var catalog yamlServingRuntimeCatalog
 	if err := yaml.Unmarshal(data, &catalog); err != nil {
 		return nil, fmt.Errorf("failed to parse serving_runtime catalog file %s: %w", path, err)
+	}
+	names := make(map[string]bool, len(catalog.ServingRuntimes))
+	for _, runtime := range catalog.ServingRuntimes {
+		if strings.TrimSpace(runtime.Name) == "" {
+			return nil, fmt.Errorf("serving_runtime in %s has no name", path)
+		}
+		if names[runtime.Name] {
+			return nil, fmt.Errorf("duplicate serving_runtime %q in %s", runtime.Name, path)
+		}
+		names[runtime.Name] = true
+		versions := make(map[string]bool, len(runtime.Versions))
+		for _, version := range runtime.Versions {
+			if strings.TrimSpace(version.Version) == "" || strings.TrimSpace(version.Image) == "" {
+				return nil, fmt.Errorf("serving_runtime %q in %s has a version without version or image", runtime.Name, path)
+			}
+			if versions[version.Version] {
+				return nil, fmt.Errorf("duplicate version %q for serving_runtime %q in %s", version.Version, runtime.Name, path)
+			}
+			versions[version.Version] = true
+		}
 	}
 
 	return catalog.ServingRuntimes, nil

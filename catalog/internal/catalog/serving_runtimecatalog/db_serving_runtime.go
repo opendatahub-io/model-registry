@@ -68,21 +68,25 @@ func (d *DBServingRuntimeCatalog) ListServingRuntimes(ctx context.Context, param
 		FilterQuery: &filterQuery,
 	}
 
+	if params.Name != "" {
+		listOptions.Name = &params.Name
+	}
+
 	if len(params.SourceIDs) > 0 {
 		listOptions.SourceIDs = &params.SourceIDs
 	}
 
 	orderBy := strings.ToUpper(string(params.OrderBy))
 	sortOrder := strings.ToUpper(string(params.SortOrder))
-	listOptions.Pagination.PageSize = &params.PageSize
+	listOptions.PageSize = &params.PageSize
 	if orderBy != "" {
-		listOptions.Pagination.OrderBy = &orderBy
+		listOptions.OrderBy = &orderBy
 	}
 	if sortOrder != "" {
-		listOptions.Pagination.SortOrder = &sortOrder
+		listOptions.SortOrder = &sortOrder
 	}
 	if params.NextPageToken != "" {
-		listOptions.Pagination.NextPageToken = &params.NextPageToken
+		listOptions.NextPageToken = &params.NextPageToken
 	}
 
 	runtimesList, err := d.servingRuntimeRepo.List(listOptions)
@@ -150,15 +154,15 @@ func (d *DBServingRuntimeCatalog) ListServingRuntimeVersions(ctx context.Context
 
 	orderBy := strings.ToUpper(string(params.OrderBy))
 	sortOrder := strings.ToUpper(string(params.SortOrder))
-	listOptions.Pagination.PageSize = &params.PageSize
+	listOptions.PageSize = &params.PageSize
 	if orderBy != "" {
-		listOptions.Pagination.OrderBy = &orderBy
+		listOptions.OrderBy = &orderBy
 	}
 	if sortOrder != "" {
-		listOptions.Pagination.SortOrder = &sortOrder
+		listOptions.SortOrder = &sortOrder
 	}
 	if params.NextPageToken != "" {
-		listOptions.Pagination.NextPageToken = &params.NextPageToken
+		listOptions.NextPageToken = &params.NextPageToken
 	}
 
 	versionsList, err := d.servingRuntimeVersionRepo.List(listOptions)
@@ -183,6 +187,17 @@ func (d *DBServingRuntimeCatalog) ListServingRuntimeVersions(ctx context.Context
 	}, nil
 }
 
+// unqualifiedName strips the "sourceID:" prefix from a stored (namespaced) name.
+// Stored names use the format "sourceID:runtimeName" (or "sourceID:runtimeName:version"
+// for versions) for DB uniqueness; this strips the prefix so callers get the name
+// without the source id prepended.
+func unqualifiedName(storedName string) string {
+	if _, unqualified, ok := strings.Cut(storedName, ":"); ok {
+		return unqualified
+	}
+	return storedName
+}
+
 // mapDBServingRuntimeToAPI maps a database serving_runtime entity to its OpenAPI representation.
 func mapDBServingRuntimeToAPI(m models.ServingRuntime) (openapi.ServingRuntime, error) {
 	res := openapi.ServingRuntime{}
@@ -194,6 +209,10 @@ func mapDBServingRuntimeToAPI(m models.ServingRuntime) (openapi.ServingRuntime, 
 
 	if attrs := m.GetAttributes(); attrs != nil {
 		res.Name = attrs.Name
+		if attrs.Name != nil {
+			name := unqualifiedName(*attrs.Name)
+			res.Name = &name
+		}
 		res.ExternalId = attrs.ExternalID
 		if attrs.CreateTimeSinceEpoch != nil {
 			createTime := strconv.FormatInt(*attrs.CreateTimeSinceEpoch, 10)
@@ -260,6 +279,28 @@ func mapDBServingRuntimeToAPI(m models.ServingRuntime) (openapi.ServingRuntime, 
 			}
 		}
 	}
+	if m.GetCustomProperties() != nil {
+		custom := make(map[string]openapi.MetadataValue)
+		for _, prop := range *m.GetCustomProperties() {
+			mv := openapi.MetadataValue{}
+			switch {
+			case prop.StringValue != nil:
+				mv.MetadataStringValue = openapi.NewMetadataStringValueWithDefaults()
+				mv.MetadataStringValue.StringValue = *prop.StringValue
+			case prop.IntValue != nil:
+				mv.MetadataIntValue = openapi.NewMetadataIntValueWithDefaults()
+				mv.MetadataIntValue.IntValue = strconv.FormatInt(int64(*prop.IntValue), 10)
+			case prop.DoubleValue != nil:
+				mv.MetadataDoubleValue = openapi.NewMetadataDoubleValueWithDefaults()
+				mv.MetadataDoubleValue.DoubleValue = *prop.DoubleValue
+			case prop.BoolValue != nil:
+				mv.MetadataBoolValue = openapi.NewMetadataBoolValueWithDefaults()
+				mv.MetadataBoolValue.BoolValue = *prop.BoolValue
+			}
+			custom[prop.Name] = mv
+		}
+		res.CustomProperties = custom
+	}
 
 	return res, nil
 }
@@ -277,6 +318,10 @@ func mapDBServingRuntimeVersionToAPI(m models.ServingRuntimeVersion) (openapi.Se
 
 	if attrs := m.GetAttributes(); attrs != nil {
 		res.Name = attrs.Name
+		if attrs.Name != nil {
+			name := unqualifiedName(*attrs.Name)
+			res.Name = &name
+		}
 		res.ExternalId = attrs.ExternalID
 		if attrs.CreateTimeSinceEpoch != nil {
 			createTime := strconv.FormatInt(*attrs.CreateTimeSinceEpoch, 10)

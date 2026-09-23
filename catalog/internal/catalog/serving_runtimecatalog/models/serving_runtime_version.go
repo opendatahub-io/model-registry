@@ -51,6 +51,7 @@ type ServingRuntimeVersionRepository interface {
 	List(listOptions *ServingRuntimeVersionListOptions) (*dbmodels.ListWrapper[ServingRuntimeVersion], error)
 	Save(entity ServingRuntimeVersion, parentResourceID *int32) (ServingRuntimeVersion, error)
 	DeleteBySource(sourceID string) error
+	DeleteByParentID(parentID int32) error
 	DeleteByID(id int32) error
 	GetDistinctSourceIDs() ([]string, error)
 	GetTypeID() int32

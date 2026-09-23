@@ -1,0 +1,49 @@
+serving_runtimes:
+  - name: vllm
+    displayName: vLLM
+    provider: Red Hat
+    description: High-performance generative AI serving runtime for LLMs.
+    tags: [llm, generative-ai, gpu]
+    license: apache-2.0
+    repositoryUrl: https://github.com/vllm-project/vllm
+    capabilities:
+      requiresGPU: true
+      supportedAccelerators: ["nvidia.com/gpu"]
+      multiModel: false
+    supportedModelFormats:
+      - name: safetensors
+        autoSelect: true
+      - name: pytorch
+    versions:
+      - version: "0.5.0"
+        image: registry.redhat.io/rhoai/vllm-rhel9:0.5.0
+        supportLevel: supported
+        protocolVersions: [v2]
+        recommendedResources:
+          recommended:
+            cpu: "4"
+            memory: 16Gi
+            accelerator:
+              nvidia.com/gpu: "1"
+        defaultArgs: ["--max-model-len", "4096"]
+        env:
+          - name: HF_TOKEN
+            description: Token for gated Hugging Face models.
+            secret: true
+  - name: ovms
+    displayName: OpenVINO Model Server
+    provider: Intel
+    description: Serving runtime optimized for CPU inference.
+    capabilities:
+      requiresGPU: false
+    supportedModelFormats:
+      - name: openvino_ir
+      - name: onnx
+    versions:
+      - version: "2024.4"
+        image: registry.redhat.io/rhoai/openvino-rhel9:2024.4
+        supportLevel: supported
+        recommendedResources:
+          recommended:
+            cpu: "2"
+            memory: 8Gi

@@ -15,6 +15,7 @@ configMapGenerator:
   - dev-community-mcp-servers.yaml=dev-community-mcp-servers.yaml
   - dev-sample-agents.yaml=dev-sample-agents.yaml
   - dev-enterprise-agents.yaml=dev-enterprise-agents.yaml
+  - dev-serving-runtimes.yaml=dev-serving-runtimes.yaml
   name: model-catalog-sources
   options:
     disableNameSuffixHash: true

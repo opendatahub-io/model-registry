@@ -81,6 +81,12 @@ type GenericRepositoryConfig[TEntity any, TSchema SchemaEntity, TProp PropertyEn
 	HasCustomProperties     func(TEntity) bool
 	EntityMappingFuncs      filter.EntityMappingFunctions
 	PreserveHistoricalTimes bool
+	// DeleteMissingProperties, when set, deletes any existing regular and custom
+	// properties not present in the entity being saved, inside the same
+	// transaction as the entity/property writes. Off by default to preserve the
+	// behavior of repositories that don't want this (e.g. ones where an absent
+	// property should be left untouched rather than treated as "removed").
+	DeleteMissingProperties bool
 }
 
 // Generic repository implementation
@@ -384,7 +390,11 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) handleParentRela
 }
 
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) handleProperties(tx *gorm.DB, entityID int32, properties []TProp, hasCustomProperties bool) error {
-	if hasCustomProperties {
+	if r.config.DeleteMissingProperties {
+		if err := r.deleteMissingProperties(tx, entityID, properties); err != nil {
+			return err
+		}
+	} else if hasCustomProperties {
 		var existingCustomProperties []TProp
 		if err := tx.Where(r.config.PropertyFieldName+" = ? AND is_custom_property = ?", entityID, true).Find(&existingCustomProperties).Error; err != nil {
 			return fmt.Errorf("error getting existing custom properties: %w", err)
@@ -428,6 +438,37 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) handleProperties
 			}
 		default:
 			return fmt.Errorf("error checking existing property %s: %w", r.getPropertyName(prop), result.Error)
+		}
+	}
+
+	return nil
+}
+
+// deleteMissingProperties removes existing regular and custom properties for entityID
+// that are not present in properties. It runs on tx, so it commits or rolls back
+// atomically with the rest of Save's entity/property writes. Used when
+// GenericRepositoryConfig.DeleteMissingProperties is set.
+func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) deleteMissingProperties(tx *gorm.DB, entityID int32, properties []TProp) error {
+	for _, custom := range []bool{false, true} {
+		var existingProperties []TProp
+		if err := tx.Where(r.config.PropertyFieldName+" = ? AND is_custom_property = ?", entityID, custom).Find(&existingProperties).Error; err != nil {
+			return fmt.Errorf("error getting existing properties: %w", err)
+		}
+
+		for _, existingProp := range existingProperties {
+			found := false
+			for _, prop := range properties {
+				if r.propertiesMatch(prop, existingProp) {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				if err := tx.Delete(&existingProp).Error; err != nil {
+					return fmt.Errorf("error deleting property: %w", err)
+				}
+			}
 		}
 	}
 
@@ -533,7 +574,6 @@ func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) getNonUpdatableF
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) GetConfig() GenericRepositoryConfig[TEntity, TSchema, TProp, TListOpts] {
 	return r.config
 }
-
 
 func (r *GenericRepository[TEntity, TSchema, TProp, TListOpts]) ApplyStandardPagination(query *gorm.DB, listOptions TListOpts, entities any) *gorm.DB {
 	pageSize := listOptions.GetPageSize()
