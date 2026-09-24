@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog/models"
 	"github.com/kubeflow/hub/catalog/internal/db/pagination"
@@ -129,15 +130,39 @@ func mapServingRuntimeToProperties(entity models.ServingRuntime, entityID int32)
 	return properties
 }
 
+// escapeLike escapes SQL LIKE metacharacters (%, _, \) in s so it can be used safely as a literal in a LIKE pattern.
+func escapeLike(s string) string {
+	var b strings.Builder
+	for _, c := range s {
+		switch c {
+		case '\\', '%', '_':
+			b.WriteRune('\\')
+			b.WriteRune(c)
+		default:
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
+}
+
 func applyServingRuntimeListFilters(query *gorm.DB, listOptions *models.ServingRuntimeListOptions) *gorm.DB {
 	// Filter by name (matched against the unqualified base_name property) when provided.
 	if listOptions.Name != nil {
 		contextTable := utils.GetTableName(query.Statement.DB, &schema.Context{})
 		propertyTable := utils.GetTableName(query.Statement.DB, &schema.ContextProperty{})
 		query = query.Where(
-			fmt.Sprintf("EXISTS (SELECT 1 FROM %s cp WHERE cp.context_id = %s.id AND cp.name = 'base_name' AND cp.string_value LIKE ?)",
+			fmt.Sprintf("EXISTS (SELECT 1 FROM %s cp WHERE cp.context_id = %s.id AND cp.name = 'base_name' AND cp.is_custom_property = false AND cp.string_value LIKE ?)",
 				propertyTable, contextTable),
 			listOptions.Name,
+		)
+	}
+	if listOptions.Query != nil && *listOptions.Query != "" {
+		contextTable := utils.GetTableName(query.Statement.DB, &schema.Context{})
+		propertyTable := utils.GetTableName(query.Statement.DB, &schema.ContextProperty{})
+		pattern := "%" + escapeLike(strings.ToLower(*listOptions.Query)) + "%"
+		query = query.Where(
+			fmt.Sprintf("EXISTS (SELECT 1 FROM %s cp WHERE cp.context_id = %s.id AND cp.name IN (?, ?, ?, ?) AND cp.is_custom_property = ? AND LOWER(cp.string_value) LIKE ?)", propertyTable, contextTable),
+			"base_name", "displayName", "provider", "description", false, pattern,
 		)
 	}
 
@@ -148,7 +173,7 @@ func applyServingRuntimeListFilters(query *gorm.DB, listOptions *models.ServingR
 		subQuery := query.Session(&gorm.Session{NewDB: true}).
 			Table(propTable).
 			Select("context_id").
-			Where("name = ? AND string_value IN ?", "source_id", *listOptions.SourceIDs)
+			Where("name = ? AND is_custom_property = ? AND string_value IN ?", "source_id", false, *listOptions.SourceIDs)
 		query = query.Where(contextTable+".id IN (?)", subQuery)
 	}
 
@@ -157,7 +182,11 @@ func applyServingRuntimeListFilters(query *gorm.DB, listOptions *models.ServingR
 
 func (r *ServingRuntimeRepositoryImpl) createServingRuntimePaginationToken(lastItem schema.Context, listOptions *models.ServingRuntimeListOptions) string {
 	if listOptions.GetOrderBy() == "NAME" {
-		return pagination.CreateNamePaginationToken(lastItem.ID, &lastItem.Name)
+		name := lastItem.Name
+		if _, unqualified, ok := strings.Cut(name, ":"); ok {
+			name = unqualified
+		}
+		return pagination.CreateNamePaginationToken(lastItem.ID, &name)
 	}
 	return r.CreateDefaultPaginationToken(lastItem, listOptions)
 }
@@ -177,7 +206,7 @@ func (r *ServingRuntimeRepositoryImpl) applyServingRuntimeCustomOrdering(query *
 	orderBy := listOptions.GetOrderBy()
 
 	if orderBy == "NAME" {
-		return pagination.ApplyNameOrdering(query, contextTable, listOptions.GetSortOrder(), listOptions.GetNextPageToken(), listOptions.GetPageSize(), false)
+		return pagination.ApplyNameOrdering(query, contextTable, listOptions.GetSortOrder(), listOptions.GetNextPageToken(), listOptions.GetPageSize(), true)
 	}
 
 	return r.ApplyStandardPagination(query, listOptions, []models.ServingRuntime{})

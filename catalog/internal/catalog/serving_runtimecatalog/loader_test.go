@@ -284,6 +284,264 @@ func TestServingRuntimeListFiltersByName(t *testing.T) {
 	assert.Len(t, all.Items, 2)
 }
 
+func TestServingRuntimeListSearchesMetadata(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    displayName: Fast Engine\n    provider: Acme\n    description: Runs large language models\n  - name: ovms\n    description: CPU inference\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	provider := NewDBServingRuntimeCatalog(services, loader.Sources)
+
+	for _, query := range []string{"VLLM", "FAST", "ACME", "LANGUAGE"} {
+		result, err := provider.ListServingRuntimes(t.Context(), ListServingRuntimesParams{Query: query})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1, "query %q", query)
+		assert.Equal(t, "vllm", *result.Items[0].Name)
+	}
+}
+
+func TestServingRuntimeFilterOptionsIncludePropertiesAndNamedQueries(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\nnamedQueries:\n  acme_only:\n    assetType: serving_runtimes\n    filters:\n      provider: {operator: '=', value: Acme}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    provider: Acme\n    tags: [llm]\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	require.NoError(t, services.PropertyOptionsRepository.Refresh(dbmodels.ContextPropertyOptionType))
+
+	options, err := NewDBServingRuntimeCatalog(services, loader.Sources).GetFilterOptions(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, options.Filters)
+	assert.Contains(t, *options.Filters, "provider")
+	assert.NotContains(t, *options.Filters, "source_id")
+	require.NotNil(t, options.NamedQueries)
+	assert.Contains(t, *options.NamedQueries, "acme_only")
+}
+
+func TestServingRuntimeStructuredFieldsFilterByValues(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), `serving_runtimes:
+  - name: ovms
+    supportedModelFormats:
+      - {name: onnx, autoSelect: true, priority: 2}
+    capabilities:
+      requiresGPU: false
+      multiModel: true
+      supportedAccelerators: [intel.com/gaudi]
+    versions:
+      - version: "1"
+        image: example:1
+        supportedModelFormats: [{name: onnx, version: "2"}]
+        env: [{name: MODEL_PATH, required: true}]
+  - name: vllm
+    supportedModelFormats: [{name: safetensors}]
+    capabilities: {requiresGPU: true, multiModel: false}
+    versions:
+      - version: "1"
+        image: example:2
+`)
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	provider := NewDBServingRuntimeCatalog(services, loader.Sources)
+
+	for _, query := range []string{
+		"supportedModelFormats = 'onnx'",
+		"capabilities.requiresGPU = false",
+		"capabilities.multiModel = true",
+		"capabilities.supportedAccelerators = 'intel.com/gaudi'",
+	} {
+		result, err := provider.ListServingRuntimes(t.Context(), ListServingRuntimesParams{FilterQuery: query})
+		require.NoError(t, err, query)
+		require.Len(t, result.Items, 1, query)
+		assert.Equal(t, "ovms", *result.Items[0].Name, query)
+		assert.Equal(t, "onnx", result.Items[0].SupportedModelFormats[0].Name, query)
+		assert.Equal(t, int32(2), *result.Items[0].SupportedModelFormats[0].Priority, query)
+	}
+
+	require.NoError(t, services.PropertyOptionsRepository.Refresh(dbmodels.ContextPropertyOptionType))
+	options, err := provider.GetFilterOptions(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, options.Filters)
+	assert.Equal(t, []any{"onnx", "safetensors"}, (*options.Filters)["supportedModelFormats"].Values)
+	assert.Equal(t, []any{"intel.com/gaudi"}, (*options.Filters)["capabilities.supportedAccelerators"].Values)
+	assert.Equal(t, "boolean", (*options.Filters)["capabilities.requiresGPU"].Type)
+	assert.Equal(t, []any{false, true}, (*options.Filters)["capabilities.requiresGPU"].Values)
+	assert.NotContains(t, *options.Filters, "supportedModelFormatsDetails")
+	assert.NotContains(t, *options.Filters, "capabilities")
+
+	ovms, err := services.ServingRuntimeRepository.GetByName("first:ovms")
+	require.NoError(t, err)
+	for _, query := range []string{"supportedModelFormats = 'onnx'", "env = 'MODEL_PATH'"} {
+		versions, err := provider.ListServingRuntimeVersions(t.Context(), strconv.FormatInt(int64(*ovms.GetID()), 10), ListServingRuntimeVersionsParams{FilterQuery: query})
+		require.NoError(t, err, query)
+		require.Len(t, versions.Items, 1, query)
+		assert.Equal(t, "onnx", versions.Items[0].SupportedModelFormats[0].Name, query)
+		assert.Equal(t, "2", *versions.Items[0].SupportedModelFormats[0].Version, query)
+		assert.Equal(t, "MODEL_PATH", versions.Items[0].Env[0].Name, query)
+		assert.True(t, *versions.Items[0].Env[0].Required, query)
+	}
+}
+
+func TestServingRuntimeCapabilityDefaultsToFalse(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), `serving_runtimes:
+  - name: cpu-only
+    versions:
+      - version: "1"
+        image: example:1
+  - name: partial-caps
+    capabilities:
+      multiModel: true
+    versions:
+      - version: "1"
+        image: example:2
+`)
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	provider := NewDBServingRuntimeCatalog(services, loader.Sources)
+
+	// Both runtimes omit capabilities.requiresGPU (or capabilities entirely), so it
+	// must default to false rather than being absent from the property set.
+	result, err := provider.ListServingRuntimes(t.Context(), ListServingRuntimesParams{FilterQuery: "capabilities.requiresGPU = false"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+	names := []string{*result.Items[0].Name, *result.Items[1].Name}
+	assert.ElementsMatch(t, []string{"cpu-only", "partial-caps"}, names)
+
+	// cpu-only also omits multiModel entirely, so it must default to false.
+	result, err = provider.ListServingRuntimes(t.Context(), ListServingRuntimesParams{FilterQuery: "capabilities.multiModel = false"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "cpu-only", *result.Items[0].Name)
+}
+
+func TestServingRuntimeSourceFilterIgnoresCustomSourceID(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    customProperties:\n      source_id: {metadataType: MetadataStringValue, string_value: second}\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+
+	result, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimes(t.Context(), ListServingRuntimesParams{SourceIDs: []string{"second"}})
+	require.NoError(t, err)
+	assert.Empty(t, result.Items)
+}
+
+func TestServingRuntimeListsFilterAndPaginate(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    provider: Acme\n    versions: [{version: '1', image: vllm:1}, {version: '2', image: vllm:2}]\n  - name: ovms\n    provider: Acme\n    versions: [{version: '2', image: ovms:2}]\n  - name: mlserver\n    provider: Other\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	provider := NewDBServingRuntimeCatalog(services, loader.Sources)
+
+	params := ListServingRuntimesParams{SourceIDs: []string{"first"}, FilterQuery: "provider = 'Acme'", PageSize: 1, OrderBy: openapi.ORDERBYFIELD_NAME, SortOrder: openapi.SORTORDER_ASC}
+	first, err := provider.ListServingRuntimes(t.Context(), params)
+	require.NoError(t, err)
+	require.Len(t, first.Items, 1)
+	assert.Equal(t, "ovms", *first.Items[0].Name)
+	require.NotEmpty(t, first.NextPageToken)
+	params.NextPageToken = first.NextPageToken
+	second, err := provider.ListServingRuntimes(t.Context(), params)
+	require.NoError(t, err)
+	require.Len(t, second.Items, 1)
+	assert.Equal(t, "vllm", *second.Items[0].Name)
+	assert.Empty(t, second.NextPageToken)
+
+	versions, err := provider.ListServingRuntimeVersions(t.Context(), *second.Items[0].Id, ListServingRuntimeVersionsParams{FilterQuery: "version = '2'", PageSize: 1})
+	require.NoError(t, err)
+	require.Len(t, versions.Items, 1)
+	assert.Equal(t, "vllm:2", *versions.Items[0].Name)
+	assert.Equal(t, "vllm:2", versions.Items[0].Image)
+}
+
+func TestServingRuntimeNameOrderingUsesUnqualifiedNameAcrossSources(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: first.yaml}\n  - id: second\n    type: yaml\n    properties: {yamlCatalogPath: second.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "first.yaml"), "serving_runtimes:\n  - name: zulu\n  - name: alpha\n")
+	writeRuntimeFile(t, filepath.Join(dir, "second.yaml"), "serving_runtimes:\n  - name: bravo\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	for id, source := range loader.Sources.AllSources() {
+		require.NoError(t, loader.loadFromYAML(t.Context(), id, source))
+	}
+	provider := NewDBServingRuntimeCatalog(services, loader.Sources)
+
+	params := ListServingRuntimesParams{PageSize: 2, OrderBy: openapi.ORDERBYFIELD_NAME, SortOrder: openapi.SORTORDER_ASC}
+	first, err := provider.ListServingRuntimes(t.Context(), params)
+	require.NoError(t, err)
+	require.Len(t, first.Items, 2)
+	assert.Equal(t, "alpha", *first.Items[0].Name)
+	assert.Equal(t, "bravo", *first.Items[1].Name)
+	require.NotEmpty(t, first.NextPageToken)
+
+	params.NextPageToken = first.NextPageToken
+	second, err := provider.ListServingRuntimes(t.Context(), params)
+	require.NoError(t, err)
+	require.Len(t, second.Items, 1)
+	assert.Equal(t, "zulu", *second.Items[0].Name)
+	assert.Empty(t, second.NextPageToken)
+}
+
+func TestServingRuntimeVersionDefaultsDeprecatedToFalse(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    versions:\n      - {version: '1', image: vllm:1}\n      - {version: '2', image: vllm:2, deprecated: true}\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	runtime, err := services.ServingRuntimeRepository.GetByName("first:vllm")
+	require.NoError(t, err)
+
+	versions, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimeVersions(
+		t.Context(), strconv.FormatInt(int64(*runtime.GetID()), 10), ListServingRuntimeVersionsParams{FilterQuery: "deprecated = false"},
+	)
+	require.NoError(t, err)
+	require.Len(t, versions.Items, 1)
+	assert.Equal(t, "1", versions.Items[0].Version)
+	require.NotNil(t, versions.Items[0].Deprecated)
+	assert.False(t, *versions.Items[0].Deprecated)
+}
+
 func TestServingRuntimeCustomPropertyIntOverflow(t *testing.T) {
 	inRange := openapi.MetadataValue{MetadataIntValue: openapi.NewMetadataIntValue("42", "MetadataIntValue")}
 	prop, err := servingRuntimeCustomProperty("priority", inRange)

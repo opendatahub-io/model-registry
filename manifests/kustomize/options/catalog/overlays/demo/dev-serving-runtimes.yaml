@@ -18,6 +18,10 @@ serving_runtimes:
       - version: "0.5.0"
         image: registry.redhat.io/rhoai/vllm-rhel9:0.5.0
         supportLevel: supported
+        supportedModelFormats:
+          - name: safetensors
+            autoSelect: true
+          - name: pytorch
         protocolVersions: [v2]
         recommendedResources:
           recommended:
@@ -43,6 +47,9 @@ serving_runtimes:
       - version: "2024.4"
         image: registry.redhat.io/rhoai/openvino-rhel9:2024.4
         supportLevel: supported
+        supportedModelFormats:
+          - name: openvino_ir
+          - name: onnx
         recommendedResources:
           recommended:
             cpu: "2"
