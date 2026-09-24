@@ -7,7 +7,7 @@ require (
 	github.com/kserve/kserve v0.19.0
 	github.com/kubeflow/hub/pkg/openapi v0.0.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.39.1
+	github.com/onsi/gomega v1.43.1
 	go.uber.org/zap v1.27.1
 	k8s.io/api v0.34.5
 	k8s.io/apimachinery v0.35.2
@@ -89,7 +89,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.45.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.45.0 // indirect
 	go.opentelemetry.io/otel/trace v1.45.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
