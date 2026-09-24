@@ -80,7 +80,7 @@ subjects:
   namespace: kubeflow
 - kind: ServiceAccount
   name: default
-  namespace: minio
+  namespace: seaweedfs
 - kind: ServiceAccount
   name: default
   namespace: kube-system
@@ -109,33 +109,32 @@ kubectl port-forward -n model-catalog svc/model-catalog-server 8082:8080
 
 The BFF connects to this on `--dev-mode-catalog-port=8082`. See [deploy_catalog_demo_on_kind.sh](../scripts/deploy_catalog_demo_on_kind.sh) for details.
 
-### MinIO (S3 storage for transfer jobs)
+### SeaweedFS (S3 storage for transfer jobs)
 
 ```bash
-./scripts/deploy_minio_on_kind.sh
+./scripts/deploy_seaweedfs_on_kind.sh
 ```
 
 | Detail | Value |
 |--------|-------|
-| Internal endpoint | `http://minio.minio.svc.cluster.local:9000` |
+| Internal endpoint | `http://seaweedfs.seaweedfs.svc.cluster.local:8333` |
 | Bucket | `default` |
-| Credentials | `minioadmin` / `minioadmin` |
-| Console NodePort | `30091` |
-| K8s Secret | `minio-secret` (namespace: `minio`) |
+| Credentials | `seaweedadmin` / `seaweedadmin` |
+| K8s Secret | `seaweedfs-secret` (namespace: `seaweedfs`) |
 
 Upload test data:
 
 ```bash
-kubectl run minio-upload --rm -i --restart=Never -n minio \
-  --image=minio/mc --command -- sh -c '
-mc --config-dir /tmp alias set local http://minio:9000 minioadmin minioadmin
-echo "sample model content" | mc --config-dir /tmp pipe local/default/models/sample-model/model.txt
+kubectl run seaweedfs-upload --rm -i --restart=Never -n seaweedfs \
+  --image=amazon/aws-cli --command -- sh -c '
+AWS_ACCESS_KEY_ID=seaweedadmin AWS_SECRET_ACCESS_KEY=seaweedadmin \
+  aws --endpoint-url http://seaweedfs:8333 s3 cp - s3://default/models/sample-model/model.txt
 '
 ```
 
 ### OCI Model Transfer Jobs
 
-Test S3-to-OCI model transfer jobs end-to-end. Requires MinIO (above) and a destination OCI registry (e.g. quay.io).
+Test S3-to-OCI model transfer jobs end-to-end. Requires SeaweedFS (above) and a destination OCI registry (e.g. quay.io).
 
 No local ARM64 image build is needed — upstream, midstream, and downstream each have their own async-upload images.
 
@@ -144,11 +143,11 @@ No local ARM64 image build is needed — upstream, midstream, and downstream eac
 | Field | Value | Notes |
 |-------|-------|-------|
 | Source type | `s3` | |
-| S3 endpoint | `http://minio.minio:9000` | Internal cluster DNS |
+| S3 endpoint | `http://seaweedfs.seaweedfs:8333` | Internal cluster DNS |
 | S3 bucket | `default` | |
 | S3 key | `models/sample-model/` | Directory prefix, **not** full file path |
-| S3 access key | `minioadmin` | |
-| S3 secret key | `minioadmin` | |
+| S3 access key | `seaweedadmin` | |
+| S3 secret key | `seaweedadmin` | |
 | Destination type | `oci` | |
 | Destination URI | `quay.io/yourorg/yourrepo:tag` | OCI ref format, **no** `https://` |
 | Destination registry | `quay.io` | |
@@ -178,8 +177,8 @@ FRONTEND_PORT=9001 BFF_PORT=4001 ./scripts/dev_teardown.sh
 | Frontend proxy `ECONNREFUSED` | BFF not ready yet; wait for it to start |
 | `ImagePullBackOff` on async-upload job | Verify the correct image is configured for your environment (upstream/midstream/downstream each have their own) |
 | "namespace does not have access to this model registry" | Apply the RBAC ClusterRoleBinding (see above). The BFF's SAR uses `User` only, not groups. |
-| MinIO nodePort 30091 already allocated | MinIO already exists in `minio` namespace. Don't apply without `-n minio` or it creates a duplicate in `default`. |
-| MinIO bucket missing after pod restart | MinIO has no PV. Re-run: `./scripts/deploy_minio_on_kind.sh` |
+| SeaweedFS service unavailable | Verify the SeaweedFS deployment in the `seaweedfs` namespace. |
+| SeaweedFS bucket missing after pod restart | SeaweedFS has no PV. Re-run: `./scripts/deploy_seaweedfs_on_kind.sh` |
 | `envtest` port lock error in Go tests | `rm -f ~/Library/Caches/kubebuilder-envtest/port-*` |
 | Transfer job S3 download fails with EBUSY | Use directory prefix as source key, not full file path |
 | Transfer job OCI push "invalid reference" | Use OCI ref format `quay.io/org/repo:tag`, not web URL |
