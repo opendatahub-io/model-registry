@@ -3,7 +3,7 @@ package mcp
 import (
 	"context"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"

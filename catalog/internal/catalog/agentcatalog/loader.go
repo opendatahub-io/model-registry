@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/golang/glog"
 	agentmodels "github.com/kubeflow/hub/catalog/internal/catalog/agentcatalog/models"
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"

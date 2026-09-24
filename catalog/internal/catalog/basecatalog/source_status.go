@@ -3,7 +3,7 @@ package basecatalog
 import (
 	"fmt"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/golang/glog"
 	dbmodels "github.com/kubeflow/hub/catalog/internal/db/models"
 	mrmodels "github.com/kubeflow/hub/internal/platform/db/entity"

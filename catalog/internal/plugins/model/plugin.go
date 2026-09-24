@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/agentcatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
