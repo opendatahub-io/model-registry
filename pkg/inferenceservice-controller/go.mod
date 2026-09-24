@@ -1,6 +1,6 @@
 module github.com/kubeflow/hub/pkg/inferenceservice-controller
 
-go 1.25.8
+go 1.26
 
 require (
 	github.com/go-logr/logr v1.4.4
@@ -51,7 +51,7 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
-	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/universal-translator v0.18.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
