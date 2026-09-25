@@ -62,6 +62,9 @@ type SourceConfig struct {
 	// yamlCatalogPath) lives under each source's `properties`; see the skillcatalog package.
 	SkillCatalogs []PluginSource `yaml:"skill_catalogs,omitempty" json:"skill_catalogs,omitempty"`
 
+	// ServingRuntimeCatalogs contains serving_runtime catalog source definitions
+	ServingRuntimeCatalogs []PluginSource `yaml:"serving_runtime_catalogs,omitempty" json:"serving_runtime_catalogs,omitempty"`
+
 	// Labels contains label definitions for the catalogs
 	Labels []map[string]any `yaml:"labels,omitempty" json:"labels,omitempty"`
 
@@ -153,6 +156,9 @@ func (c *SourceConfig) Validate() error {
 		return err
 	}
 	if err := validateSourceIDs("skill", c.SkillCatalogs, seen); err != nil {
+		return err
+	}
+	if err := validateSourceIDs("serving_runtime", c.ServingRuntimeCatalogs, seen); err != nil {
 		return err
 	}
 	if err := ValidateNamedQueries(c.NamedQueries); err != nil {
