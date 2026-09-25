@@ -17,9 +17,8 @@ export VERIFY_SSL=False
 MR_NAMESPACE=$(kubectl get datasciencecluster default-dsc -o jsonpath='{.spec.components.modelregistry.registriesNamespace}')
 export MR_NAMESPACE
 
-MR_ENDPOINT=$(kubectl get service -n "${MR_NAMESPACE}" model-registry -o jsonpath='{.metadata.annotations.routing\.opendatahub\.io\/external-address-rest}')
-export MR_HOST_URL="https://${MR_ENDPOINT}"
-MR_ENDPOINT="${MR_ENDPOINT%%:*}"
+MR_ENDPOINT=$(kubectl get route -n "${MR_NAMESPACE}" model-registry-https -o jsonpath='{.spec.host}')
+export MR_HOST_URL="https://${MR_ENDPOINT}:443"
 export MR_ENDPOINT
 
 export MODEL_SYNC_REGISTRY_SERVER_ADDRESS="https://${MR_ENDPOINT}"
