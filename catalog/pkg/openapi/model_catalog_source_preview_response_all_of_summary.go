@@ -25,6 +25,8 @@ type CatalogSourcePreviewResponseAllOfSummary struct {
 	IncludedModels int32 `json:"includedModels"`
 	// Number of models that would be excluded
 	ExcludedModels int32 `json:"excludedModels"`
+	// Whether any evaluated model is a gated Hugging Face model without access (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset), including models outside the current page.
+	HasGatedAccessDeniedModels bool `json:"hasGatedAccessDeniedModels"`
 }
 
 type _CatalogSourcePreviewResponseAllOfSummary CatalogSourcePreviewResponseAllOfSummary
@@ -33,11 +35,12 @@ type _CatalogSourcePreviewResponseAllOfSummary CatalogSourcePreviewResponseAllOf
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewCatalogSourcePreviewResponseAllOfSummary(totalModels int32, includedModels int32, excludedModels int32) *CatalogSourcePreviewResponseAllOfSummary {
+func NewCatalogSourcePreviewResponseAllOfSummary(totalModels int32, includedModels int32, excludedModels int32, hasGatedAccessDeniedModels bool) *CatalogSourcePreviewResponseAllOfSummary {
 	this := CatalogSourcePreviewResponseAllOfSummary{}
 	this.TotalModels = totalModels
 	this.IncludedModels = includedModels
 	this.ExcludedModels = excludedModels
+	this.HasGatedAccessDeniedModels = hasGatedAccessDeniedModels
 	return &this
 }
 
@@ -121,6 +124,30 @@ func (o *CatalogSourcePreviewResponseAllOfSummary) SetExcludedModels(v int32) {
 	o.ExcludedModels = v
 }
 
+// GetHasGatedAccessDeniedModels returns the HasGatedAccessDeniedModels field value
+func (o *CatalogSourcePreviewResponseAllOfSummary) GetHasGatedAccessDeniedModels() bool {
+	if o == nil {
+		var ret bool
+		return ret
+	}
+
+	return o.HasGatedAccessDeniedModels
+}
+
+// GetHasGatedAccessDeniedModelsOk returns a tuple with the HasGatedAccessDeniedModels field value
+// and a boolean to check if the value has been set.
+func (o *CatalogSourcePreviewResponseAllOfSummary) GetHasGatedAccessDeniedModelsOk() (*bool, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.HasGatedAccessDeniedModels, true
+}
+
+// SetHasGatedAccessDeniedModels sets field value
+func (o *CatalogSourcePreviewResponseAllOfSummary) SetHasGatedAccessDeniedModels(v bool) {
+	o.HasGatedAccessDeniedModels = v
+}
+
 func (o CatalogSourcePreviewResponseAllOfSummary) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -134,6 +161,7 @@ func (o CatalogSourcePreviewResponseAllOfSummary) ToMap() (map[string]interface{
 	toSerialize["totalModels"] = o.TotalModels
 	toSerialize["includedModels"] = o.IncludedModels
 	toSerialize["excludedModels"] = o.ExcludedModels
+	toSerialize["hasGatedAccessDeniedModels"] = o.HasGatedAccessDeniedModels
 	return toSerialize, nil
 }
 

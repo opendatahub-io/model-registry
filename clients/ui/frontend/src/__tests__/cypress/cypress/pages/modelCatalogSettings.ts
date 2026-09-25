@@ -1,4 +1,3 @@
-import { TempDevFeature } from '~/app/hooks/useTempDevFeatureAvailable';
 import { appChrome } from './appChrome';
 import { TableRow } from './components/table';
 import { Modal } from './components/Modal';
@@ -153,13 +152,7 @@ class CatalogSourceStatusErrorModal extends Modal {
 }
 
 class ModelCatalogSettings {
-  visit({
-    wait = true,
-    enableTempDevCatalogHuggingFaceApiKeyFeature = false,
-  }: { wait?: boolean; enableTempDevCatalogHuggingFaceApiKeyFeature?: boolean } = {}) {
-    if (enableTempDevCatalogHuggingFaceApiKeyFeature) {
-      window.localStorage.setItem(TempDevFeature.CatalogHuggingFaceApiKey, 'true');
-    }
+  visit({ wait = true }: { wait?: boolean } = {}) {
     cy.visit('/model-catalog-settings');
     if (wait) {
       this.wait();
@@ -243,29 +236,14 @@ class ModelCatalogSettings {
 }
 
 class ManageSourcePage {
-  visitAddSource({
-    wait = true,
-    enableTempDevCatalogHuggingFaceApiKeyFeature = false,
-  }: { wait?: boolean; enableTempDevCatalogHuggingFaceApiKeyFeature?: boolean } = {}) {
-    if (enableTempDevCatalogHuggingFaceApiKeyFeature) {
-      window.localStorage.setItem(TempDevFeature.CatalogHuggingFaceApiKey, 'true');
-    }
+  visitAddSource({ wait = true }: { wait?: boolean } = {}) {
     cy.visit('/model-catalog-settings/add-source');
     if (wait) {
       this.wait();
     }
   }
 
-  visitManageSource(
-    catalogSourceId: string,
-    {
-      wait = true,
-      enableTempDevCatalogHuggingFaceApiKeyFeature = false,
-    }: { wait?: boolean; enableTempDevCatalogHuggingFaceApiKeyFeature?: boolean } = {},
-  ) {
-    if (enableTempDevCatalogHuggingFaceApiKeyFeature) {
-      window.localStorage.setItem(TempDevFeature.CatalogHuggingFaceApiKey, 'true');
-    }
+  visitManageSource(catalogSourceId: string, { wait = true }: { wait?: boolean } = {}) {
     cy.visit(`/model-catalog-settings/manage-source/${encodeURIComponent(catalogSourceId)}`);
     if (wait) {
       this.wait();
@@ -462,6 +440,10 @@ class ManageSourcePage {
     return cy.contains('Source configuration changed. Refresh the preview.');
   }
 
+  findPreviewGatedAccessAlert() {
+    return cy.findByTestId('preview-gated-access-alert');
+  }
+
   findRefreshPreviewLink() {
     return cy.findByTestId('refresh-preview-link');
   }
@@ -512,15 +494,36 @@ class ManageSourcePage {
   }
 
   findValidationSuccessAlert() {
-    return cy.contains('Credentials validated');
+    return cy.contains('Access token validated');
   }
 
   findValidationFailedAlert() {
-    return cy.contains('Credentials validation failed');
+    return cy.contains('Validation failed');
   }
 
   findPreviewModelsIncludedSummary(count: number, total: number) {
     return cy.contains(`${count} of ${total} models included:`);
+  }
+
+  findPreviewModelsExcludedSummary(count: number, total: number) {
+    return cy.contains(`${count} of ${total} models excluded:`);
+  }
+
+  clickPreviewExcludedTab() {
+    this.findPreviewPanel().contains('Models excluded').click();
+    return this;
+  }
+
+  findPreviewModelRow(modelName: string) {
+    return this.findPreviewPanel().contains('li', modelName);
+  }
+
+  findPreviewGatedAccessWarningIcon(modelName: string) {
+    return this.findPreviewModelRow(modelName).findByLabelText('Gated access warning');
+  }
+
+  findSourceDisabledWarning() {
+    return cy.findByTestId('source-disabled-warning');
   }
 }
 

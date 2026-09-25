@@ -338,6 +338,18 @@ func hfAccessCustomProperties(accessType string, gatedAccessGranted ...string) *
 	return &result
 }
 
+func hfPreviewModel(name string, included bool, accessType string, gatedAccessGranted ...bool) models.CatalogSourcePreviewModel {
+	model := models.CatalogSourcePreviewModel{
+		Name:         name,
+		Included:     included,
+		HfAccessType: stringToPointer(accessType),
+	}
+	if len(gatedAccessGranted) > 0 {
+		model.HfGatedAccessGranted = BoolPtr(gatedAccessGranted[0])
+	}
+	return model
+}
+
 func NewMockSessionContext(parent context.Context) context.Context {
 	if parent == nil {
 		parent = context.TODO()
@@ -1004,6 +1016,7 @@ func GetCatalogSourceMocks() []models.CatalogSource {
 			Labels:        []string{"Sample category 2", "Sample category"},
 			HasApiKey:     &hasApiKeyTrue,
 			Authenticated: &authenticatedTrue,
+			HfUsername:    "johndoe",
 			// Status is nil - represents "Starting" state (no status yet)
 			Status: nil,
 		},
@@ -1016,6 +1029,7 @@ func GetCatalogSourceMocks() []models.CatalogSource {
 			Error:         &invalidCredentialError,
 			HasApiKey:     &hasApiKeyTrue,
 			Authenticated: &authenticatedFalse,
+			HfUsername:    "bob",
 		},
 		{
 			Id:      "adminModel2",
@@ -1062,6 +1076,7 @@ func GetCatalogSourceMocks() []models.CatalogSource {
 			Error:         &partialAvailabilityError,
 			HasApiKey:     &hasApiKeyTrue,
 			Authenticated: &authenticatedTrue,
+			HfUsername:    "alice",
 		},
 	}
 }
@@ -2680,16 +2695,36 @@ func GetModelsWithInclusionStatusListMocks() []models.CatalogSourcePreviewModel 
 	// We want 45 included and 25 excluded = 70 total models
 	var allModels []models.CatalogSourcePreviewModel
 
-	// Add 45 included models
-	for i := 1; i <= 45; i++ {
+	// Hugging Face access preview matrix (hfAccessType / hfGatedAccessGranted):
+	//   public              — no hfGatedAccessGranted
+	//   private             — no hfGatedAccessGranted
+	//   gated_auto + true   — access granted
+	//   gated_auto + false  — access denied
+	//   gated_manual + true — access granted
+	//   gated_manual + false— access denied
+	allModels = append(allModels,
+		hfPreviewModel("hf-mock/public-model", true, "public"),
+		hfPreviewModel("my-org/private-model", true, "private"),
+		hfPreviewModel("meta-llama/gated-auto-granted", true, "gated_auto", true),
+		hfPreviewModel("meta-llama/gated-auto-denied", false, "gated_auto", false),
+		hfPreviewModel("hf-mock/gated-manual-granted", true, "gated_manual", true),
+		hfPreviewModel("hf-mock/gated-manual-denied", false, "gated_manual", false),
+	)
+
+	// Add remaining included models (first two are gated for preview icon testing)
+	allModels = append(allModels,
+		hfPreviewModel("sample-source/included-model-1", true, "gated_auto", true),
+		hfPreviewModel("sample-source/included-model-2", true, "gated_manual", false),
+	)
+	for i := 3; i <= 41; i++ {
 		allModels = append(allModels, models.CatalogSourcePreviewModel{
 			Name:     fmt.Sprintf("sample-source/included-model-%d", i),
 			Included: true,
 		})
 	}
 
-	// Add 25 excluded models
-	for i := 1; i <= 25; i++ {
+	// Add remaining excluded models
+	for i := 1; i <= 23; i++ {
 		allModels = append(allModels, models.CatalogSourcePreviewModel{
 			Name:     fmt.Sprintf("sample-source/excluded-model-%d", i),
 			Included: false,
@@ -2699,11 +2734,30 @@ func GetModelsWithInclusionStatusListMocks() []models.CatalogSourcePreviewModel 
 	return allModels
 }
 
+func GetModelsWithInclusionStatusListMocksWithoutGated() []models.CatalogSourcePreviewModel {
+	return []models.CatalogSourcePreviewModel{
+		hfPreviewModel("hf-mock/public-model", true, "public"),
+		hfPreviewModel("my-org/private-model", true, "private"),
+		{Name: "sample-source/included-model-1", Included: true},
+		{Name: "sample-source/excluded-model-1", Included: false},
+	}
+}
+
 func GetCatalogSourcePreviewSummaryMock() models.CatalogSourcePreviewSummary {
 	return models.CatalogSourcePreviewSummary{
-		TotalModels:    70,
-		IncludedModels: 45,
-		ExcludedModels: 25,
+		TotalModels:                70,
+		IncludedModels:             45,
+		ExcludedModels:             25,
+		HasGatedAccessDeniedModels: true,
+	}
+}
+
+func GetCatalogSourcePreviewSummaryMockWithoutGated() models.CatalogSourcePreviewSummary {
+	return models.CatalogSourcePreviewSummary{
+		TotalModels:                4,
+		IncludedModels:             3,
+		ExcludedModels:             1,
+		HasGatedAccessDeniedModels: false,
 	}
 }
 
@@ -2761,7 +2815,23 @@ func filterAndPaginatePreviewItems(allItems []models.CatalogSourcePreviewModel, 
 }
 
 func CreateCatalogSourcePreviewMockWithFilter(filterStatus string, pageSize int, nextPageToken string) models.CatalogSourcePreviewResult {
-	return filterAndPaginatePreviewItems(GetModelsWithInclusionStatusListMocks(), GetCatalogSourcePreviewSummaryMock(), filterStatus, pageSize, nextPageToken)
+	return filterAndPaginatePreviewItems(
+		GetModelsWithInclusionStatusListMocks(),
+		GetCatalogSourcePreviewSummaryMock(),
+		filterStatus,
+		pageSize,
+		nextPageToken,
+	)
+}
+
+func CreateCatalogSourcePreviewMockWithoutGatedWithFilter(filterStatus string, pageSize int, nextPageToken string) models.CatalogSourcePreviewResult {
+	return filterAndPaginatePreviewItems(
+		GetModelsWithInclusionStatusListMocksWithoutGated(),
+		GetCatalogSourcePreviewSummaryMockWithoutGated(),
+		filterStatus,
+		pageSize,
+		nextPageToken,
+	)
 }
 
 func GetMcpServersWithInclusionStatusListMocks() []models.CatalogSourcePreviewModel {

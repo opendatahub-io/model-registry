@@ -2617,3 +2617,90 @@ func TestFindModelsOrderByRecommendedPagination(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code, "numeric nextPageToken must be accepted for orderBy=RECOMMENDED")
 	require.NoError(t, err)
 }
+
+func TestPreviewCatalogSourceDuplicateNames(t *testing.T) {
+	service := newTestServiceWithSources(map[string]*model.CatalogModel{})
+	catalogData := `
+models:
+  - name: "acme/granite-3b"
+    description: "first entry"
+  - name: "acme/granite-3b"
+    description: "second entry, same name"
+  - name: "acme/llama-7b"
+    description: "third entry"
+`
+	want := []string{"acme/granite-3b", "acme/granite-3b", "acme/llama-7b"}
+
+	for _, pageSize := range []string{"1", "2"} {
+		t.Run("pageSize="+pageSize, func(t *testing.T) {
+			var got []string
+			token := ""
+			for range 10 {
+				configFile := writeTempYAML(t, "config", "type: yaml\n")
+				catalogDataFile := writeTempYAML(t, "catalogdata", catalogData)
+
+				resp, err := service.PreviewCatalogSource(context.Background(), configFile, pageSize, token, "", catalogDataFile)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.Code)
+				body, ok := resp.Body.(model.CatalogSourcePreviewResponse)
+				require.True(t, ok, "expected CatalogSourcePreviewResponse, got %T", resp.Body)
+
+				for _, item := range body.Items {
+					got = append(got, item.Name)
+				}
+				if body.NextPageToken == "" {
+					break
+				}
+				require.NotEqual(t, token, body.NextPageToken, "nextPageToken did not advance")
+				token = body.NextPageToken
+			}
+			assert.Equal(t, want, got)
+		})
+	}
+}
+
+func TestPreviewModelSourceGatedSummary(t *testing.T) {
+	originalPreview := catalog.PreviewSourceModels
+	t.Cleanup(func() { catalog.PreviewSourceModels = originalPreview })
+	service := newTestServiceWithSources(map[string]*model.CatalogModel{})
+	for _, accessType := range []string{"gated_auto", "gated_manual", "public", "private"} {
+		t.Run(accessType, func(t *testing.T) {
+			catalog.PreviewSourceModels = func(context.Context, *modelcatalog.PreviewConfig, []byte) ([]model.ModelPreviewResult, error) {
+				return []model.ModelPreviewResult{
+					{Name: "org/a-public", Included: true},
+					{Name: "org/z-model", Included: false, HfAccessType: &accessType},
+				}, nil
+			}
+			for _, filter := range []string{"all", "included", "excluded"} {
+				t.Run(filter, func(t *testing.T) {
+					config := writeTempYAML(t, "config", "type: hf\n")
+					resp, err := service.PreviewCatalogSource(context.Background(), config, "1", "", filter, nil)
+					require.NoError(t, err)
+					require.Equal(t, http.StatusOK, resp.Code)
+					body, ok := resp.Body.(model.CatalogSourcePreviewResponse)
+					require.True(t, ok)
+					require.Len(t, body.Items, 1)
+					assert.Equal(t, int32(2), body.Summary.TotalModels)
+					assert.Equal(t, accessType == "gated_auto" || accessType == "gated_manual", body.Summary.HasGatedAccessDeniedModels)
+				})
+			}
+		})
+	}
+
+	t.Run("gated with access granted", func(t *testing.T) {
+		granted := true
+		gatedAuto := "gated_auto"
+		catalog.PreviewSourceModels = func(context.Context, *modelcatalog.PreviewConfig, []byte) ([]model.ModelPreviewResult, error) {
+			return []model.ModelPreviewResult{
+				{Name: "org/gated-granted", Included: true, HfAccessType: &gatedAuto, HfGatedAccessGranted: &granted},
+			}, nil
+		}
+		config := writeTempYAML(t, "config", "type: hf\n")
+		resp, err := service.PreviewCatalogSource(context.Background(), config, "1", "", "included", nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.Code)
+		body, ok := resp.Body.(model.CatalogSourcePreviewResponse)
+		require.True(t, ok)
+		assert.False(t, body.Summary.HasGatedAccessDeniedModels)
+	})
+}

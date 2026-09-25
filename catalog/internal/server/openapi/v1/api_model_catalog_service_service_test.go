@@ -221,19 +221,12 @@ func TestFindModels(t *testing.T) {
 			mockModels: map[string]*model.CatalogModel{
 				"modelA": modelA,
 			},
-			q:              "",
-			pageSize:       "10",
-			orderBy:        "UNSUPPORTED_FIELD",
-			sortOrder:      model.SORTORDER_ASC,
-			expectedStatus: http.StatusOK, // Changed from http.StatusBadRequest to http.StatusOK -- in model registry we fallback to ID if the order by field is unsupported
-			expectedModelList: &model.CatalogModelList{
-				Items: []model.CatalogModel{
-					*modelA,
-				},
-				Size:          1,
-				PageSize:      10,
-				NextPageToken: "",
-			},
+			q:                 "",
+			pageSize:          "10",
+			orderBy:           "UNSUPPORTED_FIELD",
+			sortOrder:         model.SORTORDER_ASC,
+			expectedStatus:    http.StatusBadRequest, // KEP-0004: v1 rejects an unsupported orderBy instead of falling back to ID
+			expectedModelList: nil,
 		},
 		{
 			name:     "Unsupported sortOrder field",
@@ -2689,4 +2682,148 @@ func TestClearSourceStatus(t *testing.T) {
 //go:fix inline
 func strPtr(s string) *string {
 	return new(s)
+}
+
+func TestPreviewCatalogSourceDuplicateNames(t *testing.T) {
+	service := newTestServiceWithSources(map[string]*model.CatalogModel{})
+	catalogData := `
+models:
+  - name: "acme/granite-3b"
+    description: "first entry"
+  - name: "acme/granite-3b"
+    description: "second entry, same name"
+  - name: "acme/llama-7b"
+    description: "third entry"
+`
+	want := []string{"acme/granite-3b", "acme/granite-3b", "acme/llama-7b"}
+
+	for _, pageSize := range []string{"1", "2"} {
+		t.Run("pageSize="+pageSize, func(t *testing.T) {
+			var got []string
+			token := ""
+			for range 10 {
+				configFile := writeTempYAML(t, "config", "type: yaml\n")
+				catalogDataFile := writeTempYAML(t, "catalogdata", catalogData)
+
+				resp, err := service.PreviewCatalogSource(context.Background(), configFile, pageSize, token, "", catalogDataFile)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.Code)
+				body, ok := resp.Body.(model.CatalogSourcePreviewResponse)
+				require.True(t, ok, "expected CatalogSourcePreviewResponse, got %T", resp.Body)
+
+				for _, item := range body.Items {
+					got = append(got, item.Name)
+				}
+				if body.NextPageToken == "" {
+					break
+				}
+				require.NotEqual(t, token, body.NextPageToken, "nextPageToken did not advance")
+				token = body.NextPageToken
+			}
+			assert.Equal(t, want, got)
+		})
+	}
+}
+
+func TestHasGatedAccessDeniedModels(t *testing.T) {
+	gatedAuto := "gated_auto"
+	gatedManual := "gated_manual"
+	public := "public"
+	granted := true
+	denied := false
+
+	tests := []struct {
+		name    string
+		results []model.ModelPreviewResult
+		want    bool
+	}{
+		{
+			name: "no gated models",
+			results: []model.ModelPreviewResult{
+				{Name: "public-model", Included: true, HfAccessType: &public},
+			},
+		},
+		{
+			name: "gated without access outside current page",
+			results: []model.ModelPreviewResult{
+				{Name: "first-page-model", Included: true, HfAccessType: &public},
+				{Name: "later-page-model", Included: true, HfAccessType: &gatedAuto, HfGatedAccessGranted: &denied},
+			},
+			want: true,
+		},
+		{
+			name: "manually gated model without access",
+			results: []model.ModelPreviewResult{
+				{Name: "manual-gated-model", Included: true, HfAccessType: &gatedManual, HfGatedAccessGranted: &denied},
+			},
+			want: true,
+		},
+		{
+			name: "gated with unset access treated as denied",
+			results: []model.ModelPreviewResult{
+				{Name: "gated-unset", Included: true, HfAccessType: &gatedAuto},
+			},
+			want: true,
+		},
+		{
+			name: "gated with access granted is not flagged",
+			results: []model.ModelPreviewResult{
+				{Name: "gated-granted", Included: true, HfAccessType: &gatedAuto, HfGatedAccessGranted: &granted},
+				{Name: "gated-manual-granted", Included: true, HfAccessType: &gatedManual, HfGatedAccessGranted: &granted},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, hasGatedAccessDeniedModels(tt.results))
+		})
+	}
+}
+
+func TestPreviewModelSourceGatedSummary(t *testing.T) {
+	originalPreview := catalog.PreviewSourceModels
+	t.Cleanup(func() { catalog.PreviewSourceModels = originalPreview })
+	service := newTestServiceWithSources(map[string]*model.CatalogModel{})
+	for _, accessType := range []string{"gated_auto", "gated_manual", "public", "private"} {
+		t.Run(accessType, func(t *testing.T) {
+			catalog.PreviewSourceModels = func(context.Context, *modelcatalog.PreviewConfig, []byte) ([]model.ModelPreviewResult, error) {
+				return []model.ModelPreviewResult{
+					{Name: "org/a-public", Included: true},
+					{Name: "org/z-model", Included: false, HfAccessType: &accessType},
+				}, nil
+			}
+			for _, filter := range []string{"all", "included", "excluded"} {
+				t.Run(filter, func(t *testing.T) {
+					config := writeTempYAML(t, "config", "type: hf\n")
+					resp, err := service.PreviewCatalogSource(context.Background(), config, "1", "", filter, nil)
+					require.NoError(t, err)
+					require.Equal(t, http.StatusOK, resp.Code)
+					body, ok := resp.Body.(model.CatalogSourcePreviewResponse)
+					require.True(t, ok)
+					require.Len(t, body.Items, 1)
+					assert.Equal(t, int32(2), body.Summary.TotalModels)
+					assert.Equal(t, accessType == "gated_auto" || accessType == "gated_manual", body.Summary.HasGatedAccessDeniedModels)
+				})
+			}
+		})
+	}
+
+	t.Run("gated with access granted", func(t *testing.T) {
+		granted := true
+		gatedAuto := "gated_auto"
+		catalog.PreviewSourceModels = func(context.Context, *modelcatalog.PreviewConfig, []byte) ([]model.ModelPreviewResult, error) {
+			return []model.ModelPreviewResult{
+				{Name: "org/gated-granted", Included: true, HfAccessType: &gatedAuto, HfGatedAccessGranted: &granted},
+			}, nil
+		}
+		config := writeTempYAML(t, "config", "type: hf\n")
+		resp, err := service.PreviewCatalogSource(context.Background(), config, "1", "", "included", nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.Code)
+		body, ok := resp.Body.(model.CatalogSourcePreviewResponse)
+		require.True(t, ok)
+		assert.False(t, body.Summary.HasGatedAccessDeniedModels)
+	})
 }

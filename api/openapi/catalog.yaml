@@ -1530,10 +1530,18 @@ components:
                   type: integer
                   description: Number of models that would be excluded
                   example: 650
+                hasGatedAccessDeniedModels:
+                  type: boolean
+                  description: |-
+                    Whether any evaluated model is a gated Hugging Face model without access
+                    (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset),
+                    including models outside the current page.
+                  example: true
               required:
                 - totalModels
                 - includedModels
                 - excludedModels
+                - hasGatedAccessDeniedModels
           required:
             - assetType
             - items
@@ -1918,6 +1926,15 @@ components:
           description: |-
             Kubernetes prerequisites discovery metadata.
             Helps users understand what K8s resources to create before deployment.
+        storage:
+          type: array
+          description: |-
+            Storage mounts applied directly to the generated MCPServer's
+            spec.config.storage. Use an EmptyDir mount to grant writable scratch
+            space (e.g. /tmp or /app/logs) while the container root filesystem
+            stays read-only, avoiding a manual patch after deployment.
+          items:
+            $ref: "#/components/schemas/MCPStorageMount"
     MCPSecretKey:
       type: object
       required:
@@ -2147,6 +2164,42 @@ components:
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           maxLength: 253
           example: mcp-server-viewer
+    MCPStorageMount:
+      type: object
+      required:
+        - path
+        - source
+      properties:
+        path:
+          type: string
+          description: Absolute mount path inside the container.
+          example: /tmp
+        permissions:
+          type: string
+          enum: [ReadOnly, ReadWrite]
+          description: Mount permissions. Defaults to ReadOnly when unset.
+          example: ReadWrite
+        source:
+          $ref: "#/components/schemas/MCPStorageSource"
+    MCPStorageSource:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [EmptyDir, ConfigMap, Secret]
+          description: Volume source type for the mount.
+          example: EmptyDir
+        emptyDir:
+          type: object
+          description: EmptyDir volume source; use {} for defaults.
+        configMap:
+          type: object
+          description: ConfigMap volume source.
+        secret:
+          type: object
+          description: Secret volume source.
     MCPTool:
       description: An MCP tool exposed by an MCP server.
       allOf:

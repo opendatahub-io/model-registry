@@ -239,6 +239,10 @@ func (m *ModelCatalogServiceAPIService) FindLabels(ctx context.Context, assetTyp
 }
 
 func (m *ModelCatalogServiceAPIService) FindModels(ctx context.Context, targetRPS int32, latencyProperty string, rpsProperty string, hardwareCountProperty string, hardwareTypeProperty string, sourceIDs []string, q string, sourceLabels []string, filterQuery string, pageSize string, orderBy model.OrderByField, sortOrder model.SortOrder, nextPageToken string) (ImplResponse, error) {
+	if err := modelOrderBy.validate(string(orderBy)); err != nil {
+		return ErrorResponse(http.StatusBadRequest, err), err
+	}
+
 	// Validate pageSize and nextPageToken up-front. The recommended path uses numeric
 	// offset tokens; the non-recommended path uses base64-encoded DB cursors
 	// validated inside parsePaginationParams.
@@ -752,11 +756,30 @@ func (m *ModelCatalogServiceAPIService) previewModelSource(ctx context.Context, 
 		NextPageToken: page.nextPageToken,
 		Items:         page.items,
 		Summary: model.CatalogSourcePreviewResponseAllOfSummary{
-			TotalModels:    page.total,
-			IncludedModels: page.includedCount,
-			ExcludedModels: page.excludedCount,
+			TotalModels:                page.total,
+			IncludedModels:             page.includedCount,
+			ExcludedModels:             page.excludedCount,
+			HasGatedAccessDeniedModels: hasGatedAccessDeniedModels(previewResults),
 		},
 	}), nil
+}
+
+// hasGatedAccessDeniedModels reports whether the complete preview result set contains a
+// gated Hugging Face model with no access. It deliberately runs before filtering and
+// pagination so the summary remains accurate for every response page.
+func hasGatedAccessDeniedModels(results []model.ModelPreviewResult) bool {
+	for _, result := range results {
+		if result.HfAccessType == nil {
+			continue
+		}
+		switch *result.HfAccessType {
+		case "gated_auto", "gated_manual":
+			if result.HfGatedAccessGranted == nil || !*result.HfGatedAccessGranted {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (m *ModelCatalogServiceAPIService) previewMCPSource(ctx context.Context, configBytes, catalogDataBytes []byte, pageSizeParam, nextPageTokenParam, filterStatus string) (ImplResponse, error) {

@@ -34,6 +34,7 @@ var catalogCfg = struct {
 	ConfigPath             []string
 	PerformanceMetricsPath []string
 	CORSAllowedOrigins     []string
+	AlphaSunsetDate        string
 }{
 	ListenAddress:          "0.0.0.0:8080",
 	ConfigPath:             []string{"sources.yaml"},
@@ -95,6 +96,9 @@ func init() {
 	fs.StringSliceVar(&catalogCfg.PerformanceMetricsPath, "performance-metrics", catalogCfg.PerformanceMetricsPath, "Path to performance metrics data directory")
 	fs.StringSliceVar(&catalogCfg.CORSAllowedOrigins, "cors-allowed-origins", nil,
 		"Comma-separated list of allowed CORS origins. If empty (default), CORS is disabled. Can also be set via CATALOG_CORS_ALLOWED_ORIGINS environment variable.")
+	fs.StringVar(&catalogCfg.AlphaSunsetDate, "alpha-sunset-date", "",
+		"Sunset date (YYYY-MM-DD) for the deprecated v1alpha1 catalog APIs, per RFC 8594. "+
+			"If empty (default), no deprecation headers are added to v1alpha1 responses. Can also be set via CATALOG_ALPHA_SUNSET_DATE environment variable.")
 }
 
 func runCatalogServer(cmd *cobra.Command, _ []string) error {
@@ -106,6 +110,21 @@ func runCatalogServer(cmd *cobra.Command, _ []string) error {
 				}
 			}
 		}
+	}
+
+	if !cmd.Flags().Changed("alpha-sunset-date") {
+		if envVal := os.Getenv("CATALOG_ALPHA_SUNSET_DATE"); envVal != "" {
+			catalogCfg.AlphaSunsetDate = envVal
+		}
+	}
+	var alphaSunsetDate *time.Time
+	if catalogCfg.AlphaSunsetDate != "" {
+		parsed, err := time.Parse("2006-01-02", catalogCfg.AlphaSunsetDate)
+		if err != nil {
+			return fmt.Errorf("invalid --alpha-sunset-date %q: must be YYYY-MM-DD: %w", catalogCfg.AlphaSunsetDate, err)
+		}
+		alphaSunsetDate = &parsed
+		glog.Infof("Alpha API (v1alpha1) deprecation headers enabled; sunset date: %s", catalogCfg.AlphaSunsetDate)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -185,6 +204,7 @@ func runCatalogServer(cmd *cobra.Command, _ []string) error {
 		PerformanceMetricsPath: catalogCfg.PerformanceMetricsPath,
 		RepoSet:                repoSet,
 		CORSAllowedOrigins:     catalogCfg.CORSAllowedOrigins,
+		AlphaSunsetDate:        alphaSunsetDate,
 	})
 
 	pluginServer.AddReadinessCheck("leader_election", elector.Healthy)
