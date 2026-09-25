@@ -3,12 +3,16 @@ package serving_runtimecatalog
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog/models"
+	runtimeservice "github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog/service"
+	sharedmodels "github.com/kubeflow/hub/catalog/internal/db/models"
 	openapi "github.com/kubeflow/hub/catalog/pkg/openapi"
 	"github.com/kubeflow/hub/internal/platform/apiutils"
 	"github.com/kubeflow/hub/pkg/api"
@@ -18,6 +22,7 @@ import (
 type DBServingRuntimeCatalog struct {
 	servingRuntimeRepo        models.ServingRuntimeRepository
 	servingRuntimeVersionRepo models.ServingRuntimeVersionRepository
+	propertyOptionsRepository sharedmodels.PropertyOptionsRepository
 	sources                   *ServingRuntimeSourceCollection
 }
 
@@ -26,6 +31,7 @@ func NewDBServingRuntimeCatalog(services Services, sources *ServingRuntimeSource
 	return &DBServingRuntimeCatalog{
 		servingRuntimeRepo:        services.ServingRuntimeRepository,
 		servingRuntimeVersionRepo: services.ServingRuntimeVersionRepository,
+		propertyOptionsRepository: services.PropertyOptionsRepository,
 		sources:                   sources,
 	}
 }
@@ -33,6 +39,7 @@ func NewDBServingRuntimeCatalog(services Services, sources *ServingRuntimeSource
 // ListServingRuntimesParams holds the parameters for listing serving_runtimes.
 type ListServingRuntimesParams struct {
 	Name          string
+	Query         string
 	SourceIDs     []string
 	FilterQuery   string
 	OrderBy       openapi.OrderByField
@@ -53,9 +60,30 @@ type ListServingRuntimeVersionsParams struct {
 // GetFilterOptions returns the fields and values usable in filterQuery.
 func (d *DBServingRuntimeCatalog) GetFilterOptions(ctx context.Context) (*openapi.FilterOptionsList, error) {
 	_ = ctx
-	options := make(map[string]openapi.FilterOption)
+	properties, err := d.propertyOptionsRepository.List(sharedmodels.ContextPropertyOptionType, d.servingRuntimeRepo.GetTypeID())
+	if err != nil {
+		return nil, err
+	}
+	options := make(map[string]openapi.FilterOption, len(properties))
+	for _, prop := range properties {
+		switch prop.Name {
+		case "source_id", "base_name", "description", "readme", "logo", "licenseLink", "documentationUrl", "repositoryUrl", "publishedDate", "lastUpdated", "capabilities", "supportedModelFormatsDetails", "envDetails":
+			continue
+		}
+		if option := basecatalog.DbPropToAPIOption(prop); option != nil {
+			options[prop.FullName("")] = *option
+		}
+	}
+	for _, name := range []string{"capabilities.requiresGPU", "capabilities.multiModel"} {
+		options[name] = openapi.FilterOption{Type: "boolean", Values: []any{false, true}}
+	}
+	var namedQueries *map[string]map[string]openapi.FieldFilter
+	if d.sources != nil {
+		namedQueries = basecatalog.ConvertNamedQueries(d.sources.GetNamedQueries(), options)
+	}
 	return &openapi.FilterOptionsList{
-		Filters: &options,
+		Filters:      &options,
+		NamedQueries: namedQueries,
 	}, nil
 }
 
@@ -70,6 +98,9 @@ func (d *DBServingRuntimeCatalog) ListServingRuntimes(ctx context.Context, param
 
 	if params.Name != "" {
 		listOptions.Name = &params.Name
+	}
+	if params.Query != "" {
+		listOptions.Query = &params.Query
 	}
 
 	if len(params.SourceIDs) > 0 {
@@ -122,7 +153,10 @@ func (d *DBServingRuntimeCatalog) GetServingRuntime(ctx context.Context, id stri
 
 	dbRuntime, err := d.servingRuntimeRepo.GetByID(intID)
 	if err != nil {
-		return nil, fmt.Errorf("serving_runtime not found with ID %s: %w", id, api.ErrNotFound)
+		if errors.Is(err, runtimeservice.ErrServingRuntimeNotFound) {
+			return nil, fmt.Errorf("serving_runtime not found with ID %s: %w", id, api.ErrNotFound)
+		}
+		return nil, fmt.Errorf("error getting serving_runtime %s: %w", id, err)
 	}
 
 	apiRuntime, err := mapDBServingRuntimeToAPI(dbRuntime)
@@ -143,7 +177,10 @@ func (d *DBServingRuntimeCatalog) ListServingRuntimeVersions(ctx context.Context
 
 	// Ensure the parent serving_runtime exists before listing its versions.
 	if _, err := d.servingRuntimeRepo.GetByID(intID); err != nil {
-		return openapi.ServingRuntimeVersionList{}, fmt.Errorf("serving_runtime not found with ID %s: %w", runtimeID, api.ErrNotFound)
+		if errors.Is(err, runtimeservice.ErrServingRuntimeNotFound) {
+			return openapi.ServingRuntimeVersionList{}, fmt.Errorf("serving_runtime not found with ID %s: %w", runtimeID, api.ErrNotFound)
+		}
+		return openapi.ServingRuntimeVersionList{}, fmt.Errorf("error getting serving_runtime %s: %w", runtimeID, err)
 	}
 
 	filterQuery := params.FilterQuery
@@ -254,7 +291,7 @@ func mapDBServingRuntimeToAPI(m models.ServingRuntime) (openapi.ServingRuntime, 
 						res.Tags = tags
 					}
 				}
-			case "supportedModelFormats":
+			case "supportedModelFormatsDetails":
 				if prop.StringValue != nil {
 					var formats []openapi.SupportedModelFormat
 					if err := json.Unmarshal([]byte(*prop.StringValue), &formats); err == nil {
@@ -353,7 +390,7 @@ func mapDBServingRuntimeVersionToAPI(m models.ServingRuntimeVersion) (openapi.Se
 					level := openapi.ServingRuntimeSupportLevel(*prop.StringValue)
 					res.SupportLevel = &level
 				}
-			case "supportedModelFormats":
+			case "supportedModelFormatsDetails":
 				if prop.StringValue != nil {
 					var formats []openapi.SupportedModelFormat
 					if err := json.Unmarshal([]byte(*prop.StringValue), &formats); err == nil {
@@ -381,7 +418,7 @@ func mapDBServingRuntimeVersionToAPI(m models.ServingRuntimeVersion) (openapi.Se
 						res.DefaultArgs = args
 					}
 				}
-			case "env":
+			case "envDetails":
 				if prop.StringValue != nil {
 					var env []openapi.ServingRuntimeEnvVar
 					if err := json.Unmarshal([]byte(*prop.StringValue), &env); err == nil {

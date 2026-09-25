@@ -21,7 +21,7 @@ var _ MappedNullable = &FilterOption{}
 type FilterOption struct {
 	// The data type of the filter option
 	Type string `json:"type"`
-	// Known values of the property for string types with a small number of possible options.
+	// Known values of the property for string or boolean types with a small number of possible options.
 	Values []interface{}      `json:"values,omitempty"`
 	Range  *FilterOptionRange `json:"range,omitempty"`
 }

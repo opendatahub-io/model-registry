@@ -9,6 +9,7 @@ import (
 type ServingRuntimeListOptions struct {
 	dbmodels.Pagination
 	Name        *string
+	Query       *string
 	SourceIDs   *[]string
 	FilterQuery *string
 }

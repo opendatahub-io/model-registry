@@ -3,8 +3,8 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
-	"slices"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog"
 	model "github.com/kubeflow/hub/catalog/pkg/openapi"
@@ -29,8 +29,21 @@ func NewServingRuntimeCatalogServiceAPIService(provider *serving_runtimecatalog.
 
 // FindServingRuntimes - List serving_runtimes.
 func (s *ServingRuntimeCatalogServiceAPIService) FindServingRuntimes(ctx context.Context, name string, q string, source []string, sourceLabel []string, filterQuery string, pageSize string, orderBy model.OrderByField, sortOrder model.SortOrder, nextPageToken string) (ImplResponse, error) {
+	if err := validateServingRuntimeSort(orderBy, sortOrder); err != nil {
+		return ErrorResponse(http.StatusBadRequest, err), err
+	}
 	pageSizeInt, err := parsePaginationParams(pageSize, nextPageToken)
 	if err != nil {
+		return ErrorResponse(http.StatusBadRequest, err), err
+	}
+	if len(source) == 1 && source[0] == "" {
+		source = nil
+	}
+	if len(sourceLabel) == 1 && sourceLabel[0] == "" {
+		sourceLabel = nil
+	}
+	if len(source) > 0 && len(sourceLabel) > 0 {
+		err := fmt.Errorf("source and sourceLabel cannot be used together")
 		return ErrorResponse(http.StatusBadRequest, err), err
 	}
 
@@ -44,6 +57,7 @@ func (s *ServingRuntimeCatalogServiceAPIService) FindServingRuntimes(ctx context
 
 	params := serving_runtimecatalog.ListServingRuntimesParams{
 		Name:          name,
+		Query:         q,
 		SourceIDs:     sourceIDs,
 		FilterQuery:   filterQuery,
 		OrderBy:       orderBy,
@@ -83,6 +97,9 @@ func (s *ServingRuntimeCatalogServiceAPIService) GetServingRuntime(ctx context.C
 
 // GetServingRuntimeVersions - List versions of a `ServingRuntime`.
 func (s *ServingRuntimeCatalogServiceAPIService) GetServingRuntimeVersions(ctx context.Context, id string, filterQuery string, pageSize string, orderBy model.OrderByField, sortOrder model.SortOrder, nextPageToken string) (ImplResponse, error) {
+	if err := validateServingRuntimeSort(orderBy, sortOrder); err != nil {
+		return ErrorResponse(http.StatusBadRequest, err), err
+	}
 	pageSizeInt, err := parsePaginationParams(pageSize, nextPageToken)
 	if err != nil {
 		return ErrorResponse(http.StatusBadRequest, err), err
@@ -104,17 +121,21 @@ func (s *ServingRuntimeCatalogServiceAPIService) GetServingRuntimeVersions(ctx c
 	return Response(http.StatusOK, versions), nil
 }
 
-// resolveServingRuntimeSourceIDs merges explicit source IDs with sources matched by label.
-// It returns the resolved source IDs and a boolean indicating whether the caller requested
-// a filter that matched no sources (in which case the result set is empty).
-func resolveServingRuntimeSourceIDs(sources *serving_runtimecatalog.ServingRuntimeSourceCollection, source []string, sourceLabel []string) ([]string, bool) {
-	if len(source) == 1 && source[0] == "" {
-		source = nil
+func validateServingRuntimeSort(orderBy model.OrderByField, sortOrder model.SortOrder) error {
+	if orderBy != "" && (!orderBy.IsValid() || orderBy == model.ORDERBYFIELD_RECOMMENDED) {
+		return fmt.Errorf("unsupported orderBy field: %s", orderBy)
 	}
-	if len(sourceLabel) == 1 && sourceLabel[0] == "" {
-		sourceLabel = nil
+	if sortOrder != "" && !sortOrder.IsValid() {
+		return fmt.Errorf("unsupported sortOrder: %s", sortOrder)
 	}
+	return nil
+}
 
+// resolveServingRuntimeSourceIDs returns explicit source IDs or IDs matched by label.
+// The boolean indicates a label filter that matched no sources. Callers are expected
+// to normalize a single empty-string entry in source/sourceLabel to nil beforehand
+// (see FindServingRuntimes).
+func resolveServingRuntimeSourceIDs(sources *serving_runtimecatalog.ServingRuntimeSourceCollection, source []string, sourceLabel []string) ([]string, bool) {
 	if len(sourceLabel) == 0 {
 		return source, false
 	}
@@ -123,18 +144,10 @@ func resolveServingRuntimeSourceIDs(sources *serving_runtimecatalog.ServingRunti
 		return source, len(source) == 0
 	}
 
-	var matched []string
-	for id, src := range sources.AllSources() {
-		for _, label := range src.Labels {
-			if slices.Contains(sourceLabel, label) {
-				matched = append(matched, id)
-				break
-			}
-		}
-	}
-
-	if len(source) > 0 {
-		matched = append(matched, source...)
+	matchedSources := sources.ByLabel(sourceLabel)
+	matched := make([]string, len(matchedSources))
+	for i, src := range matchedSources {
+		matched[i] = src.ID
 	}
 
 	if len(matched) == 0 {

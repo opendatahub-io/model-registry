@@ -217,11 +217,27 @@ func (l *ServingRuntimeLoader) buildServingRuntimeEntity(sourceID string, entry 
 		addJSON("tags", entry.Tags)
 	}
 	if len(entry.SupportedModelFormats) > 0 {
-		addJSON("supportedModelFormats", entry.SupportedModelFormats)
+		addJSON("supportedModelFormats", supportedModelFormatNames(entry.SupportedModelFormats))
+		addJSON("supportedModelFormatsDetails", entry.SupportedModelFormats)
 	}
+	requiresGPU := false
+	multiModel := false
 	if entry.Capabilities != nil {
 		addJSON("capabilities", entry.Capabilities)
+		if entry.Capabilities.RequiresGPU != nil {
+			requiresGPU = *entry.Capabilities.RequiresGPU
+		}
+		if entry.Capabilities.MultiModel != nil {
+			multiModel = *entry.Capabilities.MultiModel
+		}
+		if len(entry.Capabilities.SupportedAccelerators) > 0 {
+			addJSON("capabilities.supportedAccelerators", entry.Capabilities.SupportedAccelerators)
+		}
 	}
+	properties = append(properties,
+		mrmodels.NewBoolProperty("capabilities.requiresGPU", requiresGPU, false),
+		mrmodels.NewBoolProperty("capabilities.multiModel", multiModel, false),
+	)
 
 	properties = append(properties, mrmodels.NewIntProperty("versionCount", int32(len(entry.Versions)), false))
 
@@ -297,11 +313,14 @@ func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtim
 	}
 	addString("template", version.Template)
 	addString("publishedDate", version.PublishedDate)
+	deprecated := false
 	if version.Deprecated != nil {
-		properties = append(properties, mrmodels.NewBoolProperty("deprecated", *version.Deprecated, false))
+		deprecated = *version.Deprecated
 	}
+	properties = append(properties, mrmodels.NewBoolProperty("deprecated", deprecated, false))
 	if len(version.SupportedModelFormats) > 0 {
-		addJSON("supportedModelFormats", version.SupportedModelFormats)
+		addJSON("supportedModelFormats", supportedModelFormatNames(version.SupportedModelFormats))
+		addJSON("supportedModelFormatsDetails", version.SupportedModelFormats)
 	}
 	if len(version.ProtocolVersions) > 0 {
 		addJSON("protocolVersions", version.ProtocolVersions)
@@ -310,7 +329,12 @@ func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtim
 		addJSON("defaultArgs", version.DefaultArgs)
 	}
 	if len(version.Env) > 0 {
-		addJSON("env", version.Env)
+		names := make([]string, 0, len(version.Env))
+		for _, variable := range version.Env {
+			names = append(names, variable.Name)
+		}
+		addJSON("env", names)
+		addJSON("envDetails", version.Env)
 	}
 	if version.RecommendedResources != nil {
 		addJSON("recommendedResources", version.RecommendedResources)
@@ -320,6 +344,14 @@ func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtim
 		Attributes: attrs,
 		Properties: &properties,
 	}
+}
+
+func supportedModelFormatNames(formats []openapi.SupportedModelFormat) []string {
+	names := make([]string, 0, len(formats))
+	for _, format := range formats {
+		names = append(names, format.Name)
+	}
+	return names
 }
 
 func (l *ServingRuntimeLoader) ReloadParsing() error {
@@ -363,6 +395,12 @@ func (l *ServingRuntimeLoader) updateSources(path string, config *basecatalog.So
 		glog.Infof("loaded serving_runtime source %s of type %s", source.GetId(), source.Type)
 	}
 
+	if config.NamedQueries != nil {
+		filtered := basecatalog.FilterNamedQueriesByAssetType(config.NamedQueries, basecatalog.AssetTypeServingRuntimes)
+		if len(filtered) > 0 {
+			return l.Sources.MergeWithNamedQueries(path, sources, filtered)
+		}
+	}
 	return l.Sources.Merge(path, sources)
 }
 
