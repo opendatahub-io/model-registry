@@ -441,16 +441,104 @@ func TestServingRuntimeSourceFilterIgnoresCustomSourceID(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
-	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    customProperties:\n      source_id: {metadataType: MetadataStringValue, string_value: second}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes: []\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
 	state.SetLeader(true)
-	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+
+	// A "source_id" customProperties key is rejected at YAML ingestion (see
+	// TestServingRuntimeLoaderRejectsReservedCustomProperties), so save the
+	// runtime directly through the repository to exercise the SourceIDs list
+	// filter's handling of a same-named custom property.
+	name := "first:vllm"
+	_, err := services.ServingRuntimeRepository.Save(&models.ServingRuntimeImpl{
+		Attributes: &models.ServingRuntimeAttributes{Name: &name},
+		Properties: &[]mrmodels.Properties{
+			mrmodels.NewStringProperty("source_id", "first", false),
+		},
+		CustomProperties: &[]mrmodels.Properties{
+			{Name: "source_id", IsCustomProperty: true, StringValue: new("second")},
+		},
+	})
+	require.NoError(t, err)
 
 	result, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimes(t.Context(), ListServingRuntimesParams{SourceIDs: []string{"second"}})
 	require.NoError(t, err)
 	assert.Empty(t, result.Items)
+}
+
+// TestServingRuntimeLoaderRejectsReservedCustomProperties ensures that
+// "source_id" and "base_name" cannot be set via customProperties. Both are
+// internal bookkeeping properties written by the loader as non-custom
+// properties; allowing a source to override them via a custom property of
+// the same name would let it impersonate another source_id or base_name,
+// corrupting source-ownership queries (DeleteBySource, GetDistinctSourceIDs).
+func TestServingRuntimeLoaderRejectsReservedCustomProperties(t *testing.T) {
+	for _, key := range []string{"source_id", "base_name"} {
+		t.Run(key, func(t *testing.T) {
+			_, services := setupServingRuntimeLoader(t)
+			dir := t.TempDir()
+			dataPath := filepath.Join(dir, "runtimes.yaml")
+			configPath := filepath.Join(dir, "sources.yaml")
+			writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties:\n      yamlCatalogPath: runtimes.yaml\n")
+			writeRuntimeFile(t, dataPath, fmt.Sprintf("serving_runtimes:\n  - name: vllm\n    customProperties:\n      %s: {metadataType: MetadataStringValue, string_value: other}\n", key))
+			state := basecatalog.NewBaseLoader([]string{configPath})
+			loader := NewServingRuntimeLoader(services, state)
+			require.NoError(t, loader.ParseAllConfigs())
+			state.SetLeader(true)
+
+			err := loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"])
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), key)
+			_, err = services.ServingRuntimeRepository.GetByName("first:vllm")
+			require.Error(t, err, "the runtime must not be persisted when a reserved custom property is rejected")
+		})
+	}
+}
+
+// TestServingRuntimeRemoveRuntimesFromMissingSourcesIgnoresCustomSourceID
+// reproduces the phantom-source scenario reported against DeleteBySource /
+// GetDistinctSourceIDs directly at the repository layer (bypassing the
+// loader's reserved-property validation, which blocks this from happening via
+// YAML ingestion — see TestServingRuntimeLoaderRejectsReservedCustomProperties).
+// A runtime that has a *custom* property named "source_id" must not be
+// treated as belonging to that value when the leader reconciles sources.
+// Before source-ownership queries required is_custom_property = false, such a
+// runtime made GetDistinctSourceIDs report a phantom source not present in
+// the enabled set, and removeRuntimesFromMissingSources would then call
+// DeleteBySource("phantom"), deleting the runtime out from under its real
+// source on every leader reconcile pass.
+func TestServingRuntimeRemoveRuntimesFromMissingSourcesIgnoresCustomSourceID(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes: []\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+
+	// Save the runtime directly through the repository (bypassing loadFromYAML)
+	// with a real, non-custom source_id of "first" plus a custom property that
+	// also happens to be named "source_id" pointing at a phantom source.
+	name := "first:vllm"
+	_, err := services.ServingRuntimeRepository.Save(&models.ServingRuntimeImpl{
+		Attributes: &models.ServingRuntimeAttributes{Name: &name},
+		Properties: &[]mrmodels.Properties{
+			mrmodels.NewStringProperty("source_id", "first", false),
+		},
+		CustomProperties: &[]mrmodels.Properties{
+			{Name: "source_id", IsCustomProperty: true, StringValue: new("phantom")},
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, loader.removeRuntimesFromMissingSources(mapset.NewSet("first")))
+
+	_, err = services.ServingRuntimeRepository.GetByName(name)
+	require.NoError(t, err, "runtime must survive: DeleteBySource must not match a custom source_id property")
 }
 
 func TestServingRuntimeListsFilterAndPaginate(t *testing.T) {

@@ -259,7 +259,19 @@ func (l *ServingRuntimeLoader) buildServingRuntimeEntity(sourceID string, entry 
 	return entity, nil
 }
 
+// reservedServingRuntimeProperties are internal bookkeeping property names that
+// must not be overridden by a YAML source's customProperties. Allowing them
+// through would let a source impersonate another source_id or base_name,
+// corrupting source-ownership queries (e.g. DeleteBySource, GetDistinctSourceIDs).
+var reservedServingRuntimeProperties = map[string]bool{
+	"source_id": true,
+	"base_name": true,
+}
+
 func servingRuntimeCustomProperty(key string, value openapi.MetadataValue) (mrmodels.Properties, error) {
+	if reservedServingRuntimeProperties[key] {
+		return mrmodels.Properties{}, fmt.Errorf("custom property %q is reserved and cannot be set", key)
+	}
 	if value.MetadataStringValue != nil {
 		return mrmodels.NewStringProperty(key, value.MetadataStringValue.StringValue, true), nil
 	}

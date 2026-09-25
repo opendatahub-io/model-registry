@@ -76,6 +76,9 @@ func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
 		if strings.TrimSpace(runtime.Name) == "" {
 			return nil, fmt.Errorf("serving_runtime in %s has no name", path)
 		}
+		if strings.Contains(runtime.Name, ":") {
+			return nil, fmt.Errorf("serving_runtime %q in %s: name must not contain ':'", runtime.Name, path)
+		}
 		if names[runtime.Name] {
 			return nil, fmt.Errorf("duplicate serving_runtime %q in %s", runtime.Name, path)
 		}
@@ -84,6 +87,9 @@ func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
 		for _, version := range runtime.Versions {
 			if strings.TrimSpace(version.Version) == "" || strings.TrimSpace(version.Image) == "" {
 				return nil, fmt.Errorf("serving_runtime %q in %s has a version without version or image", runtime.Name, path)
+			}
+			if strings.Contains(version.Version, ":") {
+				return nil, fmt.Errorf("serving_runtime %q in %s: version %q must not contain ':'", runtime.Name, path, version.Version)
 			}
 			if versions[version.Version] {
 				return nil, fmt.Errorf("duplicate version %q for serving_runtime %q in %s", version.Version, runtime.Name, path)

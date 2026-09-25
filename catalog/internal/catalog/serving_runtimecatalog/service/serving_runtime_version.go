@@ -142,7 +142,7 @@ func applyServingRuntimeVersionListFilters(query *gorm.DB, listOptions *models.S
 		subQuery := query.Session(&gorm.Session{NewDB: true}).
 			Table(propTable).
 			Select("artifact_id").
-			Where("name = ? AND string_value IN ?", "source_id", *listOptions.SourceIDs)
+			Where("name = ? AND is_custom_property = ? AND string_value IN ?", "source_id", false, *listOptions.SourceIDs)
 		query = query.Where(artifactTable+".id IN (?)", subQuery)
 	}
 
@@ -204,9 +204,10 @@ func (r *ServingRuntimeVersionRepositoryImpl) DeleteBySource(sourceID string) er
 		Joins("INNER JOIN "+propTableName+" ON "+
 			tableName+".id = "+propTableName+".artifact_id").
 		Where(propTableName+".name = ? AND "+
+			propTableName+".is_custom_property = ? AND "+
 			propTableName+".string_value = ? AND "+
 			tableName+".type_id = ?",
-			"source_id", sourceID, config.TypeID)
+			"source_id", false, sourceID, config.TypeID)
 
 	return config.DB.Where("id IN (?)", subQuery).Delete(&schema.Artifact{}).Error
 }
@@ -244,7 +245,7 @@ func (r *ServingRuntimeVersionRepositoryImpl) GetDistinctSourceIDs() ([]string, 
 	err := config.DB.Table(propTableName+" cp").
 		Select("DISTINCT cp.string_value").
 		Joins("INNER JOIN "+tableName+" a ON cp.artifact_id = a.id").
-		Where("cp.name = ? AND a.type_id = ?", "source_id", config.TypeID).
+		Where("cp.name = ? AND cp.is_custom_property = ? AND a.type_id = ?", "source_id", false, config.TypeID).
 		Pluck("string_value", &sourceIDs).Error
 
 	if err != nil {

@@ -78,7 +78,7 @@ other plugins.
 ## Proposed OpenAPI schema
 
 This is the plugin source spec that would live at
-`api/openapi/src/plugins/serving_runtime.yaml`. Only the `components` block is
+`api/openapi/src/plugins/serving_runtime-v1.yaml`. Only the `components` block is
 shown; the `paths` block follows the model/mcp plugins verbatim in shape.
 
 ```yaml

@@ -16,6 +16,8 @@ func TestLoadServingRuntimesRejectsInvalidEntries(t *testing.T) {
 		{"missing version", "serving_runtimes:\n  - name: one\n    versions: [{image: example:v1}]\n"},
 		{"missing image", "serving_runtimes:\n  - name: one\n    versions: [{version: '1'}]\n"},
 		{"duplicate version", "serving_runtimes:\n  - name: one\n    versions: [{version: '1', image: example:v1}, {version: '1', image: example:v2}]\n"},
+		{"colon in name", "serving_runtimes:\n  - name: one:two\n    versions: [{version: '1', image: example:v1}]\n"},
+		{"colon in version", "serving_runtimes:\n  - name: one\n    versions: [{version: '1:2', image: example:v1}]\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "runtimes.yaml")

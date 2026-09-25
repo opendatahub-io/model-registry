@@ -239,9 +239,10 @@ func (r *ServingRuntimeRepositoryImpl) DeleteBySource(sourceID string) error {
 		Joins("INNER JOIN "+propTableName+" ON "+
 			tableName+".id = "+propTableName+".context_id").
 		Where(propTableName+".name = ? AND "+
+			propTableName+".is_custom_property = ? AND "+
 			propTableName+".string_value = ? AND "+
 			tableName+".type_id = ?",
-			"source_id", sourceID, config.TypeID)
+			"source_id", false, sourceID, config.TypeID)
 
 	return config.DB.Where("id IN (?)", subQuery).Delete(&schema.Context{}).Error
 }
@@ -268,7 +269,7 @@ func (r *ServingRuntimeRepositoryImpl) GetDistinctSourceIDs() ([]string, error) 
 	err := config.DB.Table(propTableName+" cp").
 		Select("DISTINCT cp.string_value").
 		Joins("INNER JOIN "+tableName+" c ON cp.context_id = c.id").
-		Where("cp.name = ? AND c.type_id = ?", "source_id", config.TypeID).
+		Where("cp.name = ? AND cp.is_custom_property = ? AND c.type_id = ?", "source_id", false, config.TypeID).
 		Pluck("string_value", &sourceIDs).Error
 
 	if err != nil {
