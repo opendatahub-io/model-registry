@@ -17,10 +17,11 @@ const (
 
 // Asset type constants for named query scoping.
 const (
-	AssetTypeModels     = "models"
-	AssetTypeMCPServers = "mcp_servers"
-	AssetTypeAgents     = "agents"
-	AssetTypeSkills     = "skills"
+	AssetTypeModels          = "models"
+	AssetTypeMCPServers      = "mcp_servers"
+	AssetTypeAgents          = "agents"
+	AssetTypeSkills          = "skills"
+	AssetTypeServingRuntimes = "serving_runtimes"
 )
 
 // CommonSourceFields holds the fields shared between ModelSource and MCPSource

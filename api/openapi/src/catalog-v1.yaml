@@ -493,6 +493,7 @@ components:
         - mcp_servers
         - agents
         - skills
+        - serving_runtimes
       default: models
     CatalogSourcePreviewResponse:
       description: Response containing models and their inclusion/exclusion status.
@@ -644,9 +645,10 @@ components:
           enum:
             - string
             - number
+            - boolean
         values:
           type: array
-          description: Known values of the property for string types with a small number of possible options.
+          description: Known values of the property for string or boolean types with a small number of possible options.
           items: {}
         range:
           $ref: "#/components/schemas/FilterOptionRange"

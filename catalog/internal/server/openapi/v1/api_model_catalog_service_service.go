@@ -16,6 +16,7 @@ import (
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/mcpcatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog"
+	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog"
 	"github.com/kubeflow/hub/catalog/internal/db/models"
 	model "github.com/kubeflow/hub/catalog/pkg/openapi"
 	mrmodels "github.com/kubeflow/hub/internal/platform/db/entity"
@@ -27,14 +28,15 @@ import (
 // This service should implement the business logic for every endpoint for the ModelCatalogServiceAPI s.coreApi.
 // Include any external packages or services that will be required by this service.
 type ModelCatalogServiceAPIService struct {
-	provider         catalog.APIProvider
-	sources          *catalog.SourceCollection
-	mcpSources       *catalog.MCPSourceCollection
-	agentSources     *catalog.AgentSourceCollection
-	skillSources     *catalog.SkillSourceCollection
-	labels           *catalog.LabelCollection
-	sourceRepository models.CatalogSourceRepository
-	skillPreviewer   SkillSourcePreviewer
+	provider              catalog.APIProvider
+	sources               *catalog.SourceCollection
+	mcpSources            *catalog.MCPSourceCollection
+	agentSources          *catalog.AgentSourceCollection
+	skillSources          *catalog.SkillSourceCollection
+	servingRuntimeSources *serving_runtimecatalog.ServingRuntimeSourceCollection
+	labels                *catalog.LabelCollection
+	sourceRepository      models.CatalogSourceRepository
+	skillPreviewer        SkillSourcePreviewer
 }
 
 // SkillSourcePreviewer previews a git-skills-plugin source by resolving its
@@ -59,6 +61,11 @@ func WithSkillPreviewer(p SkillSourcePreviewer) ModelCatalogServiceOption {
 // sources with assetType: skills appear alongside model/MCP/agent sources.
 func WithSkillSources(sc *catalog.SkillSourceCollection) ModelCatalogServiceOption {
 	return func(s *ModelCatalogServiceAPIService) { s.skillSources = sc }
+}
+
+// WithServingRuntimeSources wires serving runtime sources into FindSources.
+func WithServingRuntimeSources(sc *serving_runtimecatalog.ServingRuntimeSourceCollection) ModelCatalogServiceOption {
+	return func(s *ModelCatalogServiceAPIService) { s.servingRuntimeSources = sc }
 }
 
 // GetAllModelArtifacts retrieves all model artifacts for a given model from the specified source.
@@ -398,7 +405,7 @@ func (m *ModelCatalogServiceAPIService) GetModel(ctx context.Context, sourceID, 
 }
 
 func (m *ModelCatalogServiceAPIService) FindSources(ctx context.Context, name string, assetType model.CatalogAssetType, strPageSize string, orderBy model.OrderByField, sortOrder model.SortOrder, nextPageToken string) (ImplResponse, error) {
-	// Collect all sources (model + MCP) as CatalogSource objects
+	// Collect sources from each catalog as CatalogSource objects.
 	sources := m.sources.All()
 
 	if m.mcpSources != nil {
@@ -409,13 +416,19 @@ func (m *ModelCatalogServiceAPIService) FindSources(ctx context.Context, name st
 
 	if m.agentSources != nil {
 		for id, agentSrc := range m.agentSources.AllSources() {
-			sources[id] = agentSourceToCatalogSource(agentSrc)
+			sources[id] = pluginSourceToCatalogSource(agentSrc, model.CATALOGASSETTYPE_AGENTS)
 		}
 	}
 
 	if m.skillSources != nil {
 		for id, skillSrc := range m.skillSources.AllSources() {
-			sources[id] = skillSourceToCatalogSource(skillSrc)
+			sources[id] = pluginSourceToCatalogSource(skillSrc, model.CATALOGASSETTYPE_SKILLS)
+		}
+	}
+
+	if m.servingRuntimeSources != nil {
+		for id, runtimeSrc := range m.servingRuntimeSources.AllSources() {
+			sources[id] = pluginSourceToCatalogSource(runtimeSrc, model.CATALOGASSETTYPE_SERVING_RUNTIMES)
 		}
 	}
 
@@ -570,19 +583,7 @@ func mcpSourceToCatalogSource(src basecatalog.MCPSource) model.CatalogSource {
 	return cs
 }
 
-func agentSourceToCatalogSource(src basecatalog.PluginSource) model.CatalogSource {
-	assetType := model.CATALOGASSETTYPE_AGENTS
-	return model.CatalogSource{
-		Id:        src.ID,
-		Name:      src.Name,
-		Enabled:   src.Enabled,
-		Labels:    src.Labels,
-		AssetType: &assetType,
-	}
-}
-
-func skillSourceToCatalogSource(src basecatalog.PluginSource) model.CatalogSource {
-	assetType := model.CATALOGASSETTYPE_SKILLS
+func pluginSourceToCatalogSource(src basecatalog.PluginSource, assetType model.CatalogAssetType) model.CatalogSource {
 	return model.CatalogSource{
 		Id:        src.ID,
 		Name:      src.Name,

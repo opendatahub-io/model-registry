@@ -58,10 +58,11 @@ var supportedOperators = map[string]bool{
 // ValidateNamedQueries validates the structure and content of named queries
 func ValidateNamedQueries(namedQueries map[string]NamedQuery) error {
 	validAssetTypes := map[string]bool{
-		AssetTypeModels:     true,
-		AssetTypeMCPServers: true,
-		AssetTypeAgents:     true,
-		AssetTypeSkills:     true,
+		AssetTypeModels:          true,
+		AssetTypeMCPServers:      true,
+		AssetTypeAgents:          true,
+		AssetTypeSkills:          true,
+		AssetTypeServingRuntimes: true,
 	}
 
 	for queryName, nq := range namedQueries {
@@ -70,7 +71,7 @@ func ValidateNamedQueries(namedQueries map[string]NamedQuery) error {
 		}
 
 		if nq.AssetType != "" && !validAssetTypes[nq.AssetType] {
-			return fmt.Errorf("named query '%s' has invalid assetType '%s' (valid values: %s, %s, %s, %s)", queryName, nq.AssetType, AssetTypeModels, AssetTypeMCPServers, AssetTypeAgents, AssetTypeSkills)
+			return fmt.Errorf("named query '%s' has invalid assetType '%s' (valid values: %s, %s, %s, %s, %s)", queryName, nq.AssetType, AssetTypeModels, AssetTypeMCPServers, AssetTypeAgents, AssetTypeSkills, AssetTypeServingRuntimes)
 		}
 
 		if len(nq.Filters) == 0 {

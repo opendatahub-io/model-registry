@@ -54,6 +54,16 @@ agent_catalogs:
     labels:
       - Enterprise
 
+serving_runtime_catalogs:
+  - name: "Red Hat Serving Runtimes"
+    id: rh_serving_runtimes
+    type: yaml
+    enabled: true
+    properties:
+      yamlCatalogPath: dev-serving-runtimes.yaml
+    labels:
+      - Red Hat
+
 # skill_catalogs are git-backed (type: git-skills-plugin): the listed repositories
 # are resolved at sync time by a temporary, discarded clone — no skill content is
 # vendored into this repo. refs must be immutable (tags/SHAs); branches and HEAD

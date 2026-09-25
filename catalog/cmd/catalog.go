@@ -26,6 +26,7 @@ import (
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/mcp"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/model"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/skill"
+	_ "github.com/kubeflow/hub/catalog/internal/plugins/serving_runtime"
 )
 
 var catalogCfg = struct {

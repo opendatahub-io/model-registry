@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,7 +13,9 @@ import (
 	"time"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog"
+	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog"
+	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog"
 	"github.com/kubeflow/hub/catalog/internal/db/models"
 	model "github.com/kubeflow/hub/catalog/pkg/openapi"
 	mrmodels "github.com/kubeflow/hub/internal/platform/db/entity"
@@ -837,6 +840,44 @@ func TestFindSources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFindSourcesIncludesDemoServingRuntimeSource(t *testing.T) {
+	configPath := filepath.Join("../../../../../manifests/kustomize/options/catalog/overlays/demo", "dev-sources.yaml")
+	config, err := basecatalog.ReadSourceConfig(configPath)
+	require.NoError(t, err)
+	require.Len(t, config.ServingRuntimeCatalogs, 1)
+
+	runtimeSource := config.ServingRuntimeCatalogs[0]
+	runtimeSources := serving_runtimecatalog.NewServingRuntimeSourceCollection()
+	require.NoError(t, runtimeSources.Merge("demo", map[string]basecatalog.PluginSource{
+		runtimeSource.ID: runtimeSource,
+	}))
+
+	service := NewModelCatalogServiceAPIService(
+		&mockModelProvider{}, catalog.NewSourceCollection(), nil, nil, catalog.NewLabelCollection(), nil,
+		WithServingRuntimeSources(runtimeSources),
+	)
+
+	response, err := service.FindSources(t.Context(), "", model.CATALOGASSETTYPE_SERVING_RUNTIMES, "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.Code)
+	list, ok := response.Body.(model.CatalogSourceList)
+	require.True(t, ok)
+	require.Equal(t, int32(1), list.Size)
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "rh_serving_runtimes", list.Items[0].Id)
+	assert.Equal(t, "Red Hat Serving Runtimes", list.Items[0].Name)
+	assert.Equal(t, []string{"Red Hat"}, list.Items[0].Labels)
+	assert.Equal(t, model.CATALOGASSETTYPE_SERVING_RUNTIMES, list.Items[0].GetAssetType())
+	require.NotNil(t, list.Items[0].Enabled)
+	assert.True(t, *list.Items[0].Enabled)
+
+	response, err = service.FindSources(t.Context(), "", "", "", "", "", "")
+	require.NoError(t, err)
+	list, ok = response.Body.(model.CatalogSourceList)
+	require.True(t, ok)
+	assert.Empty(t, list.Items)
 }
 
 func TestFindLabels(t *testing.T) {

@@ -1259,6 +1259,7 @@ components:
         - mcp_servers
         - agents
         - skills
+        - serving_runtimes
       default: models
     CatalogLabel:
       description: A catalog label. Labels are used to categorize catalog sources. Represented as a flexible map of string key-value pairs with a required 'name' field.
