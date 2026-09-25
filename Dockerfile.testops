@@ -54,4 +54,4 @@ ENV PATH="/home/odh/.local/bin:$PATH"
 
 # Set entrypoint to make command
 ENTRYPOINT ["make", "-C", "clients/python"]
-CMD ["deploy-mr-odh", "deploy-local-registry", "deploy-test-minio", "test-e2e-odh"]
+CMD ["deploy-mr-odh", "deploy-local-registry", "deploy-test-seaweedfs", "test-e2e-odh"]
