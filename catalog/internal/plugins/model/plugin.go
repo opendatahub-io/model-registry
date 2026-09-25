@@ -15,6 +15,7 @@ import (
 	"github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog"
 	modelcatalogmodels "github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog/models"
 	modelcatalogservice "github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog/service"
+	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/skillcatalog"
 	"github.com/kubeflow/hub/catalog/internal/db/models"
 	dbservice "github.com/kubeflow/hub/catalog/internal/db/service"
@@ -47,6 +48,11 @@ type skillPreviewProvider interface {
 // Used to get skill sources for the unified FindSources endpoint.
 type skillSourceProvider interface {
 	SkillSources() *skillcatalog.SkillSourceCollection
+}
+
+// servingRuntimeSourceProvider is implemented by the serving runtime plugin.
+type servingRuntimeSourceProvider interface {
+	ServingRuntimeSources() *serving_runtimecatalog.ServingRuntimeSourceCollection
 }
 
 type Plugin struct {
@@ -207,6 +213,11 @@ func (p *Plugin) RegisterRoutes(router chi.Router) error {
 			sources := ss.SkillSources()
 			alphaOpts = append(alphaOpts, v1alpha1.WithSkillSources(sources))
 			v1Opts = append(v1Opts, v1.WithSkillSources(sources))
+		}
+	}
+	if runtimePlugin, ok := plugin.Get("serving_runtime"); ok {
+		if sp, ok := runtimePlugin.(servingRuntimeSourceProvider); ok {
+			v1Opts = append(v1Opts, v1.WithServingRuntimeSources(sp.ServingRuntimeSources()))
 		}
 	}
 
