@@ -103,6 +103,11 @@ func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 	return nil
 }
 
+// ServingRuntimeSources returns the loader's source collection for the shared sources endpoint.
+func (p *Plugin) ServingRuntimeSources() *serving_runtimecatalog.ServingRuntimeSourceCollection {
+	return p.loader.Sources
+}
+
 func (p *Plugin) RegisterRoutes(router chi.Router) error {
 	provider := serving_runtimecatalog.NewDBServingRuntimeCatalog(p.services, p.loader.Sources)
 
