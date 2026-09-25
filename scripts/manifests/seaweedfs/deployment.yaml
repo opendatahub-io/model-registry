@@ -7,6 +7,16 @@ stringData:
   ACCESS_KEY_ID: "seaweedadmin"
   SECRET_KEY: "seaweedadmin"
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seaweedfs-filer-config
+data:
+  filer.toml: |
+    [leveldb2]
+    enabled = true
+    dir = "/tmp/filerldb2"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,7 +36,7 @@ spec:
           image: ghcr.io/chrislusf/seaweedfs:4.34
           args:
             - server
-            - -dir=/data
+            - -dir=/tmp
             - -s3
             - -iam
             - -filer
@@ -45,6 +55,11 @@ spec:
           ports:
             - containerPort: 8333
               name: s3
+          volumeMounts:
+            - name: filer-config
+              mountPath: /etc/seaweedfs/filer.toml
+              subPath: filer.toml
+              readOnly: true
           lifecycle:
             postStart:
               exec:
@@ -111,6 +126,10 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 10
+      volumes:
+        - name: filer-config
+          configMap:
+            name: seaweedfs-filer-config
 ---
 apiVersion: v1
 kind: Service
