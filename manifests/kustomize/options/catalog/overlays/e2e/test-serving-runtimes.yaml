@@ -1,0 +1,50 @@
+# Image references are discovery metadata; E2E tests do not pull these images.
+source: test_serving_runtimes
+serving_runtimes:
+  - name: e2e-vllm
+    displayName: E2E vLLM
+    provider: E2E vLLM Community
+    description: GPU runtime fixture for catalog E2E tests.
+    supportedModelFormats:
+      - name: safetensors
+        autoSelect: true
+      - name: pytorch
+        autoSelect: false
+    capabilities:
+      requiresGPU: true
+      supportedAccelerators:
+        - nvidia.com/gpu
+        - amd.com/gpu
+      multiModel: false
+    versions:
+      - version: "1.0.0"
+        image: example.invalid/e2e/vllm:1.0.0
+        supportLevel: community
+        protocolVersions:
+          - v2
+      - version: "2.0.0"
+        image: example.invalid/e2e/vllm:2.0.0
+        supportLevel: techPreview
+        protocolVersions:
+          - v2
+          - grpc-v2
+  - name: e2e-ovms
+    displayName: E2E OpenVINO Model Server
+    provider: E2E OpenVINO Community
+    description: CPU runtime fixture for catalog E2E tests.
+    supportedModelFormats:
+      - name: openvino_ir
+        autoSelect: true
+      - name: onnx
+        autoSelect: false
+    capabilities:
+      requiresGPU: false
+      supportedAccelerators:
+        - intel.com/gpu
+      multiModel: true
+    versions:
+      - version: "1.0.0"
+        image: example.invalid/e2e/ovms:1.0.0
+        supportLevel: supported
+        protocolVersions:
+          - grpc-v2

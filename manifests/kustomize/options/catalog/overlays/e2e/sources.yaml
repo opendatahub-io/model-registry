@@ -31,6 +31,14 @@ mcp_catalogs:
     properties:
       yamlCatalogPath: /testdata/test-mcp-servers.yaml
 
+serving_runtime_catalogs:
+  - name: Test Serving Runtimes
+    id: test_serving_runtimes
+    type: yaml
+    enabled: true
+    properties:
+      yamlCatalogPath: /testdata/test-serving-runtimes.yaml
+
 agent_catalogs:
   - name: Sample Agent Catalog
     id: sample_agent_catalog

@@ -210,7 +210,14 @@ class CatalogAPIClient:
     # Maximum allowed timeout (5 minutes)
     MAX_TIMEOUT = 300
 
-    def __init__(self, base_url: str, timeout: int = 10, verify_ssl: bool = True, access_token: str = None):
+    def __init__(
+        self,
+        base_url: str,
+        timeout: int = 10,
+        verify_ssl: bool = True,
+        access_token: str = None,
+        retries: int | None = None,
+    ):
         """Initialize API client.
 
         Args:
@@ -218,6 +225,9 @@ class CatalogAPIClient:
             timeout: Request timeout in seconds (must be positive, max 300)
             verify_ssl: Whether to verify SSL certificates (default True)
             access_token: Access token for authentication (default None)
+            retries: Transport-level retry count for the underlying connection pool.
+                Passed through to the generated client's Configuration so it is bound
+                when the pool is created (default None uses urllib3's default retries).
 
         Raises:
             ValueError: If base_url is empty or invalid, or timeout is not positive.
@@ -246,6 +256,10 @@ class CatalogAPIClient:
         # Configure the generated client
         config = Configuration(host=self.base_url, access_token=self.access_token)
         config.verify_ssl = verify_ssl
+        if retries is not None:
+            # Read by RESTClientObject when it builds the PoolManager, so this
+            # binds reliably — unlike mutating connection_pool_kw after the fact.
+            config.retries = retries
         self.api_client = ApiClient(configuration=config)
         self._configure_timeout(config, timeout)
         self.catalog_api = ModelCatalogServiceApi(self.api_client)
@@ -339,6 +353,82 @@ class CatalogAPIClient:
 
         # Return the raw JSON to preserve fields not yet in the Pydantic model.
         return json.loads(response_data.data)
+
+    @_handle_api_errors
+    def _get_runtime_json(self, path: str, query_params: list[tuple[str, str]] | None = None) -> dict[str, Any]:
+        """GET runtime JSON while preserving fields absent from generated models."""
+        params = self.api_client.param_serialize(
+            method="GET",
+            resource_path=f"/api/serving_runtime_catalog/v1/serving_runtimes{path}",
+            query_params=query_params,
+            header_params={"Accept": "application/json"},
+            auth_settings=["Bearer"],
+        )
+        response = self.api_client.call_api(*params, _request_timeout=self.timeout)
+        response.read()
+        self.api_client.response_deserialize(
+            response_data=response,
+            response_types_map={"200": "object", "4XX": "object", "5XX": "object"},
+        )
+        assert response.data is not None, "Runtime response body was not read"
+        return json.loads(response.data)
+
+    def get_serving_runtimes(
+        self,
+        source: str | None = None,
+        page_size: int | None = None,
+        next_page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List serving runtimes as raw JSON, optionally scoped to a source.
+
+        Args:
+            source: Catalog source ID to filter by.
+            page_size: Number of items per page.
+            next_page_token: Token for the next page.
+
+        Returns:
+            Runtime list and pagination information.
+        """
+        query_params = [
+            (name, str(value))
+            for name, value in (("source", source), ("pageSize", page_size), ("nextPageToken", next_page_token))
+            if value is not None
+        ]
+        return self._get_runtime_json("", query_params)
+
+    def get_serving_runtime(self, runtime_id: str) -> dict[str, Any]:
+        """Get a serving runtime's raw JSON metadata by ID.
+
+        Args:
+            runtime_id: Runtime identifier.
+
+        Returns:
+            Runtime identity and metadata.
+        """
+        return self._get_runtime_json(f"/{_encode_path_param(runtime_id)}")
+
+    def get_serving_runtime_versions(
+        self,
+        runtime_id: str,
+        page_size: int | None = None,
+        next_page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List a serving runtime's versions as raw JSON.
+
+        Args:
+            runtime_id: Parent runtime identifier.
+            page_size: Number of items per page.
+            next_page_token: Token for the next page.
+
+        Returns:
+            Version list and pagination information.
+        """
+        query_params = [
+            (name, str(value))
+            for name, value in (("pageSize", page_size), ("nextPageToken", next_page_token))
+            if value is not None
+        ]
+        return self._get_runtime_json(f"/{_encode_path_param(runtime_id)}/versions", query_params)
 
     @_handle_api_errors
     def get_source_by_id(self, source_id: str) -> dict[str, Any]:

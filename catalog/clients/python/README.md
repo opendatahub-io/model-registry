@@ -62,6 +62,31 @@ make deploy-cleanup
 
 Deployment uses the kustomize overlay at `manifests/kustomize/options/catalog/overlays/e2e/`.
 
+### Serving-runtime catalog tests
+
+The E2E overlay registers the enabled `test_serving_runtimes` YAML source and
+mounts `test-serving-runtimes.yaml` from the testdata ConfigMap at `/testdata`.
+The catalog loads two runtime families and three versions into PostgreSQL.
+Their image references are metadata; these tests do not deploy inference workloads.
+
+After `make deploy`, run the focused tests with:
+
+```bash
+poetry run pytest --e2e tests/serving_runtimes/test_runtimes.py
+```
+
+`make test-e2e` and the existing Nox E2E sessions discover these tests automatically.
+A session fixture waits for the source-scoped runtime list and every expected
+version/image pair before assertions run. Its deadline starts after shared service
+readiness completes. It uses the existing `CATALOG_POLL_TIMEOUT`,
+`CATALOG_POLL_INTERVAL`, and `CATALOG_MAX_BACKOFF` settings, bounded request timeouts,
+and capped backoff. Connection failures, timeouts, 5xx responses, and incomplete
+loading are retried; other HTTP errors and malformed responses fail immediately.
+Missing fixture data in Kind fails with source, endpoint, and last-result diagnostics.
+
+For an external deployment, set `KIND_CLUSTER=False`. These fixture-dependent
+tests then skip explicitly before connecting to the service.
+
 ### Test Commands
 
 | Command | Description |
