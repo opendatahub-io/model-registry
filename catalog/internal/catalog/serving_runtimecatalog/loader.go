@@ -115,11 +115,35 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 	glog.Infof("Loading serving runtimes from source %s (%s)", sourceID, yamlPath)
 	entries, err := loadServingRuntimesFromYAML(yamlPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("source=%q: %w", sourceID, err)
+	}
+	// Construct every persistable entity before the first write. Conversion
+	// errors in a later runtime must not leave earlier runtimes updated.
+	type preparedRuntime struct {
+		entry    yamlServingRuntime
+		entity   servingRuntimemodels.ServingRuntime
+		versions []servingRuntimemodels.ServingRuntimeVersion
+	}
+	prepared := make([]preparedRuntime, 0, len(entries))
+	for _, entry := range entries {
+		entity, err := l.buildServingRuntimeEntity(sourceID, entry)
+		if err != nil {
+			return fmt.Errorf("source=%q runtime=%q: %w", sourceID, entry.Name, err)
+		}
+		candidate := preparedRuntime{entry: entry, entity: entity}
+		for _, version := range entry.Versions {
+			versionEntity, err := l.buildServingRuntimeVersionEntity(sourceID, entry.Name, version)
+			if err != nil {
+				return fmt.Errorf("source=%q runtime=%q version=%q: %w", sourceID, entry.Name, version.Version, err)
+			}
+			candidate.versions = append(candidate.versions, versionEntity)
+		}
+		prepared = append(prepared, candidate)
 	}
 	validNames := mapset.NewSet[string]()
 
-	for _, entry := range entries {
+	for _, candidate := range prepared {
+		entry := candidate.entry
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -130,10 +154,7 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 		glog.Infof("Loading serving runtime %s from source %s with %d version(s)", entry.Name, sourceID, len(entry.Versions))
 		qualifiedName := sourceID + ":" + entry.Name
 		validNames.Add(qualifiedName)
-		entity, err := l.buildServingRuntimeEntity(sourceID, entry)
-		if err != nil {
-			return fmt.Errorf("failed to build serving_runtime %q: %w", entry.Name, err)
-		}
+		entity := candidate.entity
 		if existing, err := l.services.ServingRuntimeRepository.GetByName(qualifiedName); err == nil {
 			entity.SetID(*existing.GetID())
 			entity.GetAttributes().CreateTimeSinceEpoch = existing.GetAttributes().CreateTimeSinceEpoch
@@ -147,7 +168,7 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 
 		parentID := saved.GetID()
 		validVersions := mapset.NewSet[string]()
-		for _, version := range entry.Versions {
+		for i, version := range entry.Versions {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -155,7 +176,7 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 				glog.Info("No longer leader, stopping serving runtime database writes")
 				return nil
 			}
-			versionEntity := l.buildServingRuntimeVersionEntity(sourceID, entry.Name, version)
+			versionEntity := candidate.versions[i]
 			versionName := *versionEntity.GetAttributes().Name
 			validVersions.Add(versionName)
 			if existing, err := l.services.ServingRuntimeVersionRepository.GetByName(versionName); err == nil {
@@ -196,10 +217,14 @@ func (l *ServingRuntimeLoader) buildServingRuntimeEntity(sourceID string, entry 
 			properties = append(properties, mrmodels.NewStringProperty(key, *val, false))
 		}
 	}
+	var encodeErr error
 	addJSON := func(key string, val any) {
-		if encoded, err := json.Marshal(val); err == nil {
-			properties = append(properties, mrmodels.NewStringProperty(key, string(encoded), false))
+		encoded, err := json.Marshal(val)
+		if err != nil {
+			encodeErr = fmt.Errorf("cannot encode %s: %w", key, err)
+			return
 		}
+		properties = append(properties, mrmodels.NewStringProperty(key, string(encoded), false))
 	}
 
 	addString("displayName", entry.DisplayName)
@@ -241,6 +266,9 @@ func (l *ServingRuntimeLoader) buildServingRuntimeEntity(sourceID string, entry 
 	)
 
 	properties = append(properties, mrmodels.NewIntProperty("versionCount", int32(len(entry.Versions)), false))
+	if encodeErr != nil {
+		return nil, encodeErr
+	}
 
 	entity := &servingRuntimemodels.ServingRuntimeImpl{
 		Attributes: attrs,
@@ -249,7 +277,7 @@ func (l *ServingRuntimeLoader) buildServingRuntimeEntity(sourceID string, entry 
 	if entry.CustomProperties != nil {
 		custom := make([]mrmodels.Properties, 0, len(*entry.CustomProperties))
 		for key, value := range *entry.CustomProperties {
-			prop, err := servingRuntimeCustomProperty(key, value)
+			prop, err := servingRuntimeCustomProperty(key, value.Value)
 			if err != nil {
 				return nil, fmt.Errorf("serving_runtime %q: %w", entry.Name, err)
 			}
@@ -282,22 +310,26 @@ func servingRuntimeCustomProperty(key string, value openapi.MetadataValue) (mrmo
 	if value.MetadataIntValue != nil {
 		n, err := strconv.ParseInt(value.MetadataIntValue.IntValue, 10, 32)
 		if err != nil {
-			return mrmodels.Properties{}, fmt.Errorf("custom property %q value %q is not a valid int32: %w", key, value.MetadataIntValue.IntValue, err)
+			return mrmodels.Properties{}, fmt.Errorf("custom property %q is not a valid int32: %w", key, err)
 		}
 		return mrmodels.NewIntProperty(key, int32(n), true), nil
 	}
 	if value.MetadataDoubleValue != nil {
 		return mrmodels.NewDoubleProperty(key, value.MetadataDoubleValue.DoubleValue, true), nil
 	}
-	if encoded, err := json.Marshal(value); err == nil {
-		return mrmodels.NewStringProperty(key, string(encoded), true), nil
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return mrmodels.Properties{}, fmt.Errorf("cannot encode custom property %q: %w", key, err)
 	}
-	return mrmodels.NewStringProperty(key, "", true), nil
+	if string(encoded) == "null" {
+		return mrmodels.Properties{}, fmt.Errorf("custom property %q has no supported value", key)
+	}
+	return mrmodels.NewStringProperty(key, string(encoded), true), nil
 }
 
 // buildServingRuntimeVersionEntity converts a YAML version entry into a persistable
 // child artifact for the given serving_runtime.
-func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtimeName string, version yamlServingRuntimeVersion) servingRuntimemodels.ServingRuntimeVersion {
+func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtimeName string, version yamlServingRuntimeVersion) (servingRuntimemodels.ServingRuntimeVersion, error) {
 	name := fmt.Sprintf("%s:%s:%s", sourceID, runtimeName, version.Version)
 	attrs := &servingRuntimemodels.ServingRuntimeVersionAttributes{
 		Name:       &name,
@@ -315,10 +347,14 @@ func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtim
 			properties = append(properties, mrmodels.NewStringProperty(key, *val, false))
 		}
 	}
+	var encodeErr error
 	addJSON := func(key string, val any) {
-		if encoded, err := json.Marshal(val); err == nil {
-			properties = append(properties, mrmodels.NewStringProperty(key, string(encoded), false))
+		encoded, err := json.Marshal(val)
+		if err != nil {
+			encodeErr = fmt.Errorf("cannot encode %s: %w", key, err)
+			return
 		}
+		properties = append(properties, mrmodels.NewStringProperty(key, string(encoded), false))
 	}
 
 	if version.SupportLevel != nil {
@@ -352,11 +388,14 @@ func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtim
 	if version.RecommendedResources != nil {
 		addJSON("recommendedResources", version.RecommendedResources)
 	}
+	if encodeErr != nil {
+		return nil, encodeErr
+	}
 
 	return &servingRuntimemodels.ServingRuntimeVersionImpl{
 		Attributes: attrs,
 		Properties: &properties,
-	}
+	}, nil
 }
 
 func supportedModelFormatNames(formats []openapi.SupportedModelFormat) []string {
@@ -438,8 +477,9 @@ func (l *ServingRuntimeLoader) watchAndLoadFromYAML(ctx context.Context, sourceI
 	}
 	doLoad := func() {
 		if err := l.loadFromYAML(ctx, sourceID, source); err != nil {
-			glog.Errorf("error loading serving_runtime from source %s: %v", sourceID, err)
-			basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusError, err.Error())
+			message := runtimeSourceStatusError(err)
+			glog.Errorf("error loading serving_runtime from source %s: %s", sourceID, message)
+			basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusError, message)
 			return
 		}
 		basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusAvailable, "")
