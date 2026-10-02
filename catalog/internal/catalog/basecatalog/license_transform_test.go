@@ -179,3 +179,12 @@ func TestTransformLicenseToHumanReadable(t *testing.T) {
 		})
 	}
 }
+
+func TestIsSPDXLicenseID(t *testing.T) {
+	if !IsSPDXLicenseID("Apache-2.0") {
+		t.Fatal("Apache-2.0 should be a recognized SPDX ID")
+	}
+	if IsSPDXLicenseID("made-up-license") {
+		t.Fatal("unknown license should not pass SPDX validation")
+	}
+}

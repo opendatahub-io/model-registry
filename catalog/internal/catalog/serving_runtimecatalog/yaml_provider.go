@@ -2,8 +2,8 @@ package serving_runtimecatalog
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"strings"
 
 	openapi "github.com/kubeflow/hub/catalog/pkg/openapi"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -34,7 +34,7 @@ type yamlServingRuntime struct {
 	PublishedDate         *string                             `yaml:"publishedDate,omitempty" json:"publishedDate,omitempty"`
 	LastUpdated           *string                             `yaml:"lastUpdated,omitempty" json:"lastUpdated,omitempty"`
 	ExternalID            *string                             `yaml:"externalId,omitempty" json:"externalId,omitempty"`
-	CustomProperties      *map[string]openapi.MetadataValue   `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
+	CustomProperties      *map[string]yamlMetadataValue       `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
 	Versions              []yamlServingRuntimeVersion         `yaml:"versions,omitempty" json:"versions,omitempty"`
 }
 
@@ -42,7 +42,7 @@ type yamlServingRuntime struct {
 type yamlServingRuntimeVersion struct {
 	Version               string                                        `yaml:"version" json:"version"`
 	Image                 string                                        `yaml:"image" json:"image"`
-	SupportLevel          *openapi.ServingRuntimeSupportLevel           `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
+	SupportLevel          *string                                       `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
 	SupportedModelFormats []openapi.SupportedModelFormat                `yaml:"supportedModelFormats,omitempty" json:"supportedModelFormats,omitempty"`
 	ProtocolVersions      []string                                      `yaml:"protocolVersions,omitempty" json:"protocolVersions,omitempty"`
 	RecommendedResources  *openapi.ServingRuntimeResourceRecommendation `yaml:"recommendedResources,omitempty" json:"recommendedResources,omitempty"`
@@ -62,41 +62,40 @@ type yamlServingRuntimeCatalog struct {
 
 // loadServingRuntimesFromYAML reads and parses a serving_runtime YAML data file.
 func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read serving_runtime catalog file %s: %w", path, err)
 	}
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.LimitReader(file, maxRuntimeCatalogBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read serving_runtime catalog file %s: %w", path, err)
+	}
+	if len(data) > maxRuntimeCatalogBytes {
+		return nil, fmt.Errorf("serving_runtime catalog file %s exceeds %d bytes", path, maxRuntimeCatalogBytes)
+	}
+	entries, err := parseServingRuntimesYAML(data)
+	if err != nil {
+		return nil, fmt.Errorf("invalid serving_runtime catalog file %s: %w", path, err)
+	}
+	return entries, nil
+}
 
+// parseServingRuntimesYAML validates the same bytes that the loader will publish.
+// A caller must not re-read the file after this function succeeds.
+func parseServingRuntimesYAML(data []byte) ([]yamlServingRuntime, error) {
+	if len(data) > maxRuntimeCatalogBytes {
+		return nil, fmt.Errorf("serving_runtime catalog exceeds %d bytes", maxRuntimeCatalogBytes)
+	}
+	if err := inspectRuntimeYAMLStructure(data); err != nil {
+		return nil, err
+	}
 	var catalog yamlServingRuntimeCatalog
-	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		return nil, fmt.Errorf("failed to parse serving_runtime catalog file %s: %w", path, err)
+	if err := yaml.UnmarshalStrict(data, &catalog); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
-	names := make(map[string]bool, len(catalog.ServingRuntimes))
-	for _, runtime := range catalog.ServingRuntimes {
-		if strings.TrimSpace(runtime.Name) == "" {
-			return nil, fmt.Errorf("serving_runtime in %s has no name", path)
-		}
-		if strings.Contains(runtime.Name, ":") {
-			return nil, fmt.Errorf("serving_runtime %q in %s: name must not contain ':'", runtime.Name, path)
-		}
-		if names[runtime.Name] {
-			return nil, fmt.Errorf("duplicate serving_runtime %q in %s", runtime.Name, path)
-		}
-		names[runtime.Name] = true
-		versions := make(map[string]bool, len(runtime.Versions))
-		for _, version := range runtime.Versions {
-			if strings.TrimSpace(version.Version) == "" || strings.TrimSpace(version.Image) == "" {
-				return nil, fmt.Errorf("serving_runtime %q in %s has a version without version or image", runtime.Name, path)
-			}
-			if strings.Contains(version.Version, ":") {
-				return nil, fmt.Errorf("serving_runtime %q in %s: version %q must not contain ':'", runtime.Name, path, version.Version)
-			}
-			if versions[version.Version] {
-				return nil, fmt.Errorf("duplicate version %q for serving_runtime %q in %s", version.Version, runtime.Name, path)
-			}
-			versions[version.Version] = true
-		}
+	if err := validateServingRuntimeCatalog(&catalog); err != nil {
+		return nil, err
 	}
-
 	return catalog.ServingRuntimes, nil
 }

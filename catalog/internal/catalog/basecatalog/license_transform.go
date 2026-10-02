@@ -50,3 +50,10 @@ func TransformLicenseToHumanReadable(license string) string {
 	// Fallback to the name we were given
 	return license
 }
+
+// IsSPDXLicenseID reports whether a license is in the generated SPDX ID list.
+// It does not accept free-form names or SPDX expressions.
+func IsSPDXLicenseID(license string) bool {
+	_, ok := spdxToHumanReadableMap[strings.ToLower(strings.TrimSpace(license))]
+	return ok
+}

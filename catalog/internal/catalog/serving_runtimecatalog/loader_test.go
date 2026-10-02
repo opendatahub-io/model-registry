@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,7 +63,7 @@ func TestServingRuntimeLoaderReloadAndValidation(t *testing.T) {
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    name: First\n    type: yaml\n    properties:\n      yamlCatalogPath: runtimes.yaml\n")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    displayName: vLLM\n    customProperties:\n      owner: {metadataType: MetadataStringValue, string_value: test}\n      priority: {metadataType: MetadataIntValue, int_value: '5'}\n    versions:\n      - version: '1'\n        image: example:v1\n        supportLevel: supported\n      - version: '2'\n        image: example:v2\n  - name: ovms\n    versions:\n      - version: '1'\n        image: ovms:v1\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    displayName: vLLM\n    customProperties:\n      owner: {metadataType: MetadataStringValue, string_value: test}\n      priority: {metadataType: MetadataIntValue, int_value: '5'}\n    versions:\n      - version: '1'\n        image: registry.example.com/example:v1\n        supportLevel: supported\n      - version: '2'\n        image: registry.example.com/example:v2\n  - name: ovms\n    versions:\n      - version: '1'\n        image: registry.example.com/ovms:v1\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -78,7 +79,7 @@ func TestServingRuntimeLoaderReloadAndValidation(t *testing.T) {
 	versionAPI, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimeVersions(t.Context(), strconv.FormatInt(int64(*before.GetID()), 10), ListServingRuntimeVersionsParams{})
 	require.NoError(t, err)
 	require.Len(t, versionAPI.Items, 2)
-	assert.Equal(t, "example:v1", versionAPI.Items[0].Image)
+	assert.Equal(t, "registry.example.com/example:v1", versionAPI.Items[0].Image)
 	// The API response must not leak the internal "sourceID:" qualifier stored on the entity name.
 	assert.Equal(t, "vllm:1", *versionAPI.Items[0].Name)
 	apiRuntime, err := NewDBServingRuntimeCatalog(services, loader.Sources).GetServingRuntime(t.Context(), strconv.FormatInt(int64(*before.GetID()), 10))
@@ -89,7 +90,7 @@ func TestServingRuntimeLoaderReloadAndValidation(t *testing.T) {
 	require.NotNil(t, apiRuntime.CustomProperties["priority"].MetadataIntValue)
 	assert.Equal(t, "5", apiRuntime.CustomProperties["priority"].MetadataIntValue.IntValue)
 
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: example:new\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: registry.example.com/example:new\n")
 	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
 	after, err := services.ServingRuntimeRepository.GetByName("first:vllm")
 	require.NoError(t, err)
@@ -109,11 +110,75 @@ func TestServingRuntimeLoaderReloadAndValidation(t *testing.T) {
 	_, err = services.ServingRuntimeRepository.GetByName("first:ovms")
 	require.Error(t, err)
 
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: example:v1\n  - name: vllm\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: registry.example.com/example:v1\n  - name: vllm\n")
 	require.Error(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
 	retained, err := services.ServingRuntimeRepository.GetByName("first:vllm")
 	require.NoError(t, err)
 	assert.Equal(t, after.GetID(), retained.GetID())
+}
+
+func TestServingRuntimeLoaderValidatesAllEntriesBeforeSaving(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	dataPath := filepath.Join(dir, "runtimes.yaml")
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties:\n      yamlCatalogPath: runtimes.yaml\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: alpha\n    versions: [{version: '1', image: registry.example.com/alpha:old}]\n  - name: beta\n    versions: [{version: '1', image: registry.example.com/beta:old}]\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	source := loader.Sources.AllSources()["first"]
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", source))
+
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: alpha\n    versions: [{version: '1', image: registry.example.com/alpha:new}]\n  - name: beta\n    customProperties:\n      source_id: {metadataType: MetadataStringValue, string_value: other}\n    versions: [{version: '1', image: registry.example.com/beta:new}]\n")
+	err := loader.loadFromYAML(t.Context(), "first", source)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `source="first"`)
+	assert.Contains(t, err.Error(), `runtime="beta"`)
+	assert.Contains(t, err.Error(), "customProperties")
+
+	alpha, err := services.ServingRuntimeRepository.GetByName("first:alpha")
+	require.NoError(t, err)
+	versions, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimeVersions(t.Context(), strconv.FormatInt(int64(*alpha.GetID()), 10), ListServingRuntimeVersionsParams{})
+	require.NoError(t, err)
+	require.Len(t, versions.Items, 1)
+	assert.Equal(t, "registry.example.com/alpha:old", versions.Items[0].Image)
+}
+
+func TestServingRuntimeLoaderValidationFailureIsolatedBySource(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "sources.yaml")
+	firstPath := filepath.Join(dir, "first.yaml")
+	secondPath := filepath.Join(dir, "second.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: first.yaml}\n  - id: second\n    type: yaml\n    properties: {yamlCatalogPath: second.yaml}\n")
+	writeRuntimeFile(t, firstPath, "serving_runtimes:\n  - name: alpha\n    versions: [{version: '1', image: registry.example.com/alpha:old}]\n")
+	writeRuntimeFile(t, secondPath, "serving_runtimes:\n  - name: beta\n    versions: [{version: '1', image: registry.example.com/beta:old}]\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	sources := loader.Sources.AllSources()
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", sources["first"]))
+	require.NoError(t, loader.loadFromYAML(t.Context(), "second", sources["second"]))
+
+	writeRuntimeFile(t, firstPath, "serving_runtimes:\n  - name: alpha\n    versions: [{version: '1', image: '???'}]\n")
+	writeRuntimeFile(t, secondPath, "serving_runtimes:\n  - name: beta\n    versions: [{version: '1', image: registry.example.com/beta:new}]\n")
+	require.Error(t, loader.loadFromYAML(t.Context(), "first", sources["first"]))
+	require.NoError(t, loader.loadFromYAML(t.Context(), "second", sources["second"]))
+
+	for _, tc := range []struct{ sourceID, runtime, image string }{
+		{"first", "alpha", "registry.example.com/alpha:old"},
+		{"second", "beta", "registry.example.com/beta:new"},
+	} {
+		runtime, err := services.ServingRuntimeRepository.GetByName(tc.sourceID + ":" + tc.runtime)
+		require.NoError(t, err)
+		versions, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimeVersions(t.Context(), strconv.FormatInt(int64(*runtime.GetID()), 10), ListServingRuntimeVersionsParams{})
+		require.NoError(t, err)
+		require.Len(t, versions.Items, 1)
+		assert.Equal(t, tc.image, versions.Items[0].Image)
+	}
 }
 
 func TestServingRuntimeLoaderSourceCleanup(t *testing.T) {
@@ -121,7 +186,7 @@ func TestServingRuntimeLoaderSourceCleanup(t *testing.T) {
 	dir := t.TempDir()
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: same\n    versions: [{version: '1', image: example:v1}]\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: same\n    versions: [{version: '1', image: registry.example.com/example:v1}]\n")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: first, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n  - {id: second, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
@@ -160,7 +225,7 @@ func TestServingRuntimeLoaderWatchesDataFile(t *testing.T) {
 	dir := t.TempDir()
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: old\n    versions: [{version: '1', image: example:v1}]\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: old\n    versions: [{version: '1', image: registry.example.com/example:v1}]\n")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: watched, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
@@ -176,7 +241,7 @@ func TestServingRuntimeLoaderWatchesDataFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Condition(t, func() bool {
 		for _, option := range options {
-			if option.Name == "image" && len(option.StringValue) == 1 && option.StringValue[0] == "example:v1" {
+			if option.Name == "image" && len(option.StringValue) == 1 && option.StringValue[0] == "registry.example.com/example:v1" {
 				return true
 			}
 		}
@@ -187,6 +252,16 @@ func TestServingRuntimeLoaderWatchesDataFile(t *testing.T) {
 		_, err := services.ServingRuntimeRepository.GetByName("watched:new")
 		return err == nil
 	}, 15*time.Second, 100*time.Millisecond)
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: bad\n    versions: [{version: '1', image: '???'}]\n")
+	assert.Eventually(t, func() bool {
+		status, err := services.CatalogSourceRepository.GetStatus("watched")
+		return err == nil && status.Status == basecatalog.SourceStatusError &&
+			strings.Contains(status.Error, `source="watched"`) &&
+			strings.Contains(status.Error, `runtime="bad"`) &&
+			strings.Contains(status.Error, "versions[0].image")
+	}, 15*time.Second, 100*time.Millisecond)
+	_, err = services.ServingRuntimeRepository.GetByName("watched:new")
+	require.NoError(t, err, "a validation failure must keep the last valid runtime")
 }
 
 func TestServingRuntimeVersionDeleteByParentIDPreservesOtherArtifactTypes(t *testing.T) {
@@ -268,7 +343,7 @@ func TestServingRuntimeListFiltersByName(t *testing.T) {
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties:\n      yamlCatalogPath: runtimes.yaml\n")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: example:v1}]\n  - name: ovms\n    versions: [{version: '1', image: example:v1}]\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: registry.example.com/example:v1}]\n  - name: ovms\n    versions: [{version: '1', image: registry.example.com/example:v1}]\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -344,7 +419,7 @@ func TestServingRuntimeStructuredFieldsFilterByValues(t *testing.T) {
       supportedAccelerators: [intel.com/gaudi]
     versions:
       - version: "1"
-        image: example:1
+        image: registry.example.com/example:1
         supportedModelFormats: [{name: onnx, version: "2"}]
         env: [{name: MODEL_PATH, required: true}]
   - name: vllm
@@ -352,7 +427,7 @@ func TestServingRuntimeStructuredFieldsFilterByValues(t *testing.T) {
     capabilities: {requiresGPU: true, multiModel: false}
     versions:
       - version: "1"
-        image: example:2
+        image: registry.example.com/example:2
 `)
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
@@ -408,13 +483,13 @@ func TestServingRuntimeCapabilityDefaultsToFalse(t *testing.T) {
   - name: cpu-only
     versions:
       - version: "1"
-        image: example:1
+        image: registry.example.com/example:1
   - name: partial-caps
     capabilities:
       multiModel: true
     versions:
       - version: "1"
-        image: example:2
+        image: registry.example.com/example:2
 `)
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
@@ -548,7 +623,7 @@ func TestServingRuntimeListsFilterAndPaginate(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
-	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    provider: Acme\n    versions: [{version: '1', image: vllm:1}, {version: '2', image: vllm:2}]\n  - name: ovms\n    provider: Acme\n    versions: [{version: '2', image: ovms:2}]\n  - name: mlserver\n    provider: Other\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    provider: Acme\n    versions: [{version: '1', image: registry.example.com/vllm:1}, {version: '2', image: registry.example.com/vllm:2}]\n  - name: ovms\n    provider: Acme\n    versions: [{version: '2', image: registry.example.com/ovms:2}]\n  - name: mlserver\n    provider: Other\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -573,7 +648,7 @@ func TestServingRuntimeListsFilterAndPaginate(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, versions.Items, 1)
 	assert.Equal(t, "vllm:2", *versions.Items[0].Name)
-	assert.Equal(t, "vllm:2", versions.Items[0].Image)
+	assert.Equal(t, "registry.example.com/vllm:2", versions.Items[0].Image)
 }
 
 func TestServingRuntimeNameOrderingUsesUnqualifiedNameAcrossSources(t *testing.T) {
@@ -613,7 +688,7 @@ func TestServingRuntimeVersionDefaultsDeprecatedToFalse(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties: {yamlCatalogPath: runtimes.yaml}\n")
-	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    versions:\n      - {version: '1', image: vllm:1}\n      - {version: '2', image: vllm:2, deprecated: true}\n")
+	writeRuntimeFile(t, filepath.Join(dir, "runtimes.yaml"), "serving_runtimes:\n  - name: vllm\n    versions:\n      - {version: '1', image: registry.example.com/vllm:1}\n      - {version: '2', image: registry.example.com/vllm:2, deprecated: true}\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -651,7 +726,7 @@ func TestServingRuntimeLoaderRejectsIntCustomPropertyOverflow(t *testing.T) {
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - id: first\n    type: yaml\n    properties:\n      yamlCatalogPath: runtimes.yaml\n")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    customProperties:\n      maxTokens: {metadataType: MetadataIntValue, int_value: '3000000000'}\n    versions: [{version: '1', image: example:v1}]\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    customProperties:\n      maxTokens: {metadataType: MetadataIntValue, int_value: '3000000000'}\n    versions: [{version: '1', image: registry.example.com/example:v1}]\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -732,7 +807,7 @@ func TestServingRuntimeLoaderRejectsColonInSourceID(t *testing.T) {
 	dir := t.TempDir()
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: example:v1}]\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: registry.example.com/example:v1}]\n")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: 'rh:prod', type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
