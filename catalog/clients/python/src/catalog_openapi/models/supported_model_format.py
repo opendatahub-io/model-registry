@@ -17,18 +17,18 @@ import pprint
 import re  # noqa: F401
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing_extensions import Self
 
 
-class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
-    """Summary of the preview results
+class SupportedModelFormat(BaseModel):
+    """A model format a runtime can serve. Maps to ServingRuntime.spec.supportedModelFormats[].
     """ # noqa: E501
-    total_models: StrictInt = Field(description="Total number of models evaluated", alias="totalModels")
-    included_models: StrictInt = Field(description="Number of models that would be included", alias="includedModels")
-    excluded_models: StrictInt = Field(description="Number of models that would be excluded", alias="excludedModels")
-    has_gated_access_denied_models: StrictBool = Field(description="Whether any evaluated model is a gated Hugging Face model without access (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset), including models outside the current page.", alias="hasGatedAccessDeniedModels")
-    __properties: ClassVar[list[str]] = ["totalModels", "includedModels", "excludedModels", "hasGatedAccessDeniedModels"]
+    name: StrictStr = Field(description="Format name.")
+    version: StrictStr | None = Field(default=None, description="Optional format version.")
+    auto_select: StrictBool | None = Field(default=False, description="Whether this runtime may be auto-selected for the format.", alias="autoSelect")
+    priority: StrictInt | None = Field(default=None, description="Selection priority when multiple runtimes support the format.")
+    __properties: ClassVar[list[str]] = ["name", "version", "autoSelect", "priority"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +48,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a JSON string"""
+        """Create an instance of SupportedModelFormat from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> dict[str, Any]:
@@ -73,7 +73,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any] | None) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a dict"""
+        """Create an instance of SupportedModelFormat from a dict"""
         if obj is None:
             return None
 
@@ -81,9 +81,9 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "totalModels": obj.get("totalModels"),
-            "includedModels": obj.get("includedModels"),
-            "excludedModels": obj.get("excludedModels"),
-            "hasGatedAccessDeniedModels": obj.get("hasGatedAccessDeniedModels")
+            "name": obj.get("name"),
+            "version": obj.get("version"),
+            "autoSelect": obj.get("autoSelect") if obj.get("autoSelect") is not None else False,
+            "priority": obj.get("priority")
         })
         return _obj

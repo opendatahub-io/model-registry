@@ -25,6 +25,7 @@ from catalog_openapi.models.mcp_prerequisites import MCPPrerequisites
 from catalog_openapi.models.mcp_resource_recommendation import MCPResourceRecommendation
 from catalog_openapi.models.mcp_runtime_metadata_capabilities import MCPRuntimeMetadataCapabilities
 from catalog_openapi.models.mcp_runtime_metadata_health_endpoints import MCPRuntimeMetadataHealthEndpoints
+from catalog_openapi.models.mcp_storage_mount import MCPStorageMount
 
 
 class MCPRuntimeMetadata(BaseModel):
@@ -39,7 +40,8 @@ class MCPRuntimeMetadata(BaseModel):
     capabilities: MCPRuntimeMetadataCapabilities | None = None
     mcp_path: Annotated[str, Field(strict=True)] | None = Field(default="/mcp", description="HTTP path where MCP server accepts requests. Used for HTTP and SSE transports. Aligns with MCP Lifecycle operator conventions.", alias="mcpPath")
     prerequisites: MCPPrerequisites | None = None
-    __properties: ClassVar[list[str]] = ["defaultPort", "defaultArgs", "requiredEnvironmentVariables", "optionalEnvironmentVariables", "recommendedResources", "healthEndpoints", "capabilities", "mcpPath", "prerequisites"]
+    storage: list[MCPStorageMount] | None = Field(default=None, description="Storage mounts applied directly to the generated MCPServer's spec.config.storage. Use an EmptyDir mount to grant writable scratch space (e.g. /tmp or /app/logs) while the container root filesystem stays read-only, avoiding a manual patch after deployment.")
+    __properties: ClassVar[list[str]] = ["defaultPort", "defaultArgs", "requiredEnvironmentVariables", "optionalEnvironmentVariables", "recommendedResources", "healthEndpoints", "capabilities", "mcpPath", "prerequisites", "storage"]
 
     @field_validator("mcp_path")
     def mcp_path_validate_regular_expression(cls, value):
@@ -116,6 +118,13 @@ class MCPRuntimeMetadata(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of prerequisites
         if self.prerequisites:
             _dict["prerequisites"] = self.prerequisites.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in storage (list)
+        _items = []
+        if self.storage:
+            for _item_storage in self.storage:
+                if _item_storage:
+                    _items.append(_item_storage.to_dict())
+            _dict["storage"] = _items
         return _dict
 
     @classmethod
@@ -136,8 +145,7 @@ class MCPRuntimeMetadata(BaseModel):
             "healthEndpoints": MCPRuntimeMetadataHealthEndpoints.from_dict(obj["healthEndpoints"]) if obj.get("healthEndpoints") is not None else None,
             "capabilities": MCPRuntimeMetadataCapabilities.from_dict(obj["capabilities"]) if obj.get("capabilities") is not None else None,
             "mcpPath": obj.get("mcpPath") if obj.get("mcpPath") is not None else "/mcp",
-            "prerequisites": MCPPrerequisites.from_dict(obj["prerequisites"]) if obj.get("prerequisites") is not None else None
+            "prerequisites": MCPPrerequisites.from_dict(obj["prerequisites"]) if obj.get("prerequisites") is not None else None,
+            "storage": [MCPStorageMount.from_dict(_item) for _item in obj["storage"]] if obj.get("storage") is not None else None
         })
         return _obj
-
-

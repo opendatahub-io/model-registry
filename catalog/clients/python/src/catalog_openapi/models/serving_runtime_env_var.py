@@ -17,18 +17,19 @@ import pprint
 import re  # noqa: F401
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing_extensions import Self
 
 
-class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
-    """Summary of the preview results
+class ServingRuntimeEnvVar(BaseModel):
+    """An environment variable the runtime accepts. Discovery hint only; never carries secret values.
     """ # noqa: E501
-    total_models: StrictInt = Field(description="Total number of models evaluated", alias="totalModels")
-    included_models: StrictInt = Field(description="Number of models that would be included", alias="includedModels")
-    excluded_models: StrictInt = Field(description="Number of models that would be excluded", alias="excludedModels")
-    has_gated_access_denied_models: StrictBool = Field(description="Whether any evaluated model is a gated Hugging Face model without access (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset), including models outside the current page.", alias="hasGatedAccessDeniedModels")
-    __properties: ClassVar[list[str]] = ["totalModels", "includedModels", "excludedModels", "hasGatedAccessDeniedModels"]
+    name: StrictStr
+    description: StrictStr | None = None
+    required: StrictBool | None = False
+    default_value: StrictStr | None = Field(default=None, description="Default value for optional, non-secret variables only.", alias="defaultValue")
+    secret: StrictBool | None = Field(default=False, description="Whether the value should come from a Secret (never defaulted).")
+    __properties: ClassVar[list[str]] = ["name", "description", "required", "defaultValue", "secret"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +49,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a JSON string"""
+        """Create an instance of ServingRuntimeEnvVar from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> dict[str, Any]:
@@ -73,7 +74,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any] | None) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a dict"""
+        """Create an instance of ServingRuntimeEnvVar from a dict"""
         if obj is None:
             return None
 
@@ -81,9 +82,10 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "totalModels": obj.get("totalModels"),
-            "includedModels": obj.get("includedModels"),
-            "excludedModels": obj.get("excludedModels"),
-            "hasGatedAccessDeniedModels": obj.get("hasGatedAccessDeniedModels")
+            "name": obj.get("name"),
+            "description": obj.get("description"),
+            "required": obj.get("required") if obj.get("required") is not None else False,
+            "defaultValue": obj.get("defaultValue"),
+            "secret": obj.get("secret") if obj.get("secret") is not None else False
         })
         return _obj

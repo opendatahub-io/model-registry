@@ -17,18 +17,20 @@ import pprint
 import re  # noqa: F401
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing_extensions import Self
 
+from catalog_openapi.models.serving_runtime import ServingRuntime
 
-class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
-    """Summary of the preview results
+
+class ServingRuntimeList(BaseModel):
+    """A list of serving_runtime entities.
     """ # noqa: E501
-    total_models: StrictInt = Field(description="Total number of models evaluated", alias="totalModels")
-    included_models: StrictInt = Field(description="Number of models that would be included", alias="includedModels")
-    excluded_models: StrictInt = Field(description="Number of models that would be excluded", alias="excludedModels")
-    has_gated_access_denied_models: StrictBool = Field(description="Whether any evaluated model is a gated Hugging Face model without access (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset), including models outside the current page.", alias="hasGatedAccessDeniedModels")
-    __properties: ClassVar[list[str]] = ["totalModels", "includedModels", "excludedModels", "hasGatedAccessDeniedModels"]
+    next_page_token: StrictStr = Field(description="Token to use to retrieve next page of results.", alias="nextPageToken")
+    page_size: StrictInt = Field(description="Maximum number of resources to return in the result.", alias="pageSize")
+    size: StrictInt = Field(description="Number of items in result list.")
+    items: list[ServingRuntime] = Field(description="Array of `ServingRuntime` entities.")
+    __properties: ClassVar[list[str]] = ["nextPageToken", "pageSize", "size", "items"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +50,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a JSON string"""
+        """Create an instance of ServingRuntimeList from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,11 +71,18 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in items (list)
+        _items = []
+        if self.items:
+            for _item_items in self.items:
+                if _item_items:
+                    _items.append(_item_items.to_dict())
+            _dict["items"] = _items
         return _dict
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any] | None) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a dict"""
+        """Create an instance of ServingRuntimeList from a dict"""
         if obj is None:
             return None
 
@@ -81,9 +90,9 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "totalModels": obj.get("totalModels"),
-            "includedModels": obj.get("includedModels"),
-            "excludedModels": obj.get("excludedModels"),
-            "hasGatedAccessDeniedModels": obj.get("hasGatedAccessDeniedModels")
+            "nextPageToken": obj.get("nextPageToken"),
+            "pageSize": obj.get("pageSize"),
+            "size": obj.get("size"),
+            "items": [ServingRuntime.from_dict(_item) for _item in obj["items"]] if obj.get("items") is not None else None
         })
         return _obj

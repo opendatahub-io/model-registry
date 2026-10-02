@@ -17,18 +17,19 @@ import pprint
 import re  # noqa: F401
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict
 from typing_extensions import Self
 
+from catalog_openapi.models.resource_tier import ResourceTier
 
-class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
-    """Summary of the preview results
+
+class ServingRuntimeResourceRecommendation(BaseModel):
+    """Recommended resource requests/limits for deploying a runtime version. Users should adjust based on model size and traffic.
     """ # noqa: E501
-    total_models: StrictInt = Field(description="Total number of models evaluated", alias="totalModels")
-    included_models: StrictInt = Field(description="Number of models that would be included", alias="includedModels")
-    excluded_models: StrictInt = Field(description="Number of models that would be excluded", alias="excludedModels")
-    has_gated_access_denied_models: StrictBool = Field(description="Whether any evaluated model is a gated Hugging Face model without access (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset), including models outside the current page.", alias="hasGatedAccessDeniedModels")
-    __properties: ClassVar[list[str]] = ["totalModels", "includedModels", "excludedModels", "hasGatedAccessDeniedModels"]
+    minimal: ResourceTier | None = None
+    recommended: ResourceTier | None = None
+    high: ResourceTier | None = None
+    __properties: ClassVar[list[str]] = ["minimal", "recommended", "high"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +49,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a JSON string"""
+        """Create an instance of ServingRuntimeResourceRecommendation from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,11 +70,20 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of minimal
+        if self.minimal:
+            _dict["minimal"] = self.minimal.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of recommended
+        if self.recommended:
+            _dict["recommended"] = self.recommended.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of high
+        if self.high:
+            _dict["high"] = self.high.to_dict()
         return _dict
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any] | None) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a dict"""
+        """Create an instance of ServingRuntimeResourceRecommendation from a dict"""
         if obj is None:
             return None
 
@@ -81,9 +91,8 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "totalModels": obj.get("totalModels"),
-            "includedModels": obj.get("includedModels"),
-            "excludedModels": obj.get("excludedModels"),
-            "hasGatedAccessDeniedModels": obj.get("hasGatedAccessDeniedModels")
+            "minimal": ResourceTier.from_dict(obj["minimal"]) if obj.get("minimal") is not None else None,
+            "recommended": ResourceTier.from_dict(obj["recommended"]) if obj.get("recommended") is not None else None,
+            "high": ResourceTier.from_dict(obj["high"]) if obj.get("high") is not None else None
         })
         return _obj

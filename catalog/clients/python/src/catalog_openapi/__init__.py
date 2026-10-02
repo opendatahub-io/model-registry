@@ -21,6 +21,7 @@ __all__ = [
     "AgentCatalogServiceApi",
     "MCPCatalogServiceApi",
     "ModelCatalogServiceApi",
+    "ServingRuntimeCatalogServiceApi",
     "SkillCatalogServiceApi",
     "ApiResponse",
     "ApiClient",
@@ -84,6 +85,8 @@ __all__ = [
     "MCPServer",
     "MCPServerList",
     "MCPServiceAccountRequirement",
+    "MCPStorageMount",
+    "MCPStorageSource",
     "MCPTool",
     "MCPToolParameter",
     "MCPToolWithServer",
@@ -98,12 +101,22 @@ __all__ = [
     "ModelPreviewResult",
     "OrderByField",
     "PreviewCatalogSourceResponse",
+    "ResourceTier",
     "ServingConfig",
+    "ServingRuntime",
+    "ServingRuntimeCapabilities",
+    "ServingRuntimeEnvVar",
+    "ServingRuntimeList",
+    "ServingRuntimeResourceRecommendation",
+    "ServingRuntimeSupportLevel",
+    "ServingRuntimeVersion",
+    "ServingRuntimeVersionList",
     "Skill",
     "SkillList",
     "SkillTrustTier",
     "SortOrder",
     "SourceStatus",
+    "SupportedModelFormat",
     "ToolCallingConfig",
 ]
 
@@ -111,6 +124,7 @@ __all__ = [
 from catalog_openapi.api.agent_catalog_service_api import AgentCatalogServiceApi as AgentCatalogServiceApi
 from catalog_openapi.api.mcp_catalog_service_api import MCPCatalogServiceApi as MCPCatalogServiceApi
 from catalog_openapi.api.model_catalog_service_api import ModelCatalogServiceApi as ModelCatalogServiceApi
+from catalog_openapi.api.serving_runtime_catalog_service_api import ServingRuntimeCatalogServiceApi as ServingRuntimeCatalogServiceApi
 from catalog_openapi.api.skill_catalog_service_api import SkillCatalogServiceApi as SkillCatalogServiceApi
 
 # import ApiClient
@@ -178,6 +192,8 @@ from catalog_openapi.models.mcp_security_indicator import MCPSecurityIndicator a
 from catalog_openapi.models.mcp_server import MCPServer as MCPServer
 from catalog_openapi.models.mcp_server_list import MCPServerList as MCPServerList
 from catalog_openapi.models.mcp_service_account_requirement import MCPServiceAccountRequirement as MCPServiceAccountRequirement
+from catalog_openapi.models.mcp_storage_mount import MCPStorageMount as MCPStorageMount
+from catalog_openapi.models.mcp_storage_source import MCPStorageSource as MCPStorageSource
 from catalog_openapi.models.mcp_tool import MCPTool as MCPTool
 from catalog_openapi.models.mcp_tool_parameter import MCPToolParameter as MCPToolParameter
 from catalog_openapi.models.mcp_tool_with_server import MCPToolWithServer as MCPToolWithServer
@@ -192,11 +208,20 @@ from catalog_openapi.models.metadata_value import MetadataValue as MetadataValue
 from catalog_openapi.models.model_preview_result import ModelPreviewResult as ModelPreviewResult
 from catalog_openapi.models.order_by_field import OrderByField as OrderByField
 from catalog_openapi.models.preview_catalog_source_response import PreviewCatalogSourceResponse as PreviewCatalogSourceResponse
+from catalog_openapi.models.resource_tier import ResourceTier as ResourceTier
 from catalog_openapi.models.serving_config import ServingConfig as ServingConfig
+from catalog_openapi.models.serving_runtime import ServingRuntime as ServingRuntime
+from catalog_openapi.models.serving_runtime_capabilities import ServingRuntimeCapabilities as ServingRuntimeCapabilities
+from catalog_openapi.models.serving_runtime_env_var import ServingRuntimeEnvVar as ServingRuntimeEnvVar
+from catalog_openapi.models.serving_runtime_list import ServingRuntimeList as ServingRuntimeList
+from catalog_openapi.models.serving_runtime_resource_recommendation import ServingRuntimeResourceRecommendation as ServingRuntimeResourceRecommendation
+from catalog_openapi.models.serving_runtime_support_level import ServingRuntimeSupportLevel as ServingRuntimeSupportLevel
+from catalog_openapi.models.serving_runtime_version import ServingRuntimeVersion as ServingRuntimeVersion
+from catalog_openapi.models.serving_runtime_version_list import ServingRuntimeVersionList as ServingRuntimeVersionList
 from catalog_openapi.models.skill import Skill as Skill
 from catalog_openapi.models.skill_list import SkillList as SkillList
 from catalog_openapi.models.skill_trust_tier import SkillTrustTier as SkillTrustTier
 from catalog_openapi.models.sort_order import SortOrder as SortOrder
 from catalog_openapi.models.source_status import SourceStatus as SourceStatus
+from catalog_openapi.models.supported_model_format import SupportedModelFormat as SupportedModelFormat
 from catalog_openapi.models.tool_calling_config import ToolCallingConfig as ToolCallingConfig
-

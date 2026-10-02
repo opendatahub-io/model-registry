@@ -18,20 +18,19 @@ from enum import Enum
 from typing_extensions import Self
 
 
-class CatalogAssetType(str, Enum):
-    """CatalogAssetType
+class ServingRuntimeSupportLevel(str, Enum):
+    """Support/provenance badge for a runtime version. A display label usable for filtering; carries no ordering semantics.
     """
 
     """
     allowed enum values
     """
-    MODELS = "models"
-    MCP_SERVERS = "mcp_servers"
-    AGENTS = "agents"
-    SKILLS = "skills"
-    SERVING_RUNTIMES = "serving_runtimes"
+    SUPPORTED = "supported"
+    TECHPREVIEW = "techPreview"
+    DEVELOPERPREVIEW = "developerPreview"
+    COMMUNITY = "community"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
-        """Create an instance of CatalogAssetType from a JSON string"""
+        """Create an instance of ServingRuntimeSupportLevel from a JSON string"""
         return cls(json.loads(json_str))

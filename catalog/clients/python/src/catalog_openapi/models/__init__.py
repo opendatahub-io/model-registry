@@ -66,6 +66,8 @@ from catalog_openapi.models.mcp_security_indicator import MCPSecurityIndicator
 from catalog_openapi.models.mcp_server import MCPServer
 from catalog_openapi.models.mcp_server_list import MCPServerList
 from catalog_openapi.models.mcp_service_account_requirement import MCPServiceAccountRequirement
+from catalog_openapi.models.mcp_storage_mount import MCPStorageMount
+from catalog_openapi.models.mcp_storage_source import MCPStorageSource
 from catalog_openapi.models.mcp_tool import MCPTool
 from catalog_openapi.models.mcp_tool_parameter import MCPToolParameter
 from catalog_openapi.models.mcp_tool_with_server import MCPToolWithServer
@@ -80,11 +82,20 @@ from catalog_openapi.models.metadata_value import MetadataValue
 from catalog_openapi.models.model_preview_result import ModelPreviewResult
 from catalog_openapi.models.order_by_field import OrderByField
 from catalog_openapi.models.preview_catalog_source_response import PreviewCatalogSourceResponse
+from catalog_openapi.models.resource_tier import ResourceTier
 from catalog_openapi.models.serving_config import ServingConfig
+from catalog_openapi.models.serving_runtime import ServingRuntime
+from catalog_openapi.models.serving_runtime_capabilities import ServingRuntimeCapabilities
+from catalog_openapi.models.serving_runtime_env_var import ServingRuntimeEnvVar
+from catalog_openapi.models.serving_runtime_list import ServingRuntimeList
+from catalog_openapi.models.serving_runtime_resource_recommendation import ServingRuntimeResourceRecommendation
+from catalog_openapi.models.serving_runtime_support_level import ServingRuntimeSupportLevel
+from catalog_openapi.models.serving_runtime_version import ServingRuntimeVersion
+from catalog_openapi.models.serving_runtime_version_list import ServingRuntimeVersionList
 from catalog_openapi.models.skill import Skill
 from catalog_openapi.models.skill_list import SkillList
 from catalog_openapi.models.skill_trust_tier import SkillTrustTier
 from catalog_openapi.models.sort_order import SortOrder
 from catalog_openapi.models.source_status import SourceStatus
+from catalog_openapi.models.supported_model_format import SupportedModelFormat
 from catalog_openapi.models.tool_calling_config import ToolCallingConfig
-

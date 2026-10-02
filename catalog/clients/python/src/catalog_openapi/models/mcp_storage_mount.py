@@ -17,18 +17,29 @@ import pprint
 import re  # noqa: F401
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing_extensions import Self
 
+from catalog_openapi.models.mcp_storage_source import MCPStorageSource
 
-class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
-    """Summary of the preview results
+
+class MCPStorageMount(BaseModel):
+    """MCPStorageMount
     """ # noqa: E501
-    total_models: StrictInt = Field(description="Total number of models evaluated", alias="totalModels")
-    included_models: StrictInt = Field(description="Number of models that would be included", alias="includedModels")
-    excluded_models: StrictInt = Field(description="Number of models that would be excluded", alias="excludedModels")
-    has_gated_access_denied_models: StrictBool = Field(description="Whether any evaluated model is a gated Hugging Face model without access (`hfAccessType` gated_auto/gated_manual and `hfGatedAccessGranted` is false or unset), including models outside the current page.", alias="hasGatedAccessDeniedModels")
-    __properties: ClassVar[list[str]] = ["totalModels", "includedModels", "excludedModels", "hasGatedAccessDeniedModels"]
+    path: StrictStr = Field(description="Absolute mount path inside the container.")
+    permissions: StrictStr | None = Field(default=None, description="Mount permissions. Defaults to ReadOnly when unset.")
+    source: MCPStorageSource
+    __properties: ClassVar[list[str]] = ["path", "permissions", "source"]
+
+    @field_validator("permissions")
+    def permissions_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(["ReadOnly", "ReadWrite"]):
+            raise ValueError("must be one of enum values ('ReadOnly', 'ReadWrite')")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +59,7 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a JSON string"""
+        """Create an instance of MCPStorageMount from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,11 +80,14 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of source
+        if self.source:
+            _dict["source"] = self.source.to_dict()
         return _dict
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any] | None) -> Self | None:
-        """Create an instance of CatalogSourcePreviewResponseAllOfSummary from a dict"""
+        """Create an instance of MCPStorageMount from a dict"""
         if obj is None:
             return None
 
@@ -81,9 +95,8 @@ class CatalogSourcePreviewResponseAllOfSummary(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "totalModels": obj.get("totalModels"),
-            "includedModels": obj.get("includedModels"),
-            "excludedModels": obj.get("excludedModels"),
-            "hasGatedAccessDeniedModels": obj.get("hasGatedAccessDeniedModels")
+            "path": obj.get("path"),
+            "permissions": obj.get("permissions"),
+            "source": MCPStorageSource.from_dict(obj["source"]) if obj.get("source") is not None else None
         })
         return _obj
