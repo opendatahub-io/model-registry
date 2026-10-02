@@ -28,7 +28,7 @@ func TestBuildServingRuntimeEntityRejectsInvalidCustomProperties(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			loader := &ServingRuntimeLoader{}
 			entity, err := loader.buildServingRuntimeEntity("community", yamlServingRuntime{
-				Name: "vllm", CustomProperties: &map[string]openapi.MetadataValue{tt.key: tt.value},
+				Name: "vllm", CustomProperties: &map[string]yamlMetadataValue{tt.key: {Value: tt.value}},
 			})
 			require.Error(t, err, "community:vllm must reject invalid custom property %q", tt.key)
 			assert.Nil(t, entity, "community:vllm must not return a partially built entity for property %q", tt.key)
@@ -52,8 +52,8 @@ func TestBuildServingRuntimeEntityAcceptsInt32Boundaries(t *testing.T) {
 		t.Run(tt.value, func(t *testing.T) {
 			loader := &ServingRuntimeLoader{}
 			entity, err := loader.buildServingRuntimeEntity("community", yamlServingRuntime{
-				Name: "vllm", CustomProperties: &map[string]openapi.MetadataValue{
-					"priority": {MetadataIntValue: &openapi.MetadataIntValue{IntValue: tt.value}},
+				Name: "vllm", CustomProperties: &map[string]yamlMetadataValue{
+					"priority": {Value: openapi.MetadataValue{MetadataIntValue: &openapi.MetadataIntValue{IntValue: tt.value}}},
 				},
 			})
 			require.NoError(t, err, "community:vllm must accept int32 boundary priority=%s", tt.value)
