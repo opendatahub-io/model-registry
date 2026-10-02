@@ -39,7 +39,7 @@ func setupServingRuntimeLoader(t *testing.T) (*gorm.DB, Services) {
 		ServingRuntimeVersionRepository: runtimeservice.NewServingRuntimeVersionRepository(db, versionType.ID),
 		CatalogSourceRepository:         service.NewCatalogSourceRepository(db, testhelpers.GetCatalogSourceTypeIDForDBTest(t, db)),
 		PropertyOptionsRepository:       service.NewPropertyOptionsRepository(db),
-	}
+	}.WithTransactions(db)
 }
 
 func writeRuntimeFile(t *testing.T, path, data string) {
@@ -187,6 +187,35 @@ func TestServingRuntimeLoaderWatchesDataFile(t *testing.T) {
 	}, 15*time.Second, 100*time.Millisecond)
 }
 
+// TestServingRuntimeLoaderDoLoadIgnoresLeadershipLoss verifies that losing
+// leadership mid-reload does not overwrite a healthy source status with
+// SourceStatusError. A node that just lost leadership is no longer
+// authoritative over the source's status - the new leader is.
+func TestServingRuntimeLoaderDoLoadIgnoresLeadershipLoss(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	dataPath := filepath.Join(dir, "runtimes.yaml")
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: first, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: example:v1}]\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	source := loader.Sources.AllSources()["first"]
+
+	state.SetLeader(true)
+	loader.doLoad(t.Context(), "first", source)
+	status, err := services.CatalogSourceRepository.GetStatus("first")
+	require.NoError(t, err)
+	assert.Equal(t, basecatalog.SourceStatusAvailable, status.Status)
+
+	state.SetLeader(false)
+	loader.doLoad(t.Context(), "first", source)
+	status, err = services.CatalogSourceRepository.GetStatus("first")
+	require.NoError(t, err)
+	assert.Equal(t, basecatalog.SourceStatusAvailable, status.Status, "losing leadership should not overwrite a healthy source status with an error")
+}
+
 func TestServingRuntimeVersionDeleteByParentIDPreservesOtherArtifactTypes(t *testing.T) {
 	db, services := setupServingRuntimeLoader(t)
 	name := "source:runtime"
@@ -252,7 +281,7 @@ func TestRemoveOrphanedRuntimesPaginatesAcrossPages(t *testing.T) {
 	loader := NewServingRuntimeLoader(services, state)
 
 	runWithTimeout(t, 15*time.Second, func() error {
-		return loader.removeOrphanedRuntimes(sourceID, valid)
+		return loader.removeOrphanedRuntimes(t.Context(), sourceID, valid)
 	})
 
 	list, err := services.ServingRuntimeRepository.List(&models.ServingRuntimeListOptions{SourceIDs: &[]string{sourceID}})
@@ -719,7 +748,7 @@ func TestRemoveOrphanedVersionsPaginatesAcrossPages(t *testing.T) {
 	loader := NewServingRuntimeLoader(services, state)
 
 	runWithTimeout(t, 15*time.Second, func() error {
-		return loader.removeOrphanedVersions(*runtime.GetID(), valid)
+		return loader.removeOrphanedVersions(t.Context(), *runtime.GetID(), valid)
 	})
 
 	assert.Len(t, runtimeVersions(t, services, *runtime.GetID()), total, "no valid versions should have been removed")

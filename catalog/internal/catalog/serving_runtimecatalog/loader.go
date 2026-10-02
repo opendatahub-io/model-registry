@@ -117,6 +117,32 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 	if err != nil {
 		return err
 	}
+	if l.services.Transact == nil {
+		return fmt.Errorf("serving runtime source %q reload requires transaction services", sourceID)
+	}
+	if err := l.services.Transact(ctx, func(services Services) error {
+		loader := &ServingRuntimeLoader{state: l.state, Sources: l.Sources, services: services}
+		return loader.persistEntries(ctx, sourceID, entries)
+	}); err != nil {
+		return fmt.Errorf("reloading serving runtime source %q: %w", sourceID, err)
+	}
+	glog.Infof("%s: loaded %d serving runtimes", sourceID, len(entries))
+	return nil
+}
+
+var errServingRuntimeLeadershipLost = errors.New("serving runtime loader lost leadership")
+
+func (l *ServingRuntimeLoader) checkReloadContext(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !l.state.ShouldWriteDatabase() {
+		return errServingRuntimeLeadershipLost
+	}
+	return nil
+}
+
+func (l *ServingRuntimeLoader) persistEntries(ctx context.Context, sourceID string, entries []yamlServingRuntime) error {
 	validNames := mapset.NewSet[string]()
 
 	for _, entry := range entries {
@@ -125,7 +151,7 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 		}
 		if !l.state.ShouldWriteDatabase() {
 			glog.Info("No longer leader, stopping serving runtime database writes")
-			return nil
+			return errServingRuntimeLeadershipLost
 		}
 		glog.Infof("Loading serving runtime %s from source %s with %d version(s)", entry.Name, sourceID, len(entry.Versions))
 		qualifiedName := sourceID + ":" + entry.Name
@@ -153,7 +179,7 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 			}
 			if !l.state.ShouldWriteDatabase() {
 				glog.Info("No longer leader, stopping serving runtime database writes")
-				return nil
+				return errServingRuntimeLeadershipLost
 			}
 			versionEntity := l.buildServingRuntimeVersionEntity(sourceID, entry.Name, version)
 			versionName := *versionEntity.GetAttributes().Name
@@ -168,15 +194,14 @@ func (l *ServingRuntimeLoader) loadFromYAML(ctx context.Context, sourceID string
 				return fmt.Errorf("failed to save serving_runtime version %q for %q: %w", version.Version, entry.Name, err)
 			}
 		}
-		if err := l.removeOrphanedVersions(*parentID, validVersions); err != nil {
+		if err := l.removeOrphanedVersions(ctx, *parentID, validVersions); err != nil {
 			return err
 		}
 	}
-	if err := l.removeOrphanedRuntimes(sourceID, validNames); err != nil {
+	if err := l.removeOrphanedRuntimes(ctx, sourceID, validNames); err != nil {
 		return err
 	}
-	glog.Infof("%s: loaded %d serving runtimes", sourceID, len(entries))
-	return nil
+	return l.checkReloadContext(ctx)
 }
 
 // buildServingRuntimeEntity converts a YAML entry into a persistable domain entity.
@@ -436,21 +461,7 @@ func (l *ServingRuntimeLoader) watchAndLoadFromYAML(ctx context.Context, sourceI
 	if err != nil {
 		glog.Errorf("unable to watch serving_runtime catalog file %s: %v", yamlPath, err)
 	}
-	doLoad := func() {
-		if err := l.loadFromYAML(ctx, sourceID, source); err != nil {
-			glog.Errorf("error loading serving_runtime from source %s: %v", sourceID, err)
-			basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusError, err.Error())
-			return
-		}
-		basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusAvailable, "")
-		if err := l.services.PropertyOptionsRepository.Refresh(models.ContextPropertyOptionType); err != nil {
-			glog.Errorf("error refreshing property options after serving_runtime load: %v", err)
-		}
-		if err := l.services.PropertyOptionsRepository.Refresh(models.ArtifactPropertyOptionType); err != nil {
-			glog.Errorf("error refreshing version property options after serving_runtime load: %v", err)
-		}
-	}
-	doLoad()
+	l.doLoad(ctx, sourceID, source)
 	releaseInitial()
 	if ch == nil {
 		return
@@ -465,9 +476,33 @@ func (l *ServingRuntimeLoader) watchAndLoadFromYAML(ctx context.Context, sourceI
 			}
 			glog.Infof("Reloading serving runtime catalog from %s (file changed)", yamlPath)
 			l.state.TrackWrite()
-			doLoad()
+			l.doLoad(ctx, sourceID, source)
 			l.state.WriteComplete()
 		}
+	}
+}
+
+// doLoad performs a single load/reload of sourceID and persists the resulting
+// source status. Leadership loss and context cancellation are benign
+// transitions during failover/shutdown - like the modelcatalog and mcpcatalog
+// loaders, we stop silently without overwriting the source status, since
+// another node (or a future reload) owns reporting its health.
+func (l *ServingRuntimeLoader) doLoad(ctx context.Context, sourceID string, source basecatalog.PluginSource) {
+	if err := l.loadFromYAML(ctx, sourceID, source); err != nil {
+		if errors.Is(err, errServingRuntimeLeadershipLost) || errors.Is(err, context.Canceled) {
+			glog.Infof("stopping serving_runtime reload for source %s: %v", sourceID, err)
+			return
+		}
+		glog.Errorf("error loading serving_runtime from source %s: %v", sourceID, err)
+		basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusError, err.Error())
+		return
+	}
+	basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, sourceID, basecatalog.SourceStatusAvailable, "")
+	if err := l.services.PropertyOptionsRepository.Refresh(models.ContextPropertyOptionType); err != nil {
+		glog.Errorf("error refreshing property options after serving_runtime load: %v", err)
+	}
+	if err := l.services.PropertyOptionsRepository.Refresh(models.ArtifactPropertyOptionType); err != nil {
+		glog.Errorf("error refreshing version property options after serving_runtime load: %v", err)
 	}
 }
 
@@ -513,20 +548,26 @@ func (l *ServingRuntimeLoader) removeRuntimesFromMissingSources(allKnownSourceID
 	return basecatalog.CleanupOrphanedCatalogSources(l.services.CatalogSourceRepository, configured.Union(allKnownSourceIDs))
 }
 
-func (l *ServingRuntimeLoader) removeOrphanedVersions(parentID int32, valid mapset.Set[string]) error {
+func (l *ServingRuntimeLoader) removeOrphanedVersions(ctx context.Context, parentID int32, valid mapset.Set[string]) error {
 	pageSize := int32(100)
 	options := &servingRuntimemodels.ServingRuntimeVersionListOptions{ParentResourceID: &parentID}
 	options.PageSize = &pageSize
 	for {
+		if err := l.checkReloadContext(ctx); err != nil {
+			return err
+		}
 		list, err := l.services.ServingRuntimeVersionRepository.List(options)
 		if err != nil {
 			return fmt.Errorf("listing versions for serving_runtime %d: %w", parentID, err)
 		}
 		for _, version := range list.Items {
+			if err := l.checkReloadContext(ctx); err != nil {
+				return err
+			}
 			if attrs := version.GetAttributes(); attrs != nil && attrs.Name != nil && version.GetID() != nil && !valid.Contains(*attrs.Name) {
 				if !l.state.ShouldWriteDatabase() {
 					glog.Info("No longer leader, stopping serving runtime database writes")
-					return nil
+					return errServingRuntimeLeadershipLost
 				}
 				if err := l.services.ServingRuntimeVersionRepository.DeleteByID(*version.GetID()); err != nil {
 					return err
@@ -538,28 +579,37 @@ func (l *ServingRuntimeLoader) removeOrphanedVersions(parentID int32, valid maps
 		// cursor, but advance it explicitly too (and stop on an empty page) so
 		// this loop doesn't depend on that side effect to avoid looping forever.
 		if list.NextPageToken == "" || len(list.Items) == 0 {
-			return nil
+			return l.checkReloadContext(ctx)
 		}
 		options.NextPageToken = &list.NextPageToken
 	}
 }
 
-func (l *ServingRuntimeLoader) removeOrphanedRuntimes(sourceID string, valid mapset.Set[string]) error {
+func (l *ServingRuntimeLoader) removeOrphanedRuntimes(ctx context.Context, sourceID string, valid mapset.Set[string]) error {
 	pageSize := int32(100)
 	options := &servingRuntimemodels.ServingRuntimeListOptions{SourceIDs: &[]string{sourceID}}
 	options.PageSize = &pageSize
 	for {
+		if err := l.checkReloadContext(ctx); err != nil {
+			return err
+		}
 		list, err := l.services.ServingRuntimeRepository.List(options)
 		if err != nil {
 			return fmt.Errorf("listing serving_runtimes from source %q: %w", sourceID, err)
 		}
 		for _, runtime := range list.Items {
+			if err := l.checkReloadContext(ctx); err != nil {
+				return err
+			}
 			if attrs := runtime.GetAttributes(); attrs != nil && attrs.Name != nil && runtime.GetID() != nil && !valid.Contains(*attrs.Name) {
 				if !l.state.ShouldWriteDatabase() {
 					glog.Info("No longer leader, stopping serving runtime database writes")
-					return nil
+					return errServingRuntimeLeadershipLost
 				}
 				if err := l.services.ServingRuntimeVersionRepository.DeleteByParentID(*runtime.GetID()); err != nil {
+					return err
+				}
+				if err := l.checkReloadContext(ctx); err != nil {
 					return err
 				}
 				if err := l.services.ServingRuntimeRepository.DeleteByID(*runtime.GetID()); err != nil {
@@ -572,7 +622,7 @@ func (l *ServingRuntimeLoader) removeOrphanedRuntimes(sourceID string, valid map
 		// cursor, but advance it explicitly too (and stop on an empty page) so
 		// this loop doesn't depend on that side effect to avoid looping forever.
 		if list.NextPageToken == "" || len(list.Items) == 0 {
-			return nil
+			return l.checkReloadContext(ctx)
 		}
 		options.NextPageToken = &list.NextPageToken
 	}
