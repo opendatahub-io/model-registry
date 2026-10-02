@@ -336,7 +336,7 @@ components:
               description: Environment variables the runtime accepts (discovery hints; no secret values).
               items:
                 $ref: "#/components/schemas/ServingRuntimeEnvVar"
-            template:
+            servingRuntimeTemplate:
               type: string
               description: >-
                 Optional full ServingRuntime (KServe v1alpha1) manifest for this
@@ -351,6 +351,10 @@ components:
               type: string
               format: date-time
               description: Publication timestamp for this version/image.
+            llmInferenceServiceTemplate:
+              type: string
+              description: >-
+                Full LLMInferenceServiceConfig manifest for this version, as a JSON-encoded string.
 
     SupportedModelFormat:
       description: A model format a runtime can serve. Maps to ServingRuntime.spec.supportedModelFormats[].

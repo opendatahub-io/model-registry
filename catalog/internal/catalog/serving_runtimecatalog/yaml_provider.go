@@ -40,18 +40,19 @@ type yamlServingRuntime struct {
 
 // yamlServingRuntimeVersion is the on-disk representation of a serving_runtime version.
 type yamlServingRuntimeVersion struct {
-	Version               string                                        `yaml:"version" json:"version"`
-	Image                 string                                        `yaml:"image" json:"image"`
-	SupportLevel          *openapi.ServingRuntimeSupportLevel           `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
-	SupportedModelFormats []openapi.SupportedModelFormat                `yaml:"supportedModelFormats,omitempty" json:"supportedModelFormats,omitempty"`
-	ProtocolVersions      []string                                      `yaml:"protocolVersions,omitempty" json:"protocolVersions,omitempty"`
-	RecommendedResources  *openapi.ServingRuntimeResourceRecommendation `yaml:"recommendedResources,omitempty" json:"recommendedResources,omitempty"`
-	DefaultArgs           []string                                      `yaml:"defaultArgs,omitempty" json:"defaultArgs,omitempty"`
-	Env                   []openapi.ServingRuntimeEnvVar                `yaml:"env,omitempty" json:"env,omitempty"`
-	Template              *string                                       `yaml:"template,omitempty" json:"template,omitempty"`
-	Deprecated            *bool                                         `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
-	PublishedDate         *string                                       `yaml:"publishedDate,omitempty" json:"publishedDate,omitempty"`
-	ExternalID            *string                                       `yaml:"externalId,omitempty" json:"externalId,omitempty"`
+	Version                     string                                        `yaml:"version" json:"version"`
+	Image                       string                                        `yaml:"image" json:"image"`
+	SupportLevel                *openapi.ServingRuntimeSupportLevel           `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
+	SupportedModelFormats       []openapi.SupportedModelFormat                `yaml:"supportedModelFormats,omitempty" json:"supportedModelFormats,omitempty"`
+	ProtocolVersions            []string                                      `yaml:"protocolVersions,omitempty" json:"protocolVersions,omitempty"`
+	RecommendedResources        *openapi.ServingRuntimeResourceRecommendation `yaml:"recommendedResources,omitempty" json:"recommendedResources,omitempty"`
+	DefaultArgs                 []string                                      `yaml:"defaultArgs,omitempty" json:"defaultArgs,omitempty"`
+	Env                         []openapi.ServingRuntimeEnvVar                `yaml:"env,omitempty" json:"env,omitempty"`
+	ServingRuntimeTemplate      *string                                       `yaml:"servingRuntimeTemplate,omitempty" json:"servingRuntimeTemplate,omitempty"`
+	LlmInferenceServiceTemplate *string                                       `yaml:"llmInferenceServiceTemplate,omitempty" json:"llmInferenceServiceTemplate,omitempty"`
+	Deprecated                  *bool                                         `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
+	PublishedDate               *string                                       `yaml:"publishedDate,omitempty" json:"publishedDate,omitempty"`
+	ExternalID                  *string                                       `yaml:"externalId,omitempty" json:"externalId,omitempty"`
 }
 
 // yamlServingRuntimeCatalog is the top-level structure of a serving_runtime YAML data file.

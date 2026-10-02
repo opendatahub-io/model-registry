@@ -2,6 +2,7 @@ package serving_runtimecatalog
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -112,6 +113,35 @@ func TestServingRuntimeLoaderReloadAndValidation(t *testing.T) {
 	retained, err := services.ServingRuntimeRepository.GetByName("first:vllm")
 	require.NoError(t, err)
 	assert.Equal(t, after.GetID(), retained.GetID())
+}
+
+func TestServingRuntimeVersionTemplatesRoundTrip(t *testing.T) {
+	_, services := setupServingRuntimeLoader(t)
+	dir := t.TempDir()
+	dataPath := filepath.Join(dir, "runtimes.yaml")
+	configPath := filepath.Join(dir, "sources.yaml")
+	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: first, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: example:v1\n        servingRuntimeTemplate: '{\"kind\":\"ServingRuntime\"}'\n        llmInferenceServiceTemplate: '{\"apiVersion\":\"serving.kserve.io/v1alpha1\"}'\n")
+	state := basecatalog.NewBaseLoader([]string{configPath})
+	loader := NewServingRuntimeLoader(services, state)
+	require.NoError(t, loader.ParseAllConfigs())
+	state.SetLeader(true)
+	require.NoError(t, loader.loadFromYAML(t.Context(), "first", loader.Sources.AllSources()["first"]))
+	runtime, err := services.ServingRuntimeRepository.GetByName("first:vllm")
+	require.NoError(t, err)
+
+	versions, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimeVersions(t.Context(), strconv.FormatInt(int64(*runtime.GetID()), 10), ListServingRuntimeVersionsParams{})
+	require.NoError(t, err)
+	require.Len(t, versions.Items, 1)
+	require.NotNil(t, versions.Items[0].LlmInferenceServiceTemplate)
+	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, *versions.Items[0].LlmInferenceServiceTemplate)
+	encoded, err := json.Marshal(versions.Items[0])
+	require.NoError(t, err)
+	var response map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &response))
+	assert.Equal(t, `{"kind":"ServingRuntime"}`, response["servingRuntimeTemplate"])
+	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, response["llmInferenceServiceTemplate"])
+	assert.NotContains(t, response, "template")
 }
 
 func TestServingRuntimeLoaderSourceCleanup(t *testing.T) {
