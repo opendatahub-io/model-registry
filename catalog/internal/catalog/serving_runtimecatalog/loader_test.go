@@ -28,12 +28,14 @@ import (
 func TestMain(m *testing.M) { os.Exit(testutils.TestMainPostgresHelper(m)) }
 
 func setupServingRuntimeLoader(t *testing.T) (*gorm.DB, Services) {
+	t.Helper()
 	db, cleanup := testutils.SetupPostgresWithMigrations(t, testhelpers.MustDatastoreSpec(t))
 	t.Cleanup(cleanup)
+	testutils.CleanupPostgresTestData(t, db)
 	runtimeType := schema.Type{Name: "kf.ServingRuntime", TypeKind: 1}
 	versionType := schema.Type{Name: "kf.ServingRuntimeVersion", TypeKind: 2}
-	require.NoError(t, db.Create(&runtimeType).Error)
-	require.NoError(t, db.Create(&versionType).Error)
+	require.NoError(t, db.Where("name = ?", runtimeType.Name).FirstOrCreate(&runtimeType).Error)
+	require.NoError(t, db.Where("name = ?", versionType.Name).FirstOrCreate(&versionType).Error)
 	return db, Services{
 		ServingRuntimeRepository:        runtimeservice.NewServingRuntimeRepository(db, runtimeType.ID),
 		ServingRuntimeVersionRepository: runtimeservice.NewServingRuntimeVersionRepository(db, versionType.ID),
