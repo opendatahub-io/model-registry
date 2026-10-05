@@ -27,7 +27,7 @@ hf-xet==1.6.0 ; python_version >= "3.11" and python_version < "4.0" and (platfor
 httpcore2==2.12.0 ; python_version >= "3.11" and python_version < "4.0" and sys_platform != "emscripten"
 httpx2-jsfetch==1.0 ; python_version >= "3.12" and python_version < "4.0" and sys_platform == "emscripten"
 httpx2==2.12.0 ; python_version >= "3.11" and python_version < "4.0"
-huggingface-hub==2.0.0 ; python_version >= "3.11" and python_version < "4.0"
+huggingface-hub==2.1.1 ; python_version >= "3.11" and python_version < "4.0"
 id==1.6.1 ; python_version >= "3.11" and python_version < "4.0"
 idna==3.20 ; python_version >= "3.11" and python_version < "4.0"
 in-toto-attestation==0.9.3 ; python_version >= "3.11" and python_version < "4.0"
