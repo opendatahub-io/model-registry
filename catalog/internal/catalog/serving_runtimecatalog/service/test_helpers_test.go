@@ -51,7 +51,7 @@ func testDatastoreSpec() *datastore.Spec {
 			AddStruct("defaultArgs").
 			AddStruct("env").
 			AddString("servingRuntimeTemplate").
-			AddString("llmInferenceServiceTemplate").
+			AddString("llmInferenceServiceConfig").
 			AddBoolean("deprecated").
 			AddString("publishedDate"),
 		)

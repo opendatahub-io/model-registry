@@ -56,7 +56,7 @@ type ServingRuntimeVersion struct {
 	// Publication timestamp for this version/image.
 	PublishedDate *time.Time `json:"publishedDate,omitempty"`
 	// Full LLMInferenceServiceConfig manifest for this version, as a JSON-encoded string.
-	LlmInferenceServiceTemplate *string `json:"llmInferenceServiceTemplate,omitempty"`
+	LlmInferenceServiceConfig *string `json:"llmInferenceServiceConfig,omitempty"`
 }
 
 type _ServingRuntimeVersion ServingRuntimeVersion
@@ -671,36 +671,36 @@ func (o *ServingRuntimeVersion) SetPublishedDate(v time.Time) {
 	o.PublishedDate = &v
 }
 
-// GetLlmInferenceServiceTemplate returns the LlmInferenceServiceTemplate field value if set, zero value otherwise.
-func (o *ServingRuntimeVersion) GetLlmInferenceServiceTemplate() string {
-	if o == nil || IsNil(o.LlmInferenceServiceTemplate) {
+// GetLlmInferenceServiceConfig returns the LlmInferenceServiceConfig field value if set, zero value otherwise.
+func (o *ServingRuntimeVersion) GetLlmInferenceServiceConfig() string {
+	if o == nil || IsNil(o.LlmInferenceServiceConfig) {
 		var ret string
 		return ret
 	}
-	return *o.LlmInferenceServiceTemplate
+	return *o.LlmInferenceServiceConfig
 }
 
-// GetLlmInferenceServiceTemplateOk returns a tuple with the LlmInferenceServiceTemplate field value if set, nil otherwise
+// GetLlmInferenceServiceConfigOk returns a tuple with the LlmInferenceServiceConfig field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *ServingRuntimeVersion) GetLlmInferenceServiceTemplateOk() (*string, bool) {
-	if o == nil || IsNil(o.LlmInferenceServiceTemplate) {
+func (o *ServingRuntimeVersion) GetLlmInferenceServiceConfigOk() (*string, bool) {
+	if o == nil || IsNil(o.LlmInferenceServiceConfig) {
 		return nil, false
 	}
-	return o.LlmInferenceServiceTemplate, true
+	return o.LlmInferenceServiceConfig, true
 }
 
-// HasLlmInferenceServiceTemplate returns a boolean if a field has been set.
-func (o *ServingRuntimeVersion) HasLlmInferenceServiceTemplate() bool {
-	if o != nil && !IsNil(o.LlmInferenceServiceTemplate) {
+// HasLlmInferenceServiceConfig returns a boolean if a field has been set.
+func (o *ServingRuntimeVersion) HasLlmInferenceServiceConfig() bool {
+	if o != nil && !IsNil(o.LlmInferenceServiceConfig) {
 		return true
 	}
 
 	return false
 }
 
-// SetLlmInferenceServiceTemplate gets a reference to the given string and assigns it to the LlmInferenceServiceTemplate field.
-func (o *ServingRuntimeVersion) SetLlmInferenceServiceTemplate(v string) {
-	o.LlmInferenceServiceTemplate = &v
+// SetLlmInferenceServiceConfig gets a reference to the given string and assigns it to the LlmInferenceServiceConfig field.
+func (o *ServingRuntimeVersion) SetLlmInferenceServiceConfig(v string) {
+	o.LlmInferenceServiceConfig = &v
 }
 
 func (o ServingRuntimeVersion) MarshalJSON() ([]byte, error) {
@@ -764,8 +764,8 @@ func (o ServingRuntimeVersion) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.PublishedDate) {
 		toSerialize["publishedDate"] = o.PublishedDate
 	}
-	if !IsNil(o.LlmInferenceServiceTemplate) {
-		toSerialize["llmInferenceServiceTemplate"] = o.LlmInferenceServiceTemplate
+	if !IsNil(o.LlmInferenceServiceConfig) {
+		toSerialize["llmInferenceServiceConfig"] = o.LlmInferenceServiceConfig
 	}
 	return toSerialize, nil
 }

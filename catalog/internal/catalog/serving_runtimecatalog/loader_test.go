@@ -123,7 +123,7 @@ func TestServingRuntimeVersionTemplatesRoundTrip(t *testing.T) {
 	dataPath := filepath.Join(dir, "runtimes.yaml")
 	configPath := filepath.Join(dir, "sources.yaml")
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: first, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
-	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: example:v1\n        servingRuntimeTemplate: '{\"kind\":\"ServingRuntime\"}'\n        llmInferenceServiceTemplate: '{\"apiVersion\":\"serving.kserve.io/v1alpha1\"}'\n")
+	writeRuntimeFile(t, dataPath, "serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: example:v1\n        servingRuntimeTemplate: '{\"kind\":\"ServingRuntime\"}'\n        llmInferenceServiceConfig: '{\"apiVersion\":\"serving.kserve.io/v1alpha1\"}'\n")
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -135,14 +135,14 @@ func TestServingRuntimeVersionTemplatesRoundTrip(t *testing.T) {
 	versions, err := NewDBServingRuntimeCatalog(services, loader.Sources).ListServingRuntimeVersions(t.Context(), strconv.FormatInt(int64(*runtime.GetID()), 10), ListServingRuntimeVersionsParams{})
 	require.NoError(t, err)
 	require.Len(t, versions.Items, 1)
-	require.NotNil(t, versions.Items[0].LlmInferenceServiceTemplate)
-	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, *versions.Items[0].LlmInferenceServiceTemplate)
+	require.NotNil(t, versions.Items[0].LlmInferenceServiceConfig)
+	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, *versions.Items[0].LlmInferenceServiceConfig)
 	encoded, err := json.Marshal(versions.Items[0])
 	require.NoError(t, err)
 	var response map[string]any
 	require.NoError(t, json.Unmarshal(encoded, &response))
 	assert.Equal(t, `{"kind":"ServingRuntime"}`, response["servingRuntimeTemplate"])
-	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, response["llmInferenceServiceTemplate"])
+	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, response["llmInferenceServiceConfig"])
 	assert.NotContains(t, response, "template")
 }
 
