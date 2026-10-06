@@ -10,25 +10,18 @@ import (
 )
 
 type Services struct {
-	// Transact runs a source reload with repositories bound to one transaction.
-	Transact                        func(context.Context, func(Services) error) error
 	ServingRuntimeRepository        servingRuntimemodels.ServingRuntimeRepository
 	ServingRuntimeVersionRepository servingRuntimemodels.ServingRuntimeVersionRepository
 	CatalogSourceRepository         sharedmodels.CatalogSourceRepository
 	PropertyOptionsRepository       sharedmodels.PropertyOptionsRepository
+	// WithRuntimeFamilyTransaction supplies repositories sharing one transaction.
+	WithRuntimeFamilyTransaction func(context.Context, func(servingRuntimemodels.ServingRuntimeRepository, servingRuntimemodels.ServingRuntimeVersionRepository) error) error
 }
 
-// WithTransactions enables atomic source reloads without changing the repositories
-// used by API reads or other loaders. Transaction repositories carry the request
-// context through every lookup, save, and cleanup operation.
+// WithTransactions enables atomic runtime family writes without changing the
+// repositories used by API reads or other loaders.
 func (s Services) WithTransactions(db *gorm.DB) Services {
-	s.Transact = func(ctx context.Context, fn func(Services) error) error {
-		return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			transactionServices := s
-			transactionServices.ServingRuntimeRepository = servingRuntimeservice.NewServingRuntimeRepository(tx, s.ServingRuntimeRepository.GetTypeID())
-			transactionServices.ServingRuntimeVersionRepository = servingRuntimeservice.NewServingRuntimeVersionRepository(tx, s.ServingRuntimeVersionRepository.GetTypeID())
-			return fn(transactionServices)
-		})
-	}
+	s.WithRuntimeFamilyTransaction = servingRuntimeservice.NewRuntimeFamilyTransaction(db,
+		s.ServingRuntimeRepository.GetTypeID(), s.ServingRuntimeVersionRepository.GetTypeID())
 	return s
 }

@@ -1750,7 +1750,7 @@ type ApiPreviewCatalogSourceRequest struct {
 	catalogData   *os.File
 }
 
-// YAML file containing the catalog source configuration. The file should contain a source definition with &#x60;type&#x60; and &#x60;properties&#x60; fields, and an optional &#x60;assetType&#x60; field to specify the kind of assets being previewed (defaults to &#x60;models&#x60;).  **For model sources** (&#x60;assetType: models&#x60; or omitted): Use &#x60;includedModels&#x60; and &#x60;excludedModels&#x60; filter patterns.  **For MCP server sources** (&#x60;assetType: mcp_servers&#x60;): Use &#x60;includedServers&#x60; and &#x60;excludedServers&#x60; filter patterns.  Filter patterns support the &#x60;*&#x60; wildcard only and are case-insensitive. Patterns match the entire asset name (e.g., &#x60;ibm-granite/_*&#x60; matches all models starting with \\\&quot;ibm-granite/\\\&quot;, &#x60;kubernetes*&#x60; matches all servers starting with \\\&quot;kubernetes\\\&quot;).
+// YAML file containing the catalog source configuration. The file should contain a source definition with &#x60;type&#x60; and &#x60;properties&#x60; fields, and an optional &#x60;assetType&#x60; field to specify the kind of assets being previewed (defaults to &#x60;models&#x60;).  **For model sources** (&#x60;assetType: models&#x60; or omitted): Use &#x60;includedModels&#x60; and &#x60;excludedModels&#x60; filter patterns.  **For MCP server sources** (&#x60;assetType: mcp_servers&#x60;): Use &#x60;includedServers&#x60; and &#x60;excludedServers&#x60; filter patterns.  **For serving runtime sources** (&#x60;assetType: serving_runtimes&#x60;): Use &#x60;type: yaml&#x60;. Names are discovered without validation or filters; every runtime has &#x60;included: true&#x60;.  Filter patterns support the &#x60;*&#x60; wildcard only and are case-insensitive. Patterns match the entire asset name (e.g., &#x60;ibm-granite/_*&#x60; matches all models starting with \\\&quot;ibm-granite/\\\&quot;, &#x60;kubernetes*&#x60; matches all servers starting with \\\&quot;kubernetes\\\&quot;).
 func (r ApiPreviewCatalogSourceRequest) Config(config *os.File) ApiPreviewCatalogSourceRequest {
 	r.config = config
 	return r
@@ -1774,7 +1774,7 @@ func (r ApiPreviewCatalogSourceRequest) FilterStatus(filterStatus string) ApiPre
 	return r
 }
 
-// Optional YAML file containing the catalog data.  For model sources, the file should contain a &#x60;models:&#x60; key with a list of model entries. For MCP server sources, the file should contain an &#x60;mcp_servers:&#x60; key with a list of server entries.  This field enables stateless preview of new sources before saving them. When provided, the catalog data is read directly from this file instead of from the &#x60;yamlCatalogPath&#x60; property in the config.  **Two modes of operation:** 1. **Stateless mode (recommended for new sources):** Upload both &#x60;config&#x60; and    &#x60;catalogData&#x60; files. The assets are read from &#x60;catalogData&#x60;, allowing preview    without saving anything to the server. 2. **Path mode (for existing sources):** Upload only &#x60;config&#x60; with a &#x60;yamlCatalogPath&#x60;    property pointing to a catalog file on the server filesystem.  If both &#x60;catalogData&#x60; and &#x60;yamlCatalogPath&#x60; are provided, &#x60;catalogData&#x60; takes precedence.
+// Optional YAML file containing the catalog data.  For model sources, the file should contain a &#x60;models:&#x60; key with a list of model entries. For MCP server sources, the file should contain an &#x60;mcp_servers:&#x60; key with a list of server entries. For serving runtime sources, use a &#x60;serving_runtimes:&#x60; key with a list of runtime entries.  This field enables stateless preview of new sources before saving them. When provided, the catalog data is read directly from this file instead of from the &#x60;yamlCatalogPath&#x60; property in the config.  **Two modes of operation:** 1. **Stateless mode (recommended for new sources):** Upload both &#x60;config&#x60; and    &#x60;catalogData&#x60; files. The assets are read from &#x60;catalogData&#x60;, allowing preview    without saving anything to the server. 2. **Path mode (for existing sources):** Upload only &#x60;config&#x60; with a &#x60;yamlCatalogPath&#x60;    property pointing to a catalog file on the server filesystem.  If both &#x60;catalogData&#x60; and &#x60;yamlCatalogPath&#x60; are provided, &#x60;catalogData&#x60; takes precedence.
 func (r ApiPreviewCatalogSourceRequest) CatalogData(catalogData *os.File) ApiPreviewCatalogSourceRequest {
 	r.catalogData = catalogData
 	return r
@@ -1796,6 +1796,10 @@ The response type varies based on the `assetType` field in the uploaded config:
     and model-specific summary fields (`totalModels`, `includedModels`, `excludedModels`).
   - `mcp_servers`: Returns an `AssetSourcePreviewResponse` with `AssetPreviewResult` items
     and generic summary fields (`totalAssets`, `includedAssets`, `excludedAssets`).
+  - `serving_runtimes`: Returns an `AssetSourcePreviewResponse` with runtime names
+    and generic summary fields. Only `type: yaml` is supported. All discovered
+    runtimes are included; preview does not validate runtime metadata or versions
+    and does not predict whether the loader will accept an entry.
 
 **Two modes of operation:**
 

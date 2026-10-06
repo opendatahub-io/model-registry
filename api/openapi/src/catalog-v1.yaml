@@ -69,7 +69,7 @@ paths:
     description: >-
       The REST endpoint/path used to preview a catalog source configuration.
       This endpoint accepts a catalog source definition and returns a list of
-      assets (models or MCP servers) with their inclusion/exclusion status based
+      assets (including models, MCP servers, and serving runtimes) with their inclusion/exclusion status based
       on the configured filters.
     post:
       summary: Preview catalog source configuration
@@ -83,6 +83,10 @@ paths:
           and model-specific summary fields (`totalModels`, `includedModels`, `excludedModels`).
         - `mcp_servers`: Returns an `AssetSourcePreviewResponse` with `AssetPreviewResult` items
           and generic summary fields (`totalAssets`, `includedAssets`, `excludedAssets`).
+        - `serving_runtimes`: Returns an `AssetSourcePreviewResponse` with runtime names
+          and generic summary fields. Only `type: yaml` is supported. All discovered
+          runtimes are included; preview does not validate runtime metadata or versions
+          and does not predict whether the loader will accept an entry.
 
         **Two modes of operation:**
 
@@ -120,6 +124,10 @@ paths:
                     **For MCP server sources** (`assetType: mcp_servers`):
                     Use `includedServers` and `excludedServers` filter patterns.
 
+                    **For serving runtime sources** (`assetType: serving_runtimes`):
+                    Use `type: yaml`. Names are discovered without validation or filters;
+                    every runtime has `included: true`.
+
                     Filter patterns support the `*` wildcard only and are case-insensitive.
                     Patterns match the entire asset name (e.g., `ibm-granite/*` matches all
                     models starting with "ibm-granite/", `kubernetes*` matches all servers
@@ -132,7 +140,8 @@ paths:
 
                     For model sources, the file should contain a `models:` key with a list
                     of model entries. For MCP server sources, the file should contain an
-                    `mcp_servers:` key with a list of server entries.
+                    `mcp_servers:` key with a list of server entries. For serving runtime
+                    sources, use a `serving_runtimes:` key with a list of runtime entries.
 
                     This field enables stateless preview of new sources before saving them.
                     When provided, the catalog data is read directly from this file instead of
@@ -206,6 +215,16 @@ paths:
                   properties:
                     apiKey: "hf_your_token_here"
                     maxModels: 100
+              servingRuntimeStatelessPreview:
+                summary: Stateless serving runtime preview
+                description: |-
+                  Upload this as `config`, with a `catalogData` YAML file containing
+                  `serving_runtimes: [{name: vllm}]`. Preview discovers names only;
+                  metadata and versions are not validated. Alternatively, set
+                  properties.yamlCatalogPath to a server-side YAML file path.
+                value: |
+                  assetType: serving_runtimes
+                  type: yaml
               mcpStatelessPreview:
                 summary: Stateless MCP server preview
                 description: |-
@@ -623,7 +642,7 @@ components:
     PreviewCatalogSourceResponse:
       description: >-
         Polymorphic preview response. The `assetType` discriminator determines
-        whether the payload is a model preview or an MCP server preview.
+        whether the payload is a model preview or a generic asset preview, including serving runtimes.
       oneOf:
         - $ref: "#/components/schemas/CatalogSourcePreviewResponse"
         - $ref: "#/components/schemas/AssetSourcePreviewResponse"
@@ -632,6 +651,7 @@ components:
         mapping:
           models: "#/components/schemas/CatalogSourcePreviewResponse"
           mcp_servers: "#/components/schemas/AssetSourcePreviewResponse"
+          serving_runtimes: "#/components/schemas/AssetSourcePreviewResponse"
           agents: "#/components/schemas/AssetSourcePreviewResponse"
           skills: "#/components/schemas/AssetSourcePreviewResponse"
     FilterOption:

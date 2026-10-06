@@ -1,6 +1,7 @@
 package serving_runtimecatalog
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -56,48 +57,58 @@ type yamlServingRuntimeVersion struct {
 }
 
 // yamlServingRuntimeCatalog is the top-level structure of a serving_runtime YAML data file.
+// ServingRuntimes is a pointer so decoding can distinguish an explicit, intentionally
+// empty list ("serving_runtimes: []") from a missing or mistyped key (nil): k8s
+// yaml.Unmarshal is non-strict, so a typo like "servingRuntimes:" silently leaves this
+// field unset instead of erroring.
 type yamlServingRuntimeCatalog struct {
-	Source          string               `yaml:"source" json:"source"`
-	ServingRuntimes []yamlServingRuntime `yaml:"serving_runtimes" json:"serving_runtimes"`
+	Source          string                `yaml:"source" json:"source"`
+	ServingRuntimes *[]yamlServingRuntime `yaml:"serving_runtimes" json:"serving_runtimes"`
 }
 
-// loadServingRuntimesFromYAML reads and parses a serving_runtime YAML data file.
-func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
+// loadServingRuntimesFromYAML reads and parses a serving_runtime YAML data file. The
+// second return value reports whether the top-level "serving_runtimes" key was present
+// in the document, so callers can tell a real empty catalog from a missing/mistyped key.
+func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read serving_runtime catalog file %s: %w", path, err)
+		return nil, false, fmt.Errorf("failed to read serving_runtime catalog file %s: %w", path, err)
 	}
 
 	var catalog yamlServingRuntimeCatalog
 	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		return nil, fmt.Errorf("failed to parse serving_runtime catalog file %s: %w", path, err)
+		return nil, false, fmt.Errorf("failed to parse serving_runtime catalog file %s: %w", path, err)
 	}
-	names := make(map[string]bool, len(catalog.ServingRuntimes))
-	for _, runtime := range catalog.ServingRuntimes {
-		if strings.TrimSpace(runtime.Name) == "" {
-			return nil, fmt.Errorf("serving_runtime in %s has no name", path)
-		}
-		if strings.Contains(runtime.Name, ":") {
-			return nil, fmt.Errorf("serving_runtime %q in %s: name must not contain ':'", runtime.Name, path)
-		}
-		if names[runtime.Name] {
-			return nil, fmt.Errorf("duplicate serving_runtime %q in %s", runtime.Name, path)
-		}
-		names[runtime.Name] = true
-		versions := make(map[string]bool, len(runtime.Versions))
-		for _, version := range runtime.Versions {
-			if strings.TrimSpace(version.Version) == "" || strings.TrimSpace(version.Image) == "" {
-				return nil, fmt.Errorf("serving_runtime %q in %s has a version without version or image", runtime.Name, path)
-			}
-			if strings.Contains(version.Version, ":") {
-				return nil, fmt.Errorf("serving_runtime %q in %s: version %q must not contain ':'", runtime.Name, path, version.Version)
-			}
-			if versions[version.Version] {
-				return nil, fmt.Errorf("duplicate version %q for serving_runtime %q in %s", version.Version, runtime.Name, path)
-			}
-			versions[version.Version] = true
-		}
+	if catalog.ServingRuntimes == nil {
+		return nil, false, nil
 	}
+	return *catalog.ServingRuntimes, true, nil
+}
 
-	return catalog.ServingRuntimes, nil
+// validateServingRuntime rejects the complete runtime when any child version is invalid.
+func validateServingRuntime(runtime yamlServingRuntime, duplicate bool) error {
+	var errs []error
+	if strings.TrimSpace(runtime.Name) == "" {
+		errs = append(errs, fmt.Errorf("serving_runtime has no name"))
+	}
+	if strings.Contains(runtime.Name, ":") {
+		errs = append(errs, fmt.Errorf("serving_runtime %q: name must not contain ':'", runtime.Name))
+	}
+	if duplicate {
+		errs = append(errs, fmt.Errorf("duplicate serving_runtime %q", runtime.Name))
+	}
+	versions := make(map[string]bool, len(runtime.Versions))
+	for _, version := range runtime.Versions {
+		if strings.TrimSpace(version.Version) == "" || strings.TrimSpace(version.Image) == "" {
+			errs = append(errs, fmt.Errorf("serving_runtime %q has a version without version or image", runtime.Name))
+		}
+		if strings.Contains(version.Version, ":") {
+			errs = append(errs, fmt.Errorf("serving_runtime %q: version %q must not contain ':'", runtime.Name, version.Version))
+		}
+		if versions[version.Version] {
+			errs = append(errs, fmt.Errorf("duplicate version %q for serving_runtime %q", version.Version, runtime.Name))
+		}
+		versions[version.Version] = true
+	}
+	return errors.Join(errs...)
 }

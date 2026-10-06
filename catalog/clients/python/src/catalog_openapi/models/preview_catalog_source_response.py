@@ -25,7 +25,7 @@ from catalog_openapi.models.catalog_source_preview_response import CatalogSource
 PREVIEWCATALOGSOURCERESPONSE_ONE_OF_SCHEMAS = ["AssetSourcePreviewResponse", "CatalogSourcePreviewResponse"]
 
 class PreviewCatalogSourceResponse(BaseModel):
-    """Polymorphic preview response. The `assetType` discriminator determines whether the payload is a model preview or an MCP server preview.
+    """Polymorphic preview response. The `assetType` discriminator determines whether the payload is a model preview or a generic asset preview, including serving runtimes.
     """
     # data type: CatalogSourcePreviewResponse
     oneof_schema_1_validator: CatalogSourcePreviewResponse | None = None
@@ -108,6 +108,11 @@ class PreviewCatalogSourceResponse(BaseModel):
             return instance
 
         # check if data type is `AssetSourcePreviewResponse`
+        if _data_type == "serving_runtimes":
+            instance.actual_instance = AssetSourcePreviewResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `AssetSourcePreviewResponse`
         if _data_type == "skills":
             instance.actual_instance = AssetSourcePreviewResponse.from_json(json_str)
             return instance
@@ -155,5 +160,3 @@ class PreviewCatalogSourceResponse(BaseModel):
     def to_str(self) -> str:
         """Returns the string representation of the actual instance"""
         return pprint.pformat(self.model_dump())
-
-

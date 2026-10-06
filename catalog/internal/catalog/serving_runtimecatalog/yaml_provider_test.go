@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadServingRuntimesRejectsInvalidEntries(t *testing.T) {
+func TestValidateServingRuntimesRejectsInvalidEntries(t *testing.T) {
 	for _, tc := range []struct{ name, yaml string }{
 		{"missing name", "serving_runtimes:\n  - versions: [{version: '1', image: example:v1}]\n"},
 		{"duplicate runtime", "serving_runtimes:\n  - name: one\n  - name: one\n"},
@@ -22,8 +22,10 @@ func TestLoadServingRuntimesRejectsInvalidEntries(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "runtimes.yaml")
 			require.NoError(t, os.WriteFile(path, []byte(tc.yaml), 0600))
-			_, err := loadServingRuntimesFromYAML(path)
-			require.Error(t, err)
+			entries, present, err := loadServingRuntimesFromYAML(path)
+			require.NoError(t, err, "decoding must not perform runtime validation")
+			require.True(t, present)
+			require.Error(t, validateServingRuntime(entries[0], tc.name == "duplicate runtime"))
 		})
 	}
 }
@@ -37,8 +39,9 @@ func TestDemoServingRuntimeSource(t *testing.T) {
 	require.Equal(t, "rh_serving_runtimes", source.GetId())
 	path, ok := source.Properties[yamlServingRuntimeCatalogPathKey].(string)
 	require.True(t, ok)
-	entries, err := loadServingRuntimesFromYAML(filepath.Join(demo, path))
+	entries, present, err := loadServingRuntimesFromYAML(filepath.Join(demo, path))
 	require.NoError(t, err)
+	require.True(t, present)
 	require.Len(t, entries, 2)
 	require.Equal(t, "vllm", entries[0].Name)
 	require.Equal(t, "ovms", entries[1].Name)

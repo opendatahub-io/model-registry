@@ -15,7 +15,7 @@ import (
 	"fmt"
 )
 
-// PreviewCatalogSourceResponse - Polymorphic preview response. The `assetType` discriminator determines whether the payload is a model preview or an MCP server preview.
+// PreviewCatalogSourceResponse - Polymorphic preview response. The `assetType` discriminator determines whether the payload is a model preview or a generic asset preview, including serving runtimes.
 type PreviewCatalogSourceResponse struct {
 	AssetSourcePreviewResponse   *AssetSourcePreviewResponse
 	CatalogSourcePreviewResponse *CatalogSourcePreviewResponse
@@ -78,6 +78,18 @@ func (dst *PreviewCatalogSourceResponse) UnmarshalJSON(data []byte) error {
 		} else {
 			dst.CatalogSourcePreviewResponse = nil
 			return fmt.Errorf("failed to unmarshal PreviewCatalogSourceResponse as CatalogSourcePreviewResponse: %s", err.Error())
+		}
+	}
+
+	// check if the discriminator value is 'serving_runtimes'
+	if jsonDict["assetType"] == "serving_runtimes" {
+		// try to unmarshal JSON data into AssetSourcePreviewResponse
+		err = json.Unmarshal(data, &dst.AssetSourcePreviewResponse)
+		if err == nil {
+			return nil // data stored in dst.AssetSourcePreviewResponse, return on the first match
+		} else {
+			dst.AssetSourcePreviewResponse = nil
+			return fmt.Errorf("failed to unmarshal PreviewCatalogSourceResponse as AssetSourcePreviewResponse: %s", err.Error())
 		}
 	}
 

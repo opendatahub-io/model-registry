@@ -641,6 +641,10 @@ func (m *ModelCatalogServiceAPIService) PreviewCatalogSource(ctx context.Context
 		return m.previewMCPSource(ctx, configBytes, catalogDataBytes, pageSizeParam, nextPageTokenParam, filterStatus)
 	}
 
+	if assetTypeProbe.AssetType == string(model.CATALOGASSETTYPE_SERVING_RUNTIMES) {
+		return m.previewServingRuntimeSource(ctx, configBytes, catalogDataBytes, pageSizeParam, nextPageTokenParam, filterStatus)
+	}
+
 	if assetTypeProbe.AssetType == string(model.CATALOGASSETTYPE_SKILLS) {
 		return m.previewSkillSource(ctx, configBytes, pageSizeParam, nextPageTokenParam, filterStatus)
 	}
@@ -801,6 +805,36 @@ func (m *ModelCatalogServiceAPIService) previewMCPSource(ctx context.Context, co
 
 	return Response(http.StatusOK, model.AssetSourcePreviewResponse{
 		AssetType:     model.CATALOGASSETTYPE_MCP_SERVERS,
+		PageSize:      page.pageSize,
+		Size:          int32(len(page.items)),
+		NextPageToken: page.nextPageToken,
+		Items:         page.items,
+		Summary: model.AssetSourcePreviewResponseAllOfSummary{
+			TotalAssets:    page.total,
+			IncludedAssets: page.includedCount,
+			ExcludedAssets: page.excludedCount,
+		},
+	}), nil
+}
+
+func (m *ModelCatalogServiceAPIService) previewServingRuntimeSource(ctx context.Context, configBytes, catalogDataBytes []byte, pageSizeParam, nextPageTokenParam, filterStatus string) (ImplResponse, error) {
+	previewRequest, err := serving_runtimecatalog.ParseServingRuntimePreviewConfig(configBytes)
+	if err != nil {
+		return ErrorResponse(http.StatusUnprocessableEntity, fmt.Errorf("invalid config: %w", err)), err
+	}
+
+	previewResults, err := serving_runtimecatalog.PreviewSourceRuntimes(ctx, previewRequest, catalogDataBytes)
+	if err != nil {
+		return ErrorResponse(http.StatusUnprocessableEntity, fmt.Errorf("failed to load serving runtimes: %w", err)), err
+	}
+
+	page, err := filterAndPaginate(previewResults, func(r model.AssetPreviewResult) bool { return r.Included }, filterStatus, pageSizeParam, nextPageTokenParam)
+	if err != nil {
+		return ErrorResponse(http.StatusBadRequest, err), err
+	}
+
+	return Response(http.StatusOK, model.AssetSourcePreviewResponse{
+		AssetType:     model.CATALOGASSETTYPE_SERVING_RUNTIMES,
 		PageSize:      page.pageSize,
 		Size:          int32(len(page.items)),
 		NextPageToken: page.nextPageToken,

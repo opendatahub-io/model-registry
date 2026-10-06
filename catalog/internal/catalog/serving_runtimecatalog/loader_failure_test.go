@@ -185,11 +185,11 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
 		{"failed/pre_canceled_preserves_both_sources", "before_load"},
 		{"failed/cancel_after_runtime_preserves_snapshot", "after_runtime"},
 		{"failed/cancel_after_version_preserves_snapshot", "after_version"},
-		{"failed/later_runtime_error_preserves_snapshot", "runtime_error"},
-		{"failed/version_attribution_error_preserves_snapshot", "version_error"},
+		{"failed/later_runtime_error_commits_healthy_families", "runtime_error"},
+		{"failed/version_attribution_error_commits_healthy_families", "version_error"},
 		{"failed/cancel_during_version_cleanup_preserves_snapshot", "version_cleanup"},
-		{"failed/cancel_during_runtime_cleanup_preserves_snapshot", "runtime_cleanup"},
-		{"failed/error_during_runtime_cleanup_preserves_snapshot", "cleanup_error"},
+		{"failed/cancel_during_runtime_cleanup_keeps_committed_families", "runtime_cleanup"},
+		{"failed/error_during_runtime_cleanup_keeps_committed_families", "cleanup_error"},
 		{"failed/leadership_loss_preserves_snapshot", "leadership_loss"},
 	}
 	for _, tt := range tests {
@@ -306,33 +306,32 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
 				t.Cleanup(func() { require.NoError(t, db.Callback().Create().Remove(callbackName)) })
 			}
 
-			transact := services.Transact
-			loader.services.Transact = func(ctx context.Context, fn func(Services) error) error {
-				return transact(ctx, func(txServices Services) error {
+			transact := services.WithRuntimeFamilyTransaction
+			loader.services.WithRuntimeFamilyTransaction = func(ctx context.Context, fn func(models.ServingRuntimeRepository, models.ServingRuntimeVersionRepository) error) error {
+				return transact(ctx, func(runtimeRepo models.ServingRuntimeRepository, versionRepo models.ServingRuntimeVersionRepository) error {
 					if hook, ok := loader.services.ServingRuntimeRepository.(runtimeSaveHook); ok {
-						hook.ServingRuntimeRepository = txServices.ServingRuntimeRepository
-						txServices.ServingRuntimeRepository = hook
+						hook.ServingRuntimeRepository = runtimeRepo
+						runtimeRepo = hook
 					}
 					if hook, ok := loader.services.ServingRuntimeVersionRepository.(versionSaveHook); ok {
-						hook.ServingRuntimeVersionRepository = txServices.ServingRuntimeVersionRepository
-						txServices.ServingRuntimeVersionRepository = hook
+						hook.ServingRuntimeVersionRepository = versionRepo
+						versionRepo = hook
 					}
-					switch tt.interruption {
-					case "version_cleanup":
-						txServices.ServingRuntimeVersionRepository = versionDeleteHook{txServices.ServingRuntimeVersionRepository, func() error { fired = true; cancel(); return nil }}
-					case "runtime_cleanup", "cleanup_error":
-						txServices.ServingRuntimeRepository = runtimeDeleteHook{txServices.ServingRuntimeRepository, func() error {
-							fired = true
-							assert.Equal(t, before, snapshotRuntimeSource(t, db, services, "failed"), "cleanup changes remain invisible until commit")
-							if tt.interruption == "cleanup_error" {
-								return injected
-							}
-							cancel()
-							return nil
-						}}
+					if tt.interruption == "version_cleanup" {
+						versionRepo = versionDeleteHook{versionRepo, func() error { fired = true; cancel(); return nil }}
 					}
-					return fn(txServices)
+					return fn(runtimeRepo, versionRepo)
 				})
+			}
+			if tt.interruption == "runtime_cleanup" || tt.interruption == "cleanup_error" {
+				loader.services.ServingRuntimeRepository = runtimeDeleteHook{services.ServingRuntimeRepository, func() error {
+					fired = true
+					if tt.interruption == "cleanup_error" {
+						return injected
+					}
+					cancel()
+					return nil
+				}}
 			}
 			if tt.interruption == "leadership_loss" {
 				wantErr = errServingRuntimeLeadershipLost
@@ -358,7 +357,18 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
 				}
 			}
 			after := snapshotRuntimeSource(t, db, services, "failed")
-			assert.Equal(t, before, after, "interrupted source reload must preserve the complete previous snapshot")
+			switch tt.interruption {
+			case "runtime_error", "version_error":
+				assertRuntimeSourceContents(t, after, "failed",
+					map[string]string{"same": "Updated", "later": "Later updated"},
+					map[string]string{"same:1": "same:new", "same:2": "same:added", "later:1": "later:new"})
+			case "runtime_cleanup", "cleanup_error":
+				assertRuntimeSourceContents(t, after, "failed",
+					map[string]string{"same": "Updated", "added": "Added", "later": "Later updated"},
+					map[string]string{"same:1": "same:new", "same:2": "same:added", "added:1": "added:new", "later:1": "later:new"})
+			default:
+				assert.Equal(t, before, after, "interrupted family transaction must preserve the complete previous snapshot")
+			}
 			assert.Equal(t, healthy, snapshotRuntimeSource(t, db, services, "healthy"), "failed reload must preserve all healthy source rows")
 
 			// Disable injection and retry with a fresh context. Recovery must clean
