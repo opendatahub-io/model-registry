@@ -30,7 +30,7 @@ runs:
         printf 'archive-path=%s/%s-image.tar\n' \
           "$RUNNER_TEMP" "$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
     - name: Restore or save image archive
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ runner.temp }}/${{ inputs.name }}-image.tar
         key: kind-image-${{ steps.image-key.outputs.digest }}-${{ runner.os }}-${{ runner.arch }}-v1
