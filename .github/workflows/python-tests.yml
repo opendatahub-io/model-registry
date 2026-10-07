@@ -235,7 +235,7 @@ jobs:
           sleep 2
           nox --python=${{ matrix.python }} --session=e2e -- --cov-report=xml
       - name: Upload coverage report # we upload coverage stats for py once, regardless if previous step failed
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v7.1.1
         if: always() && matrix.python == '3.12'
         with:
           files: coverage.xml
