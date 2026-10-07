@@ -159,27 +159,27 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
     customProperties:
       owner: {metadataType: MetadataStringValue, string_value: original-owner}
     versions:
-      - {version: '1', image: 'same:old'}
-      - {version: '9', image: 'same:stale'}
+      - {version: '1', image: 'registry.example.com/same:old'}
+      - {version: '9', image: 'registry.example.com/same:stale'}
   - name: later
     displayName: Later original
-    versions: [{version: '1', image: 'later:old'}]
+    versions: [{version: '1', image: 'registry.example.com/later:old'}]
   - name: removed
     displayName: Removed original
-    versions: [{version: '1', image: 'removed:old'}]
+    versions: [{version: '1', image: 'registry.example.com/removed:old'}]
 `
 	replacement := `serving_runtimes:
   - name: same
     displayName: Updated
     versions:
-      - {version: '1', image: 'same:new'}
-      - {version: '2', image: 'same:added'}
+      - {version: '1', image: 'registry.example.com/same:new'}
+      - {version: '2', image: 'registry.example.com/same:added'}
   - name: added
     displayName: Added
-    versions: [{version: '1', image: 'added:new'}]
+    versions: [{version: '1', image: 'registry.example.com/added:new'}]
   - name: later
     displayName: Later updated
-    versions: [{version: '1', image: 'later:new'}]
+    versions: [{version: '1', image: 'registry.example.com/later:new'}]
 `
 	tests := []struct{ name, interruption string }{
 		{"failed/pre_canceled_preserves_both_sources", "before_load"},
@@ -203,11 +203,11 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
   - name: same
     displayName: Healthy
     versions:
-      - {version: '1', image: 'healthy:stable'}
-      - {version: '9', image: 'healthy:retained'}
+      - {version: '1', image: 'registry.example.com/healthy:stable'}
+      - {version: '9', image: 'registry.example.com/healthy:retained'}
   - name: removed
     displayName: Healthy retained
-    versions: [{version: '1', image: 'healthy:removed-retained'}]
+    versions: [{version: '1', image: 'registry.example.com/healthy:removed-retained'}]
 `)
 			writeRuntimeFile(t, configPath, `serving_runtime_catalogs:
   - {id: failed, type: yaml, properties: {yamlCatalogPath: failed.yaml}}
@@ -228,7 +228,7 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
 			healthy := snapshotRuntimeSource(t, db, services, "healthy")
 			assertRuntimeSourceContents(t, healthy, "healthy",
 				map[string]string{"same": "Healthy", "removed": "Healthy retained"},
-				map[string]string{"same:1": "healthy:stable", "same:9": "healthy:retained", "removed:1": "healthy:removed-retained"})
+				map[string]string{"same:1": "registry.example.com/healthy:stable", "same:9": "registry.example.com/healthy:retained", "removed:1": "registry.example.com/healthy:removed-retained"})
 			writeRuntimeFile(t, dataPath, replacement)
 
 			ctx, cancel := context.WithCancel(t.Context())
@@ -370,7 +370,7 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
 			recovered := snapshotRuntimeSource(t, db, services, "failed")
 			assertRuntimeSourceContents(t, recovered, "failed",
 				map[string]string{"same": "Updated", "added": "Added", "later": "Later updated"},
-				map[string]string{"same:1": "same:new", "same:2": "same:added", "added:1": "added:new", "later:1": "later:new"})
+				map[string]string{"same:1": "registry.example.com/same:new", "same:2": "registry.example.com/same:added", "added:1": "registry.example.com/added:new", "later:1": "registry.example.com/later:new"})
 			for _, property := range recovered.Runtimes["failed:same"].Properties {
 				assert.False(t, property.IsCustomProperty, "retry removes the old custom property %s", property.Name)
 			}
@@ -391,7 +391,7 @@ func TestServingRuntimeLoaderInterruptedReload(t *testing.T) {
 func TestServingRuntimeLoaderCancellationReachesDatabase(t *testing.T) {
 	db, services := setupServingRuntimeLoader(t)
 	path := filepath.Join(t.TempDir(), "runtimes.yaml")
-	writeRuntimeFile(t, path, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: 'example:v1'}]\n")
+	writeRuntimeFile(t, path, "serving_runtimes:\n  - name: vllm\n    versions: [{version: '1', image: 'registry.example.com/example:v1'}]\n")
 	state := basecatalog.NewBaseLoader(nil)
 	state.SetLeader(true)
 	loader := NewServingRuntimeLoader(services, state)

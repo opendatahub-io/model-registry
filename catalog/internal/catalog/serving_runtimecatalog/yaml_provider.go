@@ -2,10 +2,11 @@ package serving_runtimecatalog
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"strings"
 
 	openapi "github.com/kubeflow/hub/catalog/pkg/openapi"
+	yamlv3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -34,7 +35,7 @@ type yamlServingRuntime struct {
 	PublishedDate         *string                             `yaml:"publishedDate,omitempty" json:"publishedDate,omitempty"`
 	LastUpdated           *string                             `yaml:"lastUpdated,omitempty" json:"lastUpdated,omitempty"`
 	ExternalID            *string                             `yaml:"externalId,omitempty" json:"externalId,omitempty"`
-	CustomProperties      *map[string]openapi.MetadataValue   `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
+	CustomProperties      *map[string]yamlMetadataValue       `yaml:"customProperties,omitempty" json:"customProperties,omitempty"`
 	Versions              []yamlServingRuntimeVersion         `yaml:"versions,omitempty" json:"versions,omitempty"`
 }
 
@@ -42,7 +43,7 @@ type yamlServingRuntime struct {
 type yamlServingRuntimeVersion struct {
 	Version                   string                                        `yaml:"version" json:"version"`
 	Image                     string                                        `yaml:"image" json:"image"`
-	SupportLevel              *openapi.ServingRuntimeSupportLevel           `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
+	SupportLevel              *string                                       `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
 	SupportedModelFormats     []openapi.SupportedModelFormat                `yaml:"supportedModelFormats,omitempty" json:"supportedModelFormats,omitempty"`
 	ProtocolVersions          []string                                      `yaml:"protocolVersions,omitempty" json:"protocolVersions,omitempty"`
 	RecommendedResources      *openapi.ServingRuntimeResourceRecommendation `yaml:"recommendedResources,omitempty" json:"recommendedResources,omitempty"`
@@ -55,49 +56,110 @@ type yamlServingRuntimeVersion struct {
 	ExternalID                *string                                       `yaml:"externalId,omitempty" json:"externalId,omitempty"`
 }
 
-// yamlServingRuntimeCatalog is the top-level structure of a serving_runtime YAML data file.
-type yamlServingRuntimeCatalog struct {
-	Source          string               `yaml:"source" json:"source"`
-	ServingRuntimes []yamlServingRuntime `yaml:"serving_runtimes" json:"serving_runtimes"`
+// validatedServingRuntimeFamily keeps a family's identity and validation
+// result together so callers can skip rejected families without losing their
+// names for cleanup decisions.
+type validatedServingRuntimeFamily struct {
+	Name    string
+	Runtime yamlServingRuntime
+	Err     error
 }
 
-// loadServingRuntimesFromYAML reads and parses a serving_runtime YAML data file.
-func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
-	data, err := os.ReadFile(path)
+// loadServingRuntimeFamiliesFromYAML reads the data once and reports validation
+// independently for each family. Document-level failures have no family result.
+func loadServingRuntimeFamiliesFromYAML(path string) ([]validatedServingRuntimeFamily, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read serving_runtime catalog file %s: %w", path, err)
 	}
-
-	var catalog yamlServingRuntimeCatalog
-	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		return nil, fmt.Errorf("failed to parse serving_runtime catalog file %s: %w", path, err)
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.LimitReader(file, maxRuntimeCatalogBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read serving_runtime catalog file %s: %w", path, err)
 	}
-	names := make(map[string]bool, len(catalog.ServingRuntimes))
-	for _, runtime := range catalog.ServingRuntimes {
-		if strings.TrimSpace(runtime.Name) == "" {
-			return nil, fmt.Errorf("serving_runtime in %s has no name", path)
-		}
-		if strings.Contains(runtime.Name, ":") {
-			return nil, fmt.Errorf("serving_runtime %q in %s: name must not contain ':'", runtime.Name, path)
-		}
-		if names[runtime.Name] {
-			return nil, fmt.Errorf("duplicate serving_runtime %q in %s", runtime.Name, path)
-		}
-		names[runtime.Name] = true
-		versions := make(map[string]bool, len(runtime.Versions))
-		for _, version := range runtime.Versions {
-			if strings.TrimSpace(version.Version) == "" || strings.TrimSpace(version.Image) == "" {
-				return nil, fmt.Errorf("serving_runtime %q in %s has a version without version or image", runtime.Name, path)
-			}
-			if strings.Contains(version.Version, ":") {
-				return nil, fmt.Errorf("serving_runtime %q in %s: version %q must not contain ':'", runtime.Name, path, version.Version)
-			}
-			if versions[version.Version] {
-				return nil, fmt.Errorf("duplicate version %q for serving_runtime %q in %s", version.Version, runtime.Name, path)
-			}
-			versions[version.Version] = true
-		}
+	if len(data) > maxRuntimeCatalogBytes {
+		return nil, fmt.Errorf("serving_runtime catalog file %s exceeds %d bytes", path, maxRuntimeCatalogBytes)
 	}
+	families, err := parseServingRuntimeFamiliesYAML(data)
+	if err != nil {
+		return nil, fmt.Errorf("invalid serving_runtime catalog file %s: %w", path, err)
+	}
+	return families, nil
+}
 
-	return catalog.ServingRuntimes, nil
+// parseServingRuntimeFamiliesYAML parses the document before any family is
+// published. A version error rejects its whole family, not its siblings.
+func parseServingRuntimeFamiliesYAML(data []byte) ([]validatedServingRuntimeFamily, error) {
+	if len(data) > maxRuntimeCatalogBytes {
+		return nil, fmt.Errorf("serving_runtime catalog exceeds %d bytes", maxRuntimeCatalogBytes)
+	}
+	nodes, err := runtimeYAMLFamilyNodes(data)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]int, len(nodes))
+	for _, node := range nodes {
+		names[runtimeYAMLFamilyName(node)]++
+	}
+	families := make([]validatedServingRuntimeFamily, 0, len(nodes))
+	shape := runtimeYAMLShape().fields["serving_runtimes"].items
+	for index, node := range nodes {
+		name := runtimeYAMLFamilyName(node)
+		path := fmt.Sprintf("serving_runtimes[%d]", index)
+		issues := &runtimeValidationErrors{}
+		inspectRuntimeYAMLNode(node, shape, path, "", "", issues)
+		var runtime yamlServingRuntime
+		if issues.err() == nil {
+			encoded, err := yamlv3.Marshal(node)
+			if err != nil {
+				issues.add(name, "", path, "failed to encode YAML family")
+			} else if err := yaml.UnmarshalStrict(encoded, &runtime); err != nil {
+				issues.add(name, "", path, "failed to decode YAML family: "+diagnosticText(err.Error(), 512))
+			} else {
+				issues.appendIssues(validateServingRuntimeFamily(runtime, index, names[name] > 1))
+			}
+		}
+		families = append(families, validatedServingRuntimeFamily{Name: name, Runtime: runtime, Err: issues.err()})
+	}
+	return families, nil
+}
+
+// loadServingRuntimesFromYAML keeps the existing all-or-nothing loader behavior
+// for callers that do not yet process per-family results.
+func loadServingRuntimesFromYAML(path string) ([]yamlServingRuntime, error) {
+	families, err := loadServingRuntimeFamiliesFromYAML(path)
+	if err != nil {
+		return nil, err
+	}
+	return validatedRuntimes(families)
+}
+
+// parseServingRuntimesYAML is the strict compatibility interface for callers
+// that cannot publish partial results yet.
+func parseServingRuntimesYAML(data []byte) ([]yamlServingRuntime, error) {
+	families, err := parseServingRuntimeFamiliesYAML(data)
+	if err != nil {
+		return nil, err
+	}
+	return validatedRuntimes(families)
+}
+
+func validatedRuntimes(families []validatedServingRuntimeFamily) ([]yamlServingRuntime, error) {
+	entries := make([]yamlServingRuntime, 0, len(families))
+	issues := &runtimeValidationErrors{}
+	for index, family := range families {
+		if family.Err != nil {
+			if familyIssues, ok := family.Err.(*runtimeValidationErrors); ok {
+				issues.appendIssues(familyIssues)
+			} else {
+				issues.add(family.Name, "", fmt.Sprintf("serving_runtimes[%d]", index), diagnosticText(family.Err.Error(), 512))
+			}
+			continue
+		}
+		entries = append(entries, family.Runtime)
+	}
+	if err := issues.err(); err != nil {
+		return nil, err
+	}
+	return entries, nil
 }
