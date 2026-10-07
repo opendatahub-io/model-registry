@@ -37,7 +37,7 @@ jobs:
       - name: Catalog unit tests
         run: make -C catalog test-cover
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           files: coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }}
