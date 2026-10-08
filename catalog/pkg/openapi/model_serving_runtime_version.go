@@ -40,6 +40,8 @@ type ServingRuntimeVersion struct {
 	// Fully-qualified container image reference for this version. The registry host may be rewritten by the dashboard for disconnected environments (registry mirror override).
 	Image        string                      `json:"image"`
 	SupportLevel *ServingRuntimeSupportLevel `json:"supportLevel,omitempty"`
+	// Minimum Red Hat OpenShift AI release required to deploy this version, as a semantic version with an optional leading \"v\" and optional patch (e.g. \"3.6\", \"v3.6.0-ea.1\"). Returned as written; compare values with a semantic version library. Informational; the catalog does not enforce it.
+	MinimumRHOAIVersion *string `json:"minimumRHOAIVersion,omitempty" validate:"regexp=^v?[0-9]+\\\\.[0-9]+(\\\\.[0-9]+)?(-[0-9A-Za-z-]+(\\\\.[0-9A-Za-z-]+)*)?(\\\\+[0-9A-Za-z-]+(\\\\.[0-9A-Za-z-]+)*)?$"`
 	// Model formats supported by this specific version.
 	SupportedModelFormats []SupportedModelFormat `json:"supportedModelFormats,omitempty"`
 	// Inference protocols supported (maps to ServingRuntime.spec.protocolVersions).
@@ -49,12 +51,14 @@ type ServingRuntimeVersion struct {
 	DefaultArgs []string `json:"defaultArgs,omitempty"`
 	// Environment variables the runtime accepts (discovery hints; no secret values).
 	Env []ServingRuntimeEnvVar `json:"env,omitempty"`
-	// Optional full ServingRuntime (KServe v1alpha1) manifest for this version, as a JSON-encoded string, ready for review/edit before creation. If omitted, the consumer generates the manifest from the fields above.
-	Template *string `json:"template,omitempty"`
+	// Optional manifest for this version, as a JSON-encoded string, ready for review/edit before creation. Either a ServingRuntime (KServe v1alpha1) or an OpenShift Template (template.openshift.io/v1) whose objects contain exactly one ServingRuntime. If omitted, the consumer generates the manifest from the fields above.
+	ServingRuntimeTemplate *string `json:"servingRuntimeTemplate,omitempty"`
 	// Whether this version is deprecated and should be de-emphasized in the UI.
 	Deprecated *bool `json:"deprecated,omitempty"`
 	// Publication timestamp for this version/image.
 	PublishedDate *time.Time `json:"publishedDate,omitempty"`
+	// Full LLMInferenceServiceConfig manifest for this version, as a JSON-encoded string.
+	LlmInferenceServiceConfig *string `json:"llmInferenceServiceConfig,omitempty"`
 }
 
 type _ServingRuntimeVersion ServingRuntimeVersion
@@ -413,6 +417,38 @@ func (o *ServingRuntimeVersion) SetSupportLevel(v ServingRuntimeSupportLevel) {
 	o.SupportLevel = &v
 }
 
+// GetMinimumRHOAIVersion returns the MinimumRHOAIVersion field value if set, zero value otherwise.
+func (o *ServingRuntimeVersion) GetMinimumRHOAIVersion() string {
+	if o == nil || IsNil(o.MinimumRHOAIVersion) {
+		var ret string
+		return ret
+	}
+	return *o.MinimumRHOAIVersion
+}
+
+// GetMinimumRHOAIVersionOk returns a tuple with the MinimumRHOAIVersion field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *ServingRuntimeVersion) GetMinimumRHOAIVersionOk() (*string, bool) {
+	if o == nil || IsNil(o.MinimumRHOAIVersion) {
+		return nil, false
+	}
+	return o.MinimumRHOAIVersion, true
+}
+
+// HasMinimumRHOAIVersion returns a boolean if a field has been set.
+func (o *ServingRuntimeVersion) HasMinimumRHOAIVersion() bool {
+	if o != nil && !IsNil(o.MinimumRHOAIVersion) {
+		return true
+	}
+
+	return false
+}
+
+// SetMinimumRHOAIVersion gets a reference to the given string and assigns it to the MinimumRHOAIVersion field.
+func (o *ServingRuntimeVersion) SetMinimumRHOAIVersion(v string) {
+	o.MinimumRHOAIVersion = &v
+}
+
 // GetSupportedModelFormats returns the SupportedModelFormats field value if set, zero value otherwise.
 func (o *ServingRuntimeVersion) GetSupportedModelFormats() []SupportedModelFormat {
 	if o == nil || IsNil(o.SupportedModelFormats) {
@@ -573,36 +609,36 @@ func (o *ServingRuntimeVersion) SetEnv(v []ServingRuntimeEnvVar) {
 	o.Env = v
 }
 
-// GetTemplate returns the Template field value if set, zero value otherwise.
-func (o *ServingRuntimeVersion) GetTemplate() string {
-	if o == nil || IsNil(o.Template) {
+// GetServingRuntimeTemplate returns the ServingRuntimeTemplate field value if set, zero value otherwise.
+func (o *ServingRuntimeVersion) GetServingRuntimeTemplate() string {
+	if o == nil || IsNil(o.ServingRuntimeTemplate) {
 		var ret string
 		return ret
 	}
-	return *o.Template
+	return *o.ServingRuntimeTemplate
 }
 
-// GetTemplateOk returns a tuple with the Template field value if set, nil otherwise
+// GetServingRuntimeTemplateOk returns a tuple with the ServingRuntimeTemplate field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *ServingRuntimeVersion) GetTemplateOk() (*string, bool) {
-	if o == nil || IsNil(o.Template) {
+func (o *ServingRuntimeVersion) GetServingRuntimeTemplateOk() (*string, bool) {
+	if o == nil || IsNil(o.ServingRuntimeTemplate) {
 		return nil, false
 	}
-	return o.Template, true
+	return o.ServingRuntimeTemplate, true
 }
 
-// HasTemplate returns a boolean if a field has been set.
-func (o *ServingRuntimeVersion) HasTemplate() bool {
-	if o != nil && !IsNil(o.Template) {
+// HasServingRuntimeTemplate returns a boolean if a field has been set.
+func (o *ServingRuntimeVersion) HasServingRuntimeTemplate() bool {
+	if o != nil && !IsNil(o.ServingRuntimeTemplate) {
 		return true
 	}
 
 	return false
 }
 
-// SetTemplate gets a reference to the given string and assigns it to the Template field.
-func (o *ServingRuntimeVersion) SetTemplate(v string) {
-	o.Template = &v
+// SetServingRuntimeTemplate gets a reference to the given string and assigns it to the ServingRuntimeTemplate field.
+func (o *ServingRuntimeVersion) SetServingRuntimeTemplate(v string) {
+	o.ServingRuntimeTemplate = &v
 }
 
 // GetDeprecated returns the Deprecated field value if set, zero value otherwise.
@@ -669,6 +705,38 @@ func (o *ServingRuntimeVersion) SetPublishedDate(v time.Time) {
 	o.PublishedDate = &v
 }
 
+// GetLlmInferenceServiceConfig returns the LlmInferenceServiceConfig field value if set, zero value otherwise.
+func (o *ServingRuntimeVersion) GetLlmInferenceServiceConfig() string {
+	if o == nil || IsNil(o.LlmInferenceServiceConfig) {
+		var ret string
+		return ret
+	}
+	return *o.LlmInferenceServiceConfig
+}
+
+// GetLlmInferenceServiceConfigOk returns a tuple with the LlmInferenceServiceConfig field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *ServingRuntimeVersion) GetLlmInferenceServiceConfigOk() (*string, bool) {
+	if o == nil || IsNil(o.LlmInferenceServiceConfig) {
+		return nil, false
+	}
+	return o.LlmInferenceServiceConfig, true
+}
+
+// HasLlmInferenceServiceConfig returns a boolean if a field has been set.
+func (o *ServingRuntimeVersion) HasLlmInferenceServiceConfig() bool {
+	if o != nil && !IsNil(o.LlmInferenceServiceConfig) {
+		return true
+	}
+
+	return false
+}
+
+// SetLlmInferenceServiceConfig gets a reference to the given string and assigns it to the LlmInferenceServiceConfig field.
+func (o *ServingRuntimeVersion) SetLlmInferenceServiceConfig(v string) {
+	o.LlmInferenceServiceConfig = &v
+}
+
 func (o ServingRuntimeVersion) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -706,6 +774,9 @@ func (o ServingRuntimeVersion) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.SupportLevel) {
 		toSerialize["supportLevel"] = o.SupportLevel
 	}
+	if !IsNil(o.MinimumRHOAIVersion) {
+		toSerialize["minimumRHOAIVersion"] = o.MinimumRHOAIVersion
+	}
 	if !IsNil(o.SupportedModelFormats) {
 		toSerialize["supportedModelFormats"] = o.SupportedModelFormats
 	}
@@ -721,14 +792,17 @@ func (o ServingRuntimeVersion) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Env) {
 		toSerialize["env"] = o.Env
 	}
-	if !IsNil(o.Template) {
-		toSerialize["template"] = o.Template
+	if !IsNil(o.ServingRuntimeTemplate) {
+		toSerialize["servingRuntimeTemplate"] = o.ServingRuntimeTemplate
 	}
 	if !IsNil(o.Deprecated) {
 		toSerialize["deprecated"] = o.Deprecated
 	}
 	if !IsNil(o.PublishedDate) {
 		toSerialize["publishedDate"] = o.PublishedDate
+	}
+	if !IsNil(o.LlmInferenceServiceConfig) {
+		toSerialize["llmInferenceServiceConfig"] = o.LlmInferenceServiceConfig
 	}
 	return toSerialize, nil
 }

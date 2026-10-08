@@ -287,23 +287,26 @@ func mapDBServingRuntimeToAPI(m models.ServingRuntime) (openapi.ServingRuntime, 
 			case "tags":
 				if prop.StringValue != nil {
 					var tags []string
-					if err := json.Unmarshal([]byte(*prop.StringValue), &tags); err == nil {
-						res.Tags = tags
+					if err := json.Unmarshal([]byte(*prop.StringValue), &tags); err != nil {
+						return res, fmt.Errorf("serving_runtime %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.Tags = tags
 				}
 			case "supportedModelFormatsDetails":
 				if prop.StringValue != nil {
 					var formats []openapi.SupportedModelFormat
-					if err := json.Unmarshal([]byte(*prop.StringValue), &formats); err == nil {
-						res.SupportedModelFormats = formats
+					if err := json.Unmarshal([]byte(*prop.StringValue), &formats); err != nil {
+						return res, fmt.Errorf("serving_runtime %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.SupportedModelFormats = formats
 				}
 			case "capabilities":
 				if prop.StringValue != nil {
 					var caps openapi.ServingRuntimeCapabilities
-					if err := json.Unmarshal([]byte(*prop.StringValue), &caps); err == nil {
-						res.Capabilities = &caps
+					if err := json.Unmarshal([]byte(*prop.StringValue), &caps); err != nil {
+						return res, fmt.Errorf("serving_runtime %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.Capabilities = &caps
 				}
 			case "versionCount":
 				if prop.IntValue != nil {
@@ -393,40 +396,49 @@ func mapDBServingRuntimeVersionToAPI(m models.ServingRuntimeVersion) (openapi.Se
 			case "supportedModelFormatsDetails":
 				if prop.StringValue != nil {
 					var formats []openapi.SupportedModelFormat
-					if err := json.Unmarshal([]byte(*prop.StringValue), &formats); err == nil {
-						res.SupportedModelFormats = formats
+					if err := json.Unmarshal([]byte(*prop.StringValue), &formats); err != nil {
+						return res, fmt.Errorf("serving_runtime_version %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.SupportedModelFormats = formats
 				}
 			case "protocolVersions":
 				if prop.StringValue != nil {
 					var protocols []string
-					if err := json.Unmarshal([]byte(*prop.StringValue), &protocols); err == nil {
-						res.ProtocolVersions = protocols
+					if err := json.Unmarshal([]byte(*prop.StringValue), &protocols); err != nil {
+						return res, fmt.Errorf("serving_runtime_version %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.ProtocolVersions = protocols
 				}
 			case "recommendedResources":
 				if prop.StringValue != nil {
 					var rec openapi.ServingRuntimeResourceRecommendation
-					if err := json.Unmarshal([]byte(*prop.StringValue), &rec); err == nil {
-						res.RecommendedResources = &rec
+					if err := json.Unmarshal([]byte(*prop.StringValue), &rec); err != nil {
+						return res, fmt.Errorf("serving_runtime_version %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.RecommendedResources = &rec
 				}
 			case "defaultArgs":
 				if prop.StringValue != nil {
 					var args []string
-					if err := json.Unmarshal([]byte(*prop.StringValue), &args); err == nil {
-						res.DefaultArgs = args
+					if err := json.Unmarshal([]byte(*prop.StringValue), &args); err != nil {
+						return res, fmt.Errorf("serving_runtime_version %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.DefaultArgs = args
 				}
 			case "envDetails":
 				if prop.StringValue != nil {
 					var env []openapi.ServingRuntimeEnvVar
-					if err := json.Unmarshal([]byte(*prop.StringValue), &env); err == nil {
-						res.Env = env
+					if err := json.Unmarshal([]byte(*prop.StringValue), &env); err != nil {
+						return res, fmt.Errorf("serving_runtime_version %q property %q: %w", res.GetName(), prop.Name, err)
 					}
+					res.Env = env
 				}
-			case "template":
-				res.Template = prop.StringValue
+			case "minimumRHOAIVersion":
+				res.MinimumRHOAIVersion = prop.StringValue
+			case "servingRuntimeTemplate":
+				res.ServingRuntimeTemplate = prop.StringValue
+			case "llmInferenceServiceConfig":
+				res.LlmInferenceServiceConfig = prop.StringValue
 			case "deprecated":
 				if prop.BoolValue != nil {
 					res.Deprecated = prop.BoolValue

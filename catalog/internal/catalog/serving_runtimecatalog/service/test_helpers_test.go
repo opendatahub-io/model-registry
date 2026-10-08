@@ -45,12 +45,14 @@ func testDatastoreSpec() *datastore.Spec {
 			AddString("version").
 			AddString("image").
 			AddString("supportLevel").
+			AddString("minimumRHOAIVersion").
 			AddStruct("supportedModelFormats").
 			AddStruct("protocolVersions").
 			AddStruct("recommendedResources").
 			AddStruct("defaultArgs").
 			AddStruct("env").
-			AddString("template").
+			AddString("servingRuntimeTemplate").
+			AddString("llmInferenceServiceConfig").
 			AddBoolean("deprecated").
 			AddString("publishedDate"),
 		)

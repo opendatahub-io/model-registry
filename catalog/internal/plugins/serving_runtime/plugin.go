@@ -9,7 +9,6 @@ import (
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
 	"github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog"
-	servingRuntimeVersionmodels "github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog/models"
 	servingRuntimemodels "github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog/models"
 	serving_runtimeservice "github.com/kubeflow/hub/catalog/internal/catalog/serving_runtimecatalog/service"
 	"github.com/kubeflow/hub/catalog/internal/db/models"
@@ -63,12 +62,14 @@ func (p *Plugin) DatastoreEntries() []plugin.DatastoreEntry {
 				AddString("version").
 				AddString("image").
 				AddString("supportLevel").
+				AddString("minimumRHOAIVersion").
 				AddStruct("supportedModelFormats").
 				AddStruct("protocolVersions").
 				AddStruct("recommendedResources").
 				AddStruct("defaultArgs").
 				AddStruct("env").
-				AddString("template").
+				AddString("servingRuntimeTemplate").
+				AddString("llmInferenceServiceConfig").
 				AddBoolean("deprecated").
 				AddString("publishedDate"),
 		},
@@ -78,10 +79,10 @@ func (p *Plugin) DatastoreEntries() []plugin.DatastoreEntry {
 func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 	p.services = serving_runtimecatalog.Services{
 		ServingRuntimeRepository:        plugin.GetRepo[servingRuntimemodels.ServingRuntimeRepository](cfg.RepoSet),
-		ServingRuntimeVersionRepository: plugin.GetRepo[servingRuntimeVersionmodels.ServingRuntimeVersionRepository](cfg.RepoSet),
+		ServingRuntimeVersionRepository: plugin.GetRepo[servingRuntimemodels.ServingRuntimeVersionRepository](cfg.RepoSet),
 		CatalogSourceRepository:         plugin.GetRepo[models.CatalogSourceRepository](cfg.RepoSet),
 		PropertyOptionsRepository:       plugin.GetRepo[models.PropertyOptionsRepository](cfg.RepoSet),
-	}
+	}.WithTransactions(cfg.DB)
 
 	base := basecatalog.NewBaseLoader(cfg.ConfigPaths)
 	p.loader = serving_runtimecatalog.NewServingRuntimeLoader(p.services, base)

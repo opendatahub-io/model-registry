@@ -225,7 +225,7 @@ components:
               description: Environment variables the runtime accepts (discovery hints; no secret values).
               items:
                 $ref: "#/components/schemas/ServingRuntimeEnvVar"
-            template:
+            servingRuntimeTemplate:
               type: string
               description: >-
                 Optional full ServingRuntime (KServe v1alpha1) manifest for this
@@ -468,13 +468,13 @@ serving_runtimes:
    `artifact` entities (matching the model plugin) while still surfacing them
    inline on the detail endpoint. Confirm the dashboard prefers the `/versions`
    endpoint for pagination.
-3. **`template` string vs structured spec.** Ship the full ServingRuntime
+3. **`servingRuntimeTemplate` string vs structured spec.** Ship the full ServingRuntime
    manifest as a JSON string (like `AgentTemplateArtifact.content`) or generate it
    client-side from typed fields? A string is opaque but future-proof against CRD
    drift; typed fields are queryable.
 4. **Scope of v1alpha2 LLMInferenceService.** The RFE scopes MVP to
    InferenceService v1beta1. The schema above is CRD-version-agnostic; confirm
-   whether `protocolVersions`/`template` need to distinguish the two paths.
+   whether `protocolVersions`/`servingRuntimeTemplate` need to distinguish the two paths.
 5. **API version.** *Resolved:* the plugin ships **`v1` only** (matching the
    `skill` plugin), under `/api/serving_runtime_catalog/v1`. There is no
    `v1alpha1` surface for this catalog.
