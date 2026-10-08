@@ -18,7 +18,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Annotated, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Self
 
 from catalog_openapi.models.metadata_value import MetadataValue
@@ -42,15 +42,27 @@ class ServingRuntimeVersion(BaseModel):
     version: StrictStr = Field(description="Version string of the runtime (typically the image tag).")
     image: StrictStr = Field(description="Fully-qualified container image reference for this version. The registry host may be rewritten by the dashboard for disconnected environments (registry mirror override).")
     support_level: ServingRuntimeSupportLevel | None = Field(default=None, alias="supportLevel")
+    minimum_rhoai_version: Annotated[str, Field(strict=True)] | None = Field(default=None, description='Minimum Red Hat OpenShift AI release required to deploy this version, as a semantic version with an optional leading "v" and optional patch (e.g. "3.6", "v3.6.0-ea.1"). Returned as written; compare values with a semantic version library. Informational; the catalog does not enforce it.', alias="minimumRHOAIVersion")
     supported_model_formats: list[SupportedModelFormat] | None = Field(default=None, description="Model formats supported by this specific version.", alias="supportedModelFormats")
     protocol_versions: list[StrictStr] | None = Field(default=None, description="Inference protocols supported (maps to ServingRuntime.spec.protocolVersions).", alias="protocolVersions")
     recommended_resources: ServingRuntimeResourceRecommendation | None = Field(default=None, alias="recommendedResources")
     default_args: list[StrictStr] | None = Field(default=None, description="Default container args for the generated ServingRuntime.", alias="defaultArgs")
     env: list[ServingRuntimeEnvVar] | None = Field(default=None, description="Environment variables the runtime accepts (discovery hints; no secret values).")
-    template: StrictStr | None = Field(default=None, description="Optional full ServingRuntime (KServe v1alpha1) manifest for this version, as a JSON-encoded string, ready for review/edit before creation. If omitted, the consumer generates the manifest from the fields above.")
+    serving_runtime_template: StrictStr | None = Field(default=None, description="Optional manifest for this version, as a JSON-encoded string, ready for review/edit before creation. Either a ServingRuntime (KServe v1alpha1) or an OpenShift Template (template.openshift.io/v1) whose objects contain exactly one ServingRuntime. If omitted, the consumer generates the manifest from the fields above.", alias="servingRuntimeTemplate")
     deprecated: StrictBool | None = Field(default=False, description="Whether this version is deprecated and should be de-emphasized in the UI.")
     published_date: datetime | None = Field(default=None, description="Publication timestamp for this version/image.", alias="publishedDate")
-    __properties: ClassVar[list[str]] = ["customProperties", "description", "externalId", "name", "id", "createTimeSinceEpoch", "lastUpdateTimeSinceEpoch", "artifactType", "version", "image", "supportLevel", "supportedModelFormats", "protocolVersions", "recommendedResources", "defaultArgs", "env", "template", "deprecated", "publishedDate"]
+    llm_inference_service_config: StrictStr | None = Field(default=None, description="Full LLMInferenceServiceConfig manifest for this version, as a JSON-encoded string.", alias="llmInferenceServiceConfig")
+    __properties: ClassVar[list[str]] = ["customProperties", "description", "externalId", "name", "id", "createTimeSinceEpoch", "lastUpdateTimeSinceEpoch", "artifactType", "version", "image", "supportLevel", "minimumRHOAIVersion", "supportedModelFormats", "protocolVersions", "recommendedResources", "defaultArgs", "env", "servingRuntimeTemplate", "deprecated", "publishedDate", "llmInferenceServiceConfig"]
+
+    @field_validator("minimum_rhoai_version")
+    def minimum_rhoai_version_validate_regular_expression(cls, value):
+        """Validates the regular expression"""
+        if value is None:
+            return value
+
+        if not re.match(r"^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$", value):
+            raise ValueError(r"must validate the regular expression /^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -147,13 +159,15 @@ class ServingRuntimeVersion(BaseModel):
             "version": obj.get("version"),
             "image": obj.get("image"),
             "supportLevel": obj.get("supportLevel"),
+            "minimumRHOAIVersion": obj.get("minimumRHOAIVersion"),
             "supportedModelFormats": [SupportedModelFormat.from_dict(_item) for _item in obj["supportedModelFormats"]] if obj.get("supportedModelFormats") is not None else None,
             "protocolVersions": obj.get("protocolVersions"),
             "recommendedResources": ServingRuntimeResourceRecommendation.from_dict(obj["recommendedResources"]) if obj.get("recommendedResources") is not None else None,
             "defaultArgs": obj.get("defaultArgs"),
             "env": [ServingRuntimeEnvVar.from_dict(_item) for _item in obj["env"]] if obj.get("env") is not None else None,
-            "template": obj.get("template"),
+            "servingRuntimeTemplate": obj.get("servingRuntimeTemplate"),
             "deprecated": obj.get("deprecated") if obj.get("deprecated") is not None else False,
-            "publishedDate": obj.get("publishedDate")
+            "publishedDate": obj.get("publishedDate"),
+            "llmInferenceServiceConfig": obj.get("llmInferenceServiceConfig")
         })
         return _obj
