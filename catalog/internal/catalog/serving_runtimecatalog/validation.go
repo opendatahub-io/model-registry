@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,9 @@ const (
 	maxValidationIssues    = 100
 	maxValidationTextBytes = 16 << 10
 )
+
+// rhoaiReleasePattern matches the minimumRHOAIVersion pattern in the OpenAPI spec.
+var rhoaiReleasePattern = regexp.MustCompile(`^[0-9]+\.[0-9]+(\.[0-9]+)?$`)
 
 type runtimeValidationIssue struct {
 	runtime string
@@ -211,6 +215,9 @@ func validateRuntimeVersion(issues *runtimeValidationErrors, runtime string, ver
 		default:
 			issues.add(runtime, name, path+".supportLevel", "unsupported support level")
 		}
+	}
+	if version.MinimumRHOAIVersion != nil && !rhoaiReleasePattern.MatchString(*version.MinimumRHOAIVersion) {
+		issues.add(runtime, name, path+".minimumRHOAIVersion", "must be a release version such as 3.6")
 	}
 	validateModelFormats(issues, runtime, name, path+".supportedModelFormats", version.SupportedModelFormats)
 	if len(version.ProtocolVersions) > maxRuntimeListItems {
@@ -557,6 +564,48 @@ func validateImageReference(value string) error {
 	return nil
 }
 
+// unwrapServingRuntimeTemplate returns the ServingRuntime to validate and its
+// field path. A bare ServingRuntime is returned as is; an OpenShift Template
+// must contain exactly one ServingRuntime in its objects.
+func unwrapServingRuntimeTemplate(issues *runtimeValidationErrors, runtime, version, field, value string) (json.RawMessage, string, bool) {
+	var wrapper struct {
+		APIVersion string            `json:"apiVersion"`
+		Kind       string            `json:"kind"`
+		Objects    []json.RawMessage `json:"objects"`
+	}
+	if err := json.Unmarshal([]byte(value), &wrapper); err != nil {
+		issues.add(runtime, version, field, "must be a JSON-encoded ServingRuntime or Template object")
+		return nil, field, false
+	}
+	if wrapper.Kind != "Template" {
+		return json.RawMessage(value), field, true
+	}
+	if wrapper.APIVersion != "template.openshift.io/v1" {
+		issues.add(runtime, version, field+".apiVersion", "unsupported OpenShift Template API version")
+	}
+	var found json.RawMessage
+	foundField := field
+	count := 0
+	for i, object := range wrapper.Objects {
+		var header struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(object, &header); err != nil {
+			issues.add(runtime, version, fmt.Sprintf("%s.objects[%d]", field, i), "must be a JSON object")
+			continue
+		}
+		if header.Kind == "ServingRuntime" {
+			found, foundField = object, fmt.Sprintf("%s.objects[%d]", field, i)
+			count++
+		}
+	}
+	if count != 1 {
+		issues.add(runtime, version, field+".objects", "must contain exactly one ServingRuntime")
+		return nil, field, false
+	}
+	return found, foundField, true
+}
+
 func validateTemplate(issues *runtimeValidationErrors, runtime, version, field, value, image string, declaredEnv []openapi.ServingRuntimeEnvVar) {
 	if len(value) > maxTemplateBytes {
 		return
@@ -575,7 +624,11 @@ func validateTemplate(issues *runtimeValidationErrors, runtime, version, field, 
 			} `json:"containers"`
 		} `json:"spec"`
 	}
-	if err := json.Unmarshal([]byte(value), &document); err != nil {
+	servingRuntime, field, ok := unwrapServingRuntimeTemplate(issues, runtime, version, field, value)
+	if !ok {
+		return
+	}
+	if err := json.Unmarshal(servingRuntime, &document); err != nil {
 		issues.add(runtime, version, field, "must be a JSON-encoded ServingRuntime object")
 		return
 	}

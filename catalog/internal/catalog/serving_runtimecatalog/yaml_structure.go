@@ -44,6 +44,7 @@ func runtimeYAMLShape() *yamlShape {
 	}}
 	version := &yamlShape{kind: yamlv3.MappingNode, identity: "version", fields: map[string]*yamlShape{
 		"version": stringValue, "image": stringValue, "supportLevel": stringValue,
+		"minimumRHOAIVersion":   stringValue,
 		"supportedModelFormats": formats, "protocolVersions": stringList,
 		"recommendedResources": resources, "defaultArgs": stringList,
 		"env":                    {kind: yamlv3.SequenceNode, items: env},
