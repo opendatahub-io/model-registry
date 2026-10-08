@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v3"
 	"github.com/kubeflow/hub/catalog/internal/catalog/agentcatalog/models"
 	agentservice "github.com/kubeflow/hub/catalog/internal/catalog/agentcatalog/service"
 	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
