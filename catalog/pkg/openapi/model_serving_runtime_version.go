@@ -40,8 +40,8 @@ type ServingRuntimeVersion struct {
 	// Fully-qualified container image reference for this version. The registry host may be rewritten by the dashboard for disconnected environments (registry mirror override).
 	Image        string                      `json:"image"`
 	SupportLevel *ServingRuntimeSupportLevel `json:"supportLevel,omitempty"`
-	// Minimum Red Hat OpenShift AI release (major.minor, optionally .patch) required to deploy this version. Informational; the catalog does not enforce it.
-	MinimumRHOAIVersion *string `json:"minimumRHOAIVersion,omitempty" validate:"regexp=^[0-9]+\\\\.[0-9]+(\\\\.[0-9]+)?$"`
+	// Minimum Red Hat OpenShift AI release required to deploy this version, as a semantic version with an optional leading \"v\" and optional patch (e.g. \"3.6\", \"v3.6.0-ea.1\"). Returned as written; compare values with a semantic version library. Informational; the catalog does not enforce it.
+	MinimumRHOAIVersion *string `json:"minimumRHOAIVersion,omitempty" validate:"regexp=^v?[0-9]+\\\\.[0-9]+(\\\\.[0-9]+)?(-[0-9A-Za-z-]+(\\\\.[0-9A-Za-z-]+)*)?(\\\\+[0-9A-Za-z-]+(\\\\.[0-9A-Za-z-]+)*)?$"`
 	// Model formats supported by this specific version.
 	SupportedModelFormats []SupportedModelFormat `json:"supportedModelFormats,omitempty"`
 	// Inference protocols supported (maps to ServingRuntime.spec.protocolVersions).

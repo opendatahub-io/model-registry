@@ -32,8 +32,9 @@ const (
 	maxValidationTextBytes = 16 << 10
 )
 
-// rhoaiReleasePattern matches the minimumRHOAIVersion pattern in the OpenAPI spec.
-var rhoaiReleasePattern = regexp.MustCompile(`^[0-9]+\.[0-9]+(\.[0-9]+)?$`)
+// rhoaiReleasePattern matches the minimumRHOAIVersion pattern in the OpenAPI spec:
+// a semantic version with an optional leading v and patch, e.g. 3.6 or v3.6.0-ea.1.
+var rhoaiReleasePattern = regexp.MustCompile(`^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 
 type runtimeValidationIssue struct {
 	runtime string
@@ -217,7 +218,7 @@ func validateRuntimeVersion(issues *runtimeValidationErrors, runtime string, ver
 		}
 	}
 	if version.MinimumRHOAIVersion != nil && !rhoaiReleasePattern.MatchString(*version.MinimumRHOAIVersion) {
-		issues.add(runtime, name, path+".minimumRHOAIVersion", "must be a release version such as 3.6")
+		issues.add(runtime, name, path+".minimumRHOAIVersion", "must be a release version such as 3.6 or v3.6.0-ea.1")
 	}
 	validateModelFormats(issues, runtime, name, path+".supportedModelFormats", version.SupportedModelFormats)
 	if len(version.ProtocolVersions) > maxRuntimeListItems {

@@ -314,11 +314,13 @@ components:
               $ref: "#/components/schemas/ServingRuntimeSupportLevel"
             minimumRHOAIVersion:
               type: string
-              pattern: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+              pattern: '^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
               description: >-
-                Minimum Red Hat OpenShift AI release (major.minor, optionally
-                .patch) required to deploy this version. Informational; the
-                catalog does not enforce it.
+                Minimum Red Hat OpenShift AI release required to deploy this
+                version, as a semantic version with an optional leading "v" and
+                optional patch (e.g. "3.6", "v3.6.0-ea.1"). Returned as written;
+                compare values with a semantic version library. Informational;
+                the catalog does not enforce it.
               example: "3.6"
             supportedModelFormats:
               type: array
