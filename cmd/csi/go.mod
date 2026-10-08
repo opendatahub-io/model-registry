@@ -77,7 +77,7 @@ require (
 	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a // indirect
 	knative.dev/serving v0.48.1 // indirect
 	sigs.k8s.io/controller-runtime v0.22.4 // indirect
-	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
+	sigs.k8s.io/json v0.0.0-20260909141634-11ed52e25bc5 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
 
