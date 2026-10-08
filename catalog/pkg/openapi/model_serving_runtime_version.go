@@ -40,6 +40,8 @@ type ServingRuntimeVersion struct {
 	// Fully-qualified container image reference for this version. The registry host may be rewritten by the dashboard for disconnected environments (registry mirror override).
 	Image        string                      `json:"image"`
 	SupportLevel *ServingRuntimeSupportLevel `json:"supportLevel,omitempty"`
+	// Minimum Red Hat OpenShift AI release required to deploy this version, as a semantic version with an optional leading \"v\" and optional patch (e.g. \"3.6\", \"v3.6.0-ea.1\"). Returned as written; compare values with a semantic version library. Informational; the catalog does not enforce it.
+	MinimumRHOAIVersion *string `json:"minimumRHOAIVersion,omitempty" validate:"regexp=^v?[0-9]+\\\\.[0-9]+(\\\\.[0-9]+)?(-[0-9A-Za-z-]+(\\\\.[0-9A-Za-z-]+)*)?(\\\\+[0-9A-Za-z-]+(\\\\.[0-9A-Za-z-]+)*)?$"`
 	// Model formats supported by this specific version.
 	SupportedModelFormats []SupportedModelFormat `json:"supportedModelFormats,omitempty"`
 	// Inference protocols supported (maps to ServingRuntime.spec.protocolVersions).
@@ -49,7 +51,7 @@ type ServingRuntimeVersion struct {
 	DefaultArgs []string `json:"defaultArgs,omitempty"`
 	// Environment variables the runtime accepts (discovery hints; no secret values).
 	Env []ServingRuntimeEnvVar `json:"env,omitempty"`
-	// Optional full ServingRuntime (KServe v1alpha1) manifest for this version, as a JSON-encoded string, ready for review/edit before creation. If omitted, the consumer generates the manifest from the fields above.
+	// Optional manifest for this version, as a JSON-encoded string, ready for review/edit before creation. Either a ServingRuntime (KServe v1alpha1) or an OpenShift Template (template.openshift.io/v1) whose objects contain exactly one ServingRuntime. If omitted, the consumer generates the manifest from the fields above.
 	ServingRuntimeTemplate *string `json:"servingRuntimeTemplate,omitempty"`
 	// Whether this version is deprecated and should be de-emphasized in the UI.
 	Deprecated *bool `json:"deprecated,omitempty"`
@@ -415,6 +417,38 @@ func (o *ServingRuntimeVersion) SetSupportLevel(v ServingRuntimeSupportLevel) {
 	o.SupportLevel = &v
 }
 
+// GetMinimumRHOAIVersion returns the MinimumRHOAIVersion field value if set, zero value otherwise.
+func (o *ServingRuntimeVersion) GetMinimumRHOAIVersion() string {
+	if o == nil || IsNil(o.MinimumRHOAIVersion) {
+		var ret string
+		return ret
+	}
+	return *o.MinimumRHOAIVersion
+}
+
+// GetMinimumRHOAIVersionOk returns a tuple with the MinimumRHOAIVersion field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *ServingRuntimeVersion) GetMinimumRHOAIVersionOk() (*string, bool) {
+	if o == nil || IsNil(o.MinimumRHOAIVersion) {
+		return nil, false
+	}
+	return o.MinimumRHOAIVersion, true
+}
+
+// HasMinimumRHOAIVersion returns a boolean if a field has been set.
+func (o *ServingRuntimeVersion) HasMinimumRHOAIVersion() bool {
+	if o != nil && !IsNil(o.MinimumRHOAIVersion) {
+		return true
+	}
+
+	return false
+}
+
+// SetMinimumRHOAIVersion gets a reference to the given string and assigns it to the MinimumRHOAIVersion field.
+func (o *ServingRuntimeVersion) SetMinimumRHOAIVersion(v string) {
+	o.MinimumRHOAIVersion = &v
+}
+
 // GetSupportedModelFormats returns the SupportedModelFormats field value if set, zero value otherwise.
 func (o *ServingRuntimeVersion) GetSupportedModelFormats() []SupportedModelFormat {
 	if o == nil || IsNil(o.SupportedModelFormats) {
@@ -739,6 +773,9 @@ func (o ServingRuntimeVersion) ToMap() (map[string]interface{}, error) {
 	toSerialize["image"] = o.Image
 	if !IsNil(o.SupportLevel) {
 		toSerialize["supportLevel"] = o.SupportLevel
+	}
+	if !IsNil(o.MinimumRHOAIVersion) {
+		toSerialize["minimumRHOAIVersion"] = o.MinimumRHOAIVersion
 	}
 	if !IsNil(o.SupportedModelFormats) {
 		toSerialize["supportedModelFormats"] = o.SupportedModelFormats

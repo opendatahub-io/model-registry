@@ -45,6 +45,7 @@ func testDatastoreSpec() *datastore.Spec {
 			AddString("version").
 			AddString("image").
 			AddString("supportLevel").
+			AddString("minimumRHOAIVersion").
 			AddStruct("supportedModelFormats").
 			AddStruct("protocolVersions").
 			AddStruct("recommendedResources").

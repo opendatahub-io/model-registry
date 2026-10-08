@@ -104,7 +104,7 @@ func TestServingRuntimeValidationRejectsUnknownAndMisplacedFields(t *testing.T) 
 	for _, tc := range []struct{ name, data, field string }{
 		{"unknown version field", strings.Replace(validRuntimeYAML, "supportLevel: supported", "supportLevl: supported", 1), "supportLevl"},
 		{"wrong field capitalization", strings.Replace(validRuntimeYAML, "supportLevel: supported", "supportlevel: supported", 1), "supportlevel"},
-		{"unimplemented producer version field", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        minimumRHOAIVersion: '3.0'\n        supportLevel: supported", 1), "minimumRHOAIVersion"},
+		{"wrong minimumRHOAIVersion capitalization", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        minimumRhoaiVersion: '3.0'\n        supportLevel: supported", 1), "minimumRhoaiVersion"},
 		{"misplaced version field", strings.Replace(validRuntimeYAML, "    license: apache-2.0", "    image: registry.example.com/vllm:1\n    license: apache-2.0", 1), "image"},
 		{"duplicate key", strings.Replace(validRuntimeYAML, "    license: apache-2.0", "    license: apache-2.0\n    license: mit", 1), "license"},
 		{"unknown custom property field", strings.Replace(validRuntimeYAML, "string_value: team", "string_value: team, extra: ignored", 1), "customProperties"},
@@ -161,6 +161,11 @@ func TestServingRuntimeValidationFields(t *testing.T) {
 		{"overflowing custom property", strings.Replace(validRuntimeYAML, "owner: {metadataType: MetadataStringValue, string_value: team}", "priority: {metadataType: MetadataIntValue, int_value: '3000000000'}", 1), "int_value"},
 		{"bad template version", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '{\"apiVersion\":\"serving.kserve.io/v1beta1\",\"kind\":\"ServingRuntime\",\"spec\":{\"containers\":[{\"image\":\"registry.example.com/vllm:1\"}]}}'\n        supportLevel: supported", 1), "servingRuntimeTemplate.apiVersion"},
 		{"template literal secret", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '{\"apiVersion\":\"serving.kserve.io/v1alpha1\",\"kind\":\"ServingRuntime\",\"spec\":{\"containers\":[{\"name\":\"runtime\",\"image\":\"registry.example.com/vllm:1\",\"env\":[{\"name\":\"HF_TOKEN\",\"value\":\"unsafe-literal\"}]}]}}'\n        supportLevel: supported", 1), "env[0].value"},
+		{"bad minimumRHOAIVersion", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        minimumRHOAIVersion: latest\n        supportLevel: supported", 1), "minimumRHOAIVersion"},
+		{"template wrapper without runtime", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '{\"apiVersion\":\"template.openshift.io/v1\",\"kind\":\"Template\",\"objects\":[{\"apiVersion\":\"v1\",\"kind\":\"ConfigMap\"}]}'\n        supportLevel: supported", 1), "servingRuntimeTemplate.objects"},
+		{"template wrapper with two runtimes", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '{\"apiVersion\":\"template.openshift.io/v1\",\"kind\":\"Template\",\"objects\":[{\"kind\":\"ServingRuntime\"},{\"kind\":\"ServingRuntime\"}]}'\n        supportLevel: supported", 1), "exactly one ServingRuntime"},
+		{"template wrapper bad API version", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '{\"apiVersion\":\"template.openshift.io/v2\",\"kind\":\"Template\",\"objects\":[{\"apiVersion\":\"serving.kserve.io/v1alpha1\",\"kind\":\"ServingRuntime\",\"spec\":{\"containers\":[{\"name\":\"runtime\",\"image\":\"registry.example.com/vllm:1\"}]}}]}'\n        supportLevel: supported", 1), "servingRuntimeTemplate.apiVersion"},
+		{"template wrapper image mismatch", strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '{\"apiVersion\":\"template.openshift.io/v1\",\"kind\":\"Template\",\"objects\":[{\"apiVersion\":\"serving.kserve.io/v1alpha1\",\"kind\":\"ServingRuntime\",\"spec\":{\"containers\":[{\"name\":\"runtime\",\"image\":\"registry.example.com/other:1\"}]}}]}'\n        supportLevel: supported", 1), "servingRuntimeTemplate.objects[0].spec.containers"},
 		{"version format absent from family", strings.Replace(strings.Replace(validRuntimeYAML, "    license: apache-2.0", "    supportedModelFormats: [{name: safetensors}]\n    license: apache-2.0", 1), "        supportLevel: supported", "        supportedModelFormats: [{name: onnx}]\n        supportLevel: supported", 1), "not listed by the runtime family"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -251,6 +256,39 @@ func TestServingRuntimeValidationAcceptsTemplateJSON(t *testing.T) {
 	data = "source: producer-label\n" + data
 	_, err := parseServingRuntimesYAML([]byte(data))
 	require.NoError(t, err)
+}
+
+func TestServingRuntimeValidationAcceptsOpenShiftTemplateWrapper(t *testing.T) {
+	template := `{"apiVersion":"template.openshift.io/v1","kind":"Template","metadata":{"name":"vllm-template"},"objects":[{"apiVersion":"serving.kserve.io/v1alpha1","kind":"ServingRuntime","metadata":{"name":"vllm"},"spec":{"containers":[{"name":"kserve-container","image":"registry.example.com/vllm:1"}]}}],"parameters":[]}`
+	data := strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        servingRuntimeTemplate: '"+template+"'\n        supportLevel: supported", 1)
+	entries, err := parseServingRuntimesYAML([]byte(data))
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.NotNil(t, entries[0].Versions[0].ServingRuntimeTemplate)
+	assert.JSONEq(t, template, *entries[0].Versions[0].ServingRuntimeTemplate, "the wrapper is stored unchanged")
+}
+
+func TestServingRuntimeValidationAcceptsMinimumRHOAIVersion(t *testing.T) {
+	for _, value := range []string{"3.6", "3.6.1", "10.0", "v3.6", "3.6.0-ea.1", "v3.6.0-ea.1-1788535633", "3.6.0+rhaiv.8"} {
+		t.Run(value, func(t *testing.T) {
+			data := strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        minimumRHOAIVersion: '"+value+"'\n        supportLevel: supported", 1)
+			entries, err := parseServingRuntimesYAML([]byte(data))
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			require.NotNil(t, entries[0].Versions[0].MinimumRHOAIVersion)
+			assert.Equal(t, value, *entries[0].Versions[0].MinimumRHOAIVersion)
+		})
+	}
+}
+
+func TestServingRuntimeValidationRejectsMalformedMinimumRHOAIVersion(t *testing.T) {
+	for _, value := range []string{"3", "3.x", "rhoai-3.6", "3.6.0.1", "3.6-", "3.6+", "3.6-ea..1", "V3.6"} {
+		t.Run(value, func(t *testing.T) {
+			data := strings.Replace(validRuntimeYAML, "        supportLevel: supported", "        minimumRHOAIVersion: '"+value+"'\n        supportLevel: supported", 1)
+			_, err := parseServingRuntimesYAML([]byte(data))
+			require.ErrorContains(t, err, "minimumRHOAIVersion")
+		})
+	}
 }
 
 func TestServingRuntimeTemplateSecretNameDetection(t *testing.T) {

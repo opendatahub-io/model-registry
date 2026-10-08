@@ -433,6 +433,8 @@ func mapDBServingRuntimeVersionToAPI(m models.ServingRuntimeVersion) (openapi.Se
 					}
 					res.Env = env
 				}
+			case "minimumRHOAIVersion":
+				res.MinimumRHOAIVersion = prop.StringValue
 			case "servingRuntimeTemplate":
 				res.ServingRuntimeTemplate = prop.StringValue
 			case "llmInferenceServiceConfig":

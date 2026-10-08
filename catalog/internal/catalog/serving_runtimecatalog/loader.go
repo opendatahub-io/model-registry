@@ -367,6 +367,7 @@ func (l *ServingRuntimeLoader) buildServingRuntimeVersionEntity(sourceID, runtim
 	if version.SupportLevel != nil {
 		properties = append(properties, mrmodels.NewStringProperty("supportLevel", *version.SupportLevel, false))
 	}
+	addString("minimumRHOAIVersion", version.MinimumRHOAIVersion)
 	addString("servingRuntimeTemplate", version.ServingRuntimeTemplate)
 	addString("llmInferenceServiceConfig", version.LlmInferenceServiceConfig)
 	addString("publishedDate", version.PublishedDate)

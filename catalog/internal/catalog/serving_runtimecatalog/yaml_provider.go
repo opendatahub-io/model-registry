@@ -44,6 +44,7 @@ type yamlServingRuntimeVersion struct {
 	Version                   string                                        `yaml:"version" json:"version"`
 	Image                     string                                        `yaml:"image" json:"image"`
 	SupportLevel              *string                                       `yaml:"supportLevel,omitempty" json:"supportLevel,omitempty"`
+	MinimumRHOAIVersion       *string                                       `yaml:"minimumRHOAIVersion,omitempty" json:"minimumRHOAIVersion,omitempty"`
 	SupportedModelFormats     []openapi.SupportedModelFormat                `yaml:"supportedModelFormats,omitempty" json:"supportedModelFormats,omitempty"`
 	ProtocolVersions          []string                                      `yaml:"protocolVersions,omitempty" json:"protocolVersions,omitempty"`
 	RecommendedResources      *openapi.ServingRuntimeResourceRecommendation `yaml:"recommendedResources,omitempty" json:"recommendedResources,omitempty"`

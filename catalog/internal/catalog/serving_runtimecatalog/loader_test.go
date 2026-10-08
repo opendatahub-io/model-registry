@@ -125,7 +125,7 @@ func TestServingRuntimeVersionTemplatesRoundTrip(t *testing.T) {
 	configPath := filepath.Join(dir, "sources.yaml")
 	template := `{"apiVersion":"serving.kserve.io/v1alpha1","kind":"ServingRuntime","spec":{"containers":[{"name":"runtime","image":"registry.example.com/example:v1"}]}}`
 	writeRuntimeFile(t, configPath, "serving_runtime_catalogs:\n  - {id: first, type: yaml, properties: {yamlCatalogPath: runtimes.yaml}}\n")
-	writeRuntimeFile(t, dataPath, fmt.Sprintf("serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: registry.example.com/example:v1\n        servingRuntimeTemplate: '%s'\n        llmInferenceServiceConfig: '{\"apiVersion\":\"serving.kserve.io/v1alpha1\"}'\n", template))
+	writeRuntimeFile(t, dataPath, fmt.Sprintf("serving_runtimes:\n  - name: vllm\n    versions:\n      - version: '1'\n        image: registry.example.com/example:v1\n        minimumRHOAIVersion: '3.6'\n        servingRuntimeTemplate: '%s'\n        llmInferenceServiceConfig: '{\"apiVersion\":\"serving.kserve.io/v1alpha1\"}'\n", template))
 	state := basecatalog.NewBaseLoader([]string{configPath})
 	loader := NewServingRuntimeLoader(services, state)
 	require.NoError(t, loader.ParseAllConfigs())
@@ -145,6 +145,7 @@ func TestServingRuntimeVersionTemplatesRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &response))
 	assert.Equal(t, template, response["servingRuntimeTemplate"])
 	assert.Equal(t, `{"apiVersion":"serving.kserve.io/v1alpha1"}`, response["llmInferenceServiceConfig"])
+	assert.Equal(t, "3.6", response["minimumRHOAIVersion"])
 	assert.NotContains(t, response, "template")
 }
 

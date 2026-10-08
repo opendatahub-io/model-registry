@@ -42,6 +42,7 @@ var servingRuntimeVersionProperties = map[string]filter.PropertyDefinition{
 	"version":                   {Location: filter.PropertyTable, ValueType: filter.StringValueType, Column: "version"},
 	"image":                     {Location: filter.PropertyTable, ValueType: filter.StringValueType, Column: "image"},
 	"supportLevel":              {Location: filter.PropertyTable, ValueType: filter.StringValueType, Column: "supportLevel"},
+	"minimumRHOAIVersion":       {Location: filter.PropertyTable, ValueType: filter.StringValueType, Column: "minimumRHOAIVersion"},
 	"supportedModelFormats":     {Location: filter.PropertyTable, ValueType: filter.ArrayValueType, Column: "supportedModelFormats"},
 	"protocolVersions":          {Location: filter.PropertyTable, ValueType: filter.ArrayValueType, Column: "protocolVersions"},
 	"recommendedResources":      {Location: filter.PropertyTable, ValueType: filter.StringValueType, Column: "recommendedResources"},
