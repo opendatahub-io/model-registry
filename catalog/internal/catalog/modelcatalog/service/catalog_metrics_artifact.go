@@ -13,6 +13,7 @@ import (
 	"github.com/kubeflow/hub/internal/platform/db/schema"
 	"github.com/kubeflow/hub/internal/platform/db/utils"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Register the mapping function for CatalogMetricsArtifact
@@ -95,10 +96,8 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 
 	config := r.GetConfig()
 
-	// Pre-allocate schema artifacts slice
-	schemaArtifacts := make([]schema.Artifact, numArtifacts)
-
 	// Validate, prepare, and convert all artifacts in one pass
+	allSchemaArtifacts := make([]schema.Artifact, numArtifacts)
 	for i, ma := range artifacts {
 		if ma.GetTypeID() == nil {
 			if config.TypeID > 0 && config.TypeID < math.MaxInt32 {
@@ -118,35 +117,71 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 			return nil, fmt.Errorf("invalid artifact at index %d: unknown metrics type: %s", i, attr.MetricsType)
 		}
 
-		schemaArtifacts[i] = mapCatalogMetricsArtifactToArtifact(ma)
+		allSchemaArtifacts[i] = mapCatalogMetricsArtifactToArtifact(ma)
 		artifacts[i] = ma
 	}
 
-	// Execute all batch operations in a single transaction
+	// Deduplicate by external_id before insertion: PostgreSQL rejects
+	// ON CONFLICT DO UPDATE when the same row would be affected twice
+	// within a single INSERT.  Keep a map from external_id to the index
+	// in the deduplicated slice so we can propagate IDs back to every
+	// original input that shares the same external_id.
+	externalIDIndex := make(map[string]int, numArtifacts)
+	uniqueArtifacts := make([]schema.Artifact, 0, numArtifacts)
+	inputToUnique := make([]int, numArtifacts) // maps each input index -> index in uniqueArtifacts
+
+	for i, sa := range allSchemaArtifacts {
+		if sa.ExternalID != nil {
+			key := *sa.ExternalID
+			if idx, exists := externalIDIndex[key]; exists {
+				inputToUnique[i] = idx
+				continue
+			}
+			inputToUnique[i] = len(uniqueArtifacts)
+			externalIDIndex[key] = inputToUnique[i]
+			uniqueArtifacts = append(uniqueArtifacts, sa)
+		} else {
+			inputToUnique[i] = len(uniqueArtifacts)
+			uniqueArtifacts = append(uniqueArtifacts, sa)
+		}
+	}
+
+	// Execute all batch operations in a single transaction.
+	// Use upsert (ON CONFLICT) semantics so that duplicate artifacts
+	// (e.g. when the same model appears in multiple catalog sources)
+	// are handled gracefully instead of failing with a unique-constraint
+	// violation.
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
-		// Batch insert artifacts (batch size of 100)
-		if err := tx.CreateInBatches(&schemaArtifacts, 100).Error; err != nil {
+		// Batch upsert artifacts: on external_id conflict, update
+		// last_update_time_since_epoch so the RETURNING clause still
+		// yields the existing row's ID.
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "external_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"last_update_time_since_epoch"}),
+		}).CreateInBatches(&uniqueArtifacts, 100).Error; err != nil {
 			return fmt.Errorf("failed to batch insert artifacts: %w", err)
 		}
 
+		// Propagate IDs from deduplicated results back to every input
+		for i := range allSchemaArtifacts {
+			allSchemaArtifacts[i].ID = uniqueArtifacts[inputToUnique[i]].ID
+		}
+
 		// Pre-allocate slices for properties and attributions
-		// Estimate ~10 properties per artifact on average
 		allProperties := []schema.ArtifactProperty{}
 		var allAttributions []schema.Attribution
 		if parentResourceID != nil {
 			allAttributions = make([]schema.Attribution, 0, numArtifacts)
 		}
 
-		// Collect all properties and attributions
-		for i, schemaArtifact := range schemaArtifacts {
+		// Collect properties and attributions from ALL original inputs
+		for i, schemaArtifact := range allSchemaArtifacts {
 			artifactID := schemaArtifact.ID
 			artifacts[i].SetID(artifactID)
 
-			// Collect properties
 			properties := mapCatalogMetricsArtifactToArtifactProperties(artifacts[i], artifactID)
 			allProperties = append(allProperties, properties...)
 
-			// Collect attribution if parentResourceID is provided
 			if parentResourceID != nil {
 				allAttributions = append(allAttributions, schema.Attribution{
 					ContextID:  *parentResourceID,
@@ -155,16 +190,18 @@ func (r *CatalogMetricsArtifactRepositoryImpl) BatchSave(artifacts []models.Cata
 			}
 		}
 
-		// Batch insert all properties
+		// Batch upsert properties: skip duplicates (data is identical
+		// when the same metrics are loaded for a second catalog source).
 		if len(allProperties) > 0 {
-			if err := tx.CreateInBatches(&allProperties, 100).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&allProperties, 100).Error; err != nil {
 				return fmt.Errorf("failed to batch insert properties: %w", err)
 			}
 		}
 
-		// Batch insert all attributions
+		// Batch upsert attributions: skip duplicates when the same
+		// artifact is already linked to this parent model.
 		if len(allAttributions) > 0 {
-			if err := tx.CreateInBatches(&allAttributions, 100).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&allAttributions, 100).Error; err != nil {
 				return fmt.Errorf("failed to batch insert attributions: %w", err)
 			}
 		}
