@@ -1,6 +1,6 @@
 module github.com/kubeflow/hub/cmd/csi
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/kserve/kserve v0.17.0-rc1
@@ -63,7 +63,7 @@ require (
 	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/api v0.264.0 // indirect
 	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
