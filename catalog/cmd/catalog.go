@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/kubeflow/hub/catalog/internal/activation"
 	"github.com/kubeflow/hub/catalog/internal/db/service"
 	"github.com/kubeflow/hub/catalog/internal/leader"
 	"github.com/kubeflow/hub/catalog/internal/plugin"
@@ -24,16 +25,18 @@ import (
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/agent"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/mcp"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/model"
-	_ "github.com/kubeflow/hub/catalog/internal/plugins/skill"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/serving_runtime"
+	_ "github.com/kubeflow/hub/catalog/internal/plugins/skill"
 )
 
 var catalogCfg = struct {
-	ListenAddress          string
-	ConfigPath             []string
-	PerformanceMetricsPath []string
-	CORSAllowedOrigins     []string
-	AlphaSunsetDate        string
+	ListenAddress             string
+	ConfigPath                []string
+	PerformanceMetricsPath    []string
+	RequiredConfigPath        []string
+	RequirePerformanceMetrics bool
+	CORSAllowedOrigins        []string
+	AlphaSunsetDate           string
 }{
 	ListenAddress:          "0.0.0.0:8080",
 	ConfigPath:             []string{"sources.yaml"},
@@ -107,6 +110,8 @@ func init() {
 	fs.StringVarP(&catalogCfg.ListenAddress, "listen", "l", catalogCfg.ListenAddress, "Address to listen on")
 	fs.StringSliceVar(&catalogCfg.ConfigPath, "catalogs-path", catalogCfg.ConfigPath, "Path to catalog source configuration file")
 	fs.StringSliceVar(&catalogCfg.PerformanceMetricsPath, "performance-metrics", catalogCfg.PerformanceMetricsPath, "Path to performance metrics data directory")
+	fs.StringSliceVar(&catalogCfg.RequiredConfigPath, "required-catalogs-path", nil, "Source configurations whose shipped YAML content must validate before ingestion")
+	fs.BoolVar(&catalogCfg.RequirePerformanceMetrics, "require-performance-metrics", false, "Reject missing or malformed required benchmark content before ingestion")
 	fs.StringSliceVar(&catalogCfg.CORSAllowedOrigins, "cors-allowed-origins", nil,
 		"Comma-separated list of allowed CORS origins. If empty (default), CORS is disabled. Can also be set via CATALOG_CORS_ALLOWED_ORIGINS environment variable.")
 	fs.StringVar(&catalogCfg.AlphaSunsetDate, "alpha-sunset-date", "",
@@ -153,6 +158,13 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 		}
 		alphaSunsetDate = &parsed
 		glog.Infof("Alpha API (v1alpha1) deprecation headers enabled; sunset date: %s", catalogCfg.AlphaSunsetDate)
+	}
+
+	if failure := activation.Preflight(catalogCfg.RequiredConfigPath, catalogCfg.PerformanceMetricsPath, catalogCfg.RequirePerformanceMetrics); failure != nil {
+		if err := failure.WriteTerminationMessage(os.Getenv("CATALOG_ACTIVATION_FAILURE_PATH")); err != nil {
+			return errors.Join(failure, fmt.Errorf("writing activation failure: %w", err))
+		}
+		return failure
 	}
 
 	spec, err := service.DatastoreSpec()
