@@ -452,6 +452,16 @@ func newYamlModelProvider(ctx context.Context, source *basecatalog.ModelSource, 
 		p.path = filepath.Join(reldir, path)
 	}
 
+	filter, err := yamlModelFilter(source)
+	if err != nil {
+		return nil, err
+	}
+	p.filter = filter
+
+	return p.Models(ctx)
+}
+
+func yamlModelFilter(source *basecatalog.ModelSource) (*ModelFilter, error) {
 	var legacyExcluded []string
 	if raw, exists := source.Properties[excludedModelsKey]; exists {
 		values, ok := raw.([]any)
@@ -473,7 +483,5 @@ func newYamlModelProvider(ctx context.Context, source *basecatalog.ModelSource, 
 	if err != nil {
 		return nil, err
 	}
-	p.filter = filter
-
-	return p.Models(ctx)
+	return filter, nil
 }

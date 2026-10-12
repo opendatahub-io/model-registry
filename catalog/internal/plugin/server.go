@@ -40,6 +40,7 @@ func (s *swappableHandler) Store(h http.Handler) {
 type ServerConfig struct {
 	DB                     *gorm.DB
 	ConfigPaths            []string
+	PreloadedOrigins       []string
 	PerformanceMetricsPath []string
 	RepoSet                datastore.RepoSet
 	Logger                 *slog.Logger
@@ -99,6 +100,7 @@ func (s *Server) Init(ctx context.Context) error {
 			DB:                     s.cfg.DB,
 			BasePath:               basePath,
 			ConfigPaths:            s.cfg.ConfigPaths,
+			PreloadedOrigins:       s.cfg.PreloadedOrigins,
 			RepoSet:                s.cfg.RepoSet,
 			PerformanceMetricsPath: s.cfg.PerformanceMetricsPath,
 			Logger:                 s.cfg.Logger.With("plugin", p.Name()),
@@ -252,6 +254,7 @@ func (s *Server) Reconnect(ctx context.Context, repoSet datastore.RepoSet) error
 			DB:                     s.cfg.DB,
 			BasePath:               computeBasePath(p),
 			ConfigPaths:            s.cfg.ConfigPaths,
+			PreloadedOrigins:       s.cfg.PreloadedOrigins,
 			RepoSet:                repoSet,
 			PerformanceMetricsPath: s.cfg.PerformanceMetricsPath,
 			Logger:                 s.cfg.Logger.With("plugin", p.Name()),

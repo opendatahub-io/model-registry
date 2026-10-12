@@ -389,6 +389,9 @@ func (l *ModelLoader) readProviderRecords(ctx context.Context) <-chan ModelProvi
 	mergedSources := l.Sources.AllSources()
 
 	for _, source := range mergedSources {
+		if basecatalog.SourcePreloaded(l.state, source.Origin) {
+			continue
+		}
 		// Skip disabled sources - only load catalog data from enabled sources
 		// Per OpenAPI spec, enabled defaults to true, so nil is treated as enabled
 		if source.Enabled != nil && !*source.Enabled {

@@ -30,6 +30,12 @@ func TestPreflightRejectsEntireRequiredCandidate(t *testing.T) {
 		{"mcp syntax", "mcp_catalogs", "mcp_servers: ["},
 		{"mcp null", "mcp_catalogs", "mcp_servers: [null]"},
 		{"mcp shape", "mcp_catalogs", "models: []"},
+		{"mcp remote without endpoint", "mcp_catalogs", "mcp_servers:\n- name: valid\n- name: invalid\n  deploymentMode: remote\n"},
+		{"mcp invalid artifact", "mcp_catalogs", "mcp_servers:\n- name: valid\n- name: invalid\n  artifacts:\n  - uri: missing-scheme\n"},
+		{"mcp invalid endpoint", "mcp_catalogs", "mcp_servers:\n- name: valid\n- name: invalid\n  endpoints:\n    http: ftp://example.com\n"},
+		{"mcp null tool", "mcp_catalogs", "mcp_servers:\n- name: invalid\n  tools: [null]\n"},
+		{"mcp duplicate version", "mcp_catalogs", "mcp_servers:\n- name: duplicate\n  version: '1.0'\n- name: ' duplicate '\n  version: '1.0'\n"},
+		{"mcp invalid identity", "mcp_catalogs", "mcp_servers:\n- name: invalid@name\n"},
 		{"agent syntax", "agent_catalogs", "agents: ["},
 		{"agent unnamed", "agent_catalogs", "agents:\n- description: unnamed\n"},
 		{"runtime shape", "serving_runtime_catalogs", "models: []"},
@@ -49,6 +55,14 @@ func TestPreflightRejectsEntireRequiredCandidate(t *testing.T) {
 			require.Contains(t, failure.Message, "bad")
 		})
 	}
+}
+
+func TestRequiredMCPVersions(t *testing.T) {
+	root := t.TempDir()
+	config := filepath.Join(root, "sources.yaml")
+	writeFile(t, config, "mcp_catalogs:\n- id: required\n  type: yaml\n  properties:\n    yamlCatalogPath: mcp.yaml\n")
+	writeFile(t, filepath.Join(root, "mcp.yaml"), "mcp_servers:\n- name: example\n  version: '1.0.0'\n- name: example\n  version: '2.0.0'\n")
+	require.Nil(t, Preflight([]string{config}, nil, false))
 }
 
 func TestPreflightPreservesAdministratorFilesAndRecovers(t *testing.T) {

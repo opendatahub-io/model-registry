@@ -39,8 +39,11 @@ type HTTPClient struct {
 }
 
 type ErrorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Stage     string `json:"stage,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	AttemptID string `json:"attemptID,omitempty"`
 }
 
 type HTTPError struct {

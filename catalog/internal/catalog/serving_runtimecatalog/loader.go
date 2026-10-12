@@ -77,6 +77,9 @@ func (l *ServingRuntimeLoader) PerformLeaderOperations(ctx context.Context, allK
 	allSources := l.Sources.AllSources()
 
 	for id, source := range allSources {
+		if basecatalog.SourcePreloaded(l.state, source.Origin) {
+			continue
+		}
 		if !source.IsEnabled() {
 			basecatalog.SaveSourceStatus(l.services.CatalogSourceRepository, id, basecatalog.SourceStatusDisabled, "")
 			continue

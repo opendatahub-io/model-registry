@@ -131,7 +131,8 @@ type Config struct {
 	BasePath string
 
 	// ConfigPaths are the paths to all sources.yaml files being used.
-	ConfigPaths []string
+	ConfigPaths      []string
+	PreloadedOrigins []string
 
 	// RepoSet is the shared set of repositories from the datastore.
 	RepoSet datastore.RepoSet

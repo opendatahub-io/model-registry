@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/kubeflow/hub/ui/bff/internal/integrations/httpclient"
 )
@@ -92,6 +94,17 @@ func (app *App) errorResponse(w http.ResponseWriter, r *http.Request, error *htt
 }
 
 func (app *App) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	// Preserve the catalog serving gate's actionable error through repository
+	// wrapping. The shared catalog views display this message instead of data.
+	var upstream *httpclient.HTTPError
+	if errors.As(err, &upstream) && upstream.StatusCode == http.StatusServiceUnavailable && (upstream.Code == "CatalogUnavailable" || strings.Contains(r.URL.Path, "catalog")) {
+		if upstream.Code != "CatalogUnavailable" {
+			upstream = &httpclient.HTTPError{StatusCode: http.StatusServiceUnavailable, ErrorResponse: httpclient.ErrorResponse{Code: "CatalogUnavailable", Stage: "Activation", Reason: "BackendUnavailable", Message: "The catalog is unavailable. Ask an administrator to check Catalog status and correct the selected images or retry activation."}}
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		app.errorResponse(w, r, upstream)
+		return
+	}
 	app.LogError(r, err)
 
 	httpError := &httpclient.HTTPError{

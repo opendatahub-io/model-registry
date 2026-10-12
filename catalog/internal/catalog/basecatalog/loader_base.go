@@ -3,6 +3,7 @@ package basecatalog
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -25,7 +26,8 @@ type LoaderState interface {
 // BaseLoader provides common functionality for all catalog loaders.
 // It manages leader state, inflight write tracking, file watchers, and lifecycle operations.
 type BaseLoader struct {
-	paths []string
+	paths            []string
+	preloadedOrigins map[string]bool
 
 	// Leader state management
 	leaderMu sync.RWMutex
@@ -147,4 +149,25 @@ func (bl *BaseLoader) SetCloser(closer func()) {
 // Paths returns the configuration file paths
 func (bl *BaseLoader) Paths() []string {
 	return bl.paths
+}
+
+// SetPreloadedOrigins records immutable sources imported by activation. Their
+// definitions remain visible, while asynchronous loaders only write user data.
+func (bl *BaseLoader) SetPreloadedOrigins(paths []string) {
+	bl.preloadedOrigins = make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if abs, err := filepath.Abs(path); err == nil {
+			bl.preloadedOrigins[abs] = true
+		}
+	}
+}
+func (bl *BaseLoader) SourcePreloaded(origin string) bool {
+	abs, err := filepath.Abs(origin)
+	return err == nil && bl.preloadedOrigins[abs]
+}
+
+// SourcePreloaded keeps test/custom LoaderState implementations compatible.
+func SourcePreloaded(state LoaderState, origin string) bool {
+	preloaded, ok := state.(interface{ SourcePreloaded(string) bool })
+	return ok && preloaded.SourcePreloaded(origin)
 }
