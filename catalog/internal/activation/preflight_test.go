@@ -23,6 +23,10 @@ func TestPreflightRejectsEntireRequiredCandidate(t *testing.T) {
 		{"model shape", "model_catalogs", "not_models: []"},
 		{"model missing name", "model_catalogs", "models:\n- description: unnamed\n"},
 		{"duplicate models", "model_catalogs", "models:\n- name: a\n- name: a\n"},
+		{"model artifact missing URI", "model_catalogs", "models:\n- name: a\n  artifacts:\n  - uri: ''\n"},
+		{"model artifact missing scheme", "model_catalogs", "models:\n- name: a\n  artifacts:\n  - uri: missing-scheme\n"},
+		{"model artifact unsupported scheme", "model_catalogs", "models:\n- name: a\n  artifacts:\n  - uri: ftp://example.com/model\n"},
+		{"model artifact malformed URI", "model_catalogs", "models:\n- name: a\n  artifacts:\n  - uri: 'https://example.com/%zz'\n"},
 		{"mcp syntax", "mcp_catalogs", "mcp_servers: ["},
 		{"mcp null", "mcp_catalogs", "mcp_servers: [null]"},
 		{"mcp shape", "mcp_catalogs", "models: []"},
@@ -65,6 +69,18 @@ func TestPreflightPreservesAdministratorFilesAndRecovers(t *testing.T) {
 	// Explicitly empty lists are permitted; missing lists are not.
 	writeFile(t, shipped, "models: []\n")
 	require.Nil(t, Preflight([]string{config}, nil, false))
+}
+
+func TestRequiredArtifactURIs(t *testing.T) {
+	for _, uri := range []string{"oci://registry.example/model:latest", "http://example.com/model", "https://example.com/model", "s3://bucket/model", "gs://bucket/model", "az://container/model", "file:///models/model"} {
+		t.Run(uri, func(t *testing.T) {
+			root := t.TempDir()
+			config := filepath.Join(root, "sources.yaml")
+			writeFile(t, config, "model_catalogs:\n- id: required\n  type: yaml\n  properties:\n    yamlCatalogPath: models.yaml\n")
+			writeFile(t, filepath.Join(root, "models.yaml"), "models:\n- name: valid\n  artifacts:\n  - uri: "+uri+"\n")
+			require.Nil(t, Preflight([]string{config}, nil, false))
+		})
+	}
 }
 
 func TestPreflightValidPluginBundle(t *testing.T) {

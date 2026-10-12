@@ -26,6 +26,10 @@ shape, and basic entity identity errors reject the candidate. Empty explicitly
 declared collections remain valid. Required remote/skill sources are not
 supported by this first pass.
 
+Model artifacts also use ingestion's URI validation: missing URIs, malformed
+URLs, and missing or unsupported schemes reject the whole required candidate
+before database initialization. This does not change administrator-source policy.
+
 With required benchmarks enabled, every configured benchmark root must exist
 and contain model metadata. All known metadata and NDJSON files are validated,
 including files for models that are not currently selected by a Catalog source.

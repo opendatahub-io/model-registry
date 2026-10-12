@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kubeflow/hub/catalog/internal/catalog/basecatalog"
 )
 
 // ValidateRequiredYAML validates shipped data without invoking providers or
@@ -30,6 +32,11 @@ func ValidateRequiredYAML(path string) error {
 		for j, artifact := range model.Artifacts {
 			if artifact == nil {
 				return fmt.Errorf("%s: model %s artifact %d is null", path, model.Name, j)
+			}
+			if artifact.CatalogModelArtifact != nil {
+				if err := basecatalog.ValidateArtifactURI(artifact.CatalogModelArtifact.Uri); err != nil {
+					return fmt.Errorf("%s: model %s artifact %d: %w", path, model.Name, j, err)
+				}
 			}
 		}
 	}
