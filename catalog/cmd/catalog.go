@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/kubeflow/hub/catalog/internal/activation"
 	"github.com/kubeflow/hub/catalog/internal/db/service"
 	"github.com/kubeflow/hub/catalog/internal/leader"
 	"github.com/kubeflow/hub/catalog/internal/plugin"
@@ -21,23 +20,20 @@ import (
 	"github.com/kubeflow/hub/internal/platform/server/middleware"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"gorm.io/gorm"
 
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/agent"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/mcp"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/model"
-	_ "github.com/kubeflow/hub/catalog/internal/plugins/serving_runtime"
 	_ "github.com/kubeflow/hub/catalog/internal/plugins/skill"
+	_ "github.com/kubeflow/hub/catalog/internal/plugins/serving_runtime"
 )
 
 var catalogCfg = struct {
-	ListenAddress             string
-	ConfigPath                []string
-	PerformanceMetricsPath    []string
-	RequiredConfigPath        []string
-	RequirePerformanceMetrics bool
-	CORSAllowedOrigins        []string
-	AlphaSunsetDate           string
+	ListenAddress          string
+	ConfigPath             []string
+	PerformanceMetricsPath []string
+	CORSAllowedOrigins     []string
+	AlphaSunsetDate        string
 }{
 	ListenAddress:          "0.0.0.0:8080",
 	ConfigPath:             []string{"sources.yaml"},
@@ -111,8 +107,6 @@ func init() {
 	fs.StringVarP(&catalogCfg.ListenAddress, "listen", "l", catalogCfg.ListenAddress, "Address to listen on")
 	fs.StringSliceVar(&catalogCfg.ConfigPath, "catalogs-path", catalogCfg.ConfigPath, "Path to catalog source configuration file")
 	fs.StringSliceVar(&catalogCfg.PerformanceMetricsPath, "performance-metrics", catalogCfg.PerformanceMetricsPath, "Path to performance metrics data directory")
-	fs.StringSliceVar(&catalogCfg.RequiredConfigPath, "required-catalogs-path", nil, "Source configurations whose shipped YAML content must validate before ingestion")
-	fs.BoolVar(&catalogCfg.RequirePerformanceMetrics, "require-performance-metrics", false, "Reject missing or malformed required benchmark content before ingestion")
 	fs.StringSliceVar(&catalogCfg.CORSAllowedOrigins, "cors-allowed-origins", nil,
 		"Comma-separated list of allowed CORS origins. If empty (default), CORS is disabled. Can also be set via CATALOG_CORS_ALLOWED_ORIGINS environment variable.")
 	fs.StringVar(&catalogCfg.AlphaSunsetDate, "alpha-sunset-date", "",
@@ -161,37 +155,6 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 		glog.Infof("Alpha API (v1alpha1) deprecation headers enabled; sunset date: %s", catalogCfg.AlphaSunsetDate)
 	}
 
-	control, err := activation.ControlFromEnvironment()
-	if err != nil {
-		return err
-	}
-	if control != nil && control.Identity.Validate() != nil {
-		// Pull-only bootstrap: the operator replaces this pod after resolving
-		// tagged release references from completed init containers.
-		<-ctx.Done()
-		return nil
-	}
-	reportFailure := func(failure *activation.Failure) error {
-		// A normal rollout/shutdown is not evidence of invalid image content.
-		if signalCtx.Err() != nil {
-			return nil
-		}
-		if control != nil {
-			reportCtx, cancelReport := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancelReport()
-			if err := control.Report(reportCtx, failure); err != nil {
-				glog.Errorf("reporting activation failure: %v", err)
-			}
-		}
-		if err := failure.WriteTerminationMessage(os.Getenv("CATALOG_ACTIVATION_FAILURE_PATH")); err != nil {
-			return errors.Join(failure, fmt.Errorf("writing activation failure: %w", err))
-		}
-		return failure
-	}
-	if failure := activation.Preflight(catalogCfg.RequiredConfigPath, catalogCfg.PerformanceMetricsPath, catalogCfg.RequirePerformanceMetrics); failure != nil {
-		return reportFailure(failure)
-	}
-
 	spec, err := service.DatastoreSpec()
 	if err != nil {
 		return fmt.Errorf("error building datastore spec: %w", err)
@@ -199,12 +162,7 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 	// Each pod initializes the database independently of ingestion leadership.
 	initCtx, initCancel := context.WithTimeout(ctx, initializationTimeout)
 	defer initCancel()
-	var gormDB *gorm.DB
-	if control == nil {
-		gormDB, err = postgres.NewPostgresDBConnector("", nil).ConnectContext(initCtx)
-	} else {
-		gormDB, err = activation.Connect(initCtx, control.Identity)
-	}
+	gormDB, err := postgres.NewPostgresDBConnector("", nil).ConnectContext(initCtx)
 	if err != nil {
 		return startupError("error connecting to database", err)
 	}
@@ -224,22 +182,11 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 		return startupError("error initializing datastore", err)
 	}
 	initCancel()
-	var preloadedOrigins []string
-	if control != nil {
-		activationCtx, cancelActivation := context.WithTimeout(ctx, initializationTimeout)
-		err := activation.Activate(activationCtx, gormDB, spec, control.Identity, catalogCfg.RequiredConfigPath, catalogCfg.PerformanceMetricsPath, control.Current)
-		cancelActivation()
-		if err != nil {
-			return reportFailure(&activation.Failure{Stage: "Activation", Reason: "ActivationFailed", Message: err.Error()})
-		}
-		preloadedOrigins = catalogCfg.RequiredConfigPath
-	}
 
 	// Plugin server setup
 	pluginServer := plugin.NewServer(plugin.ServerConfig{
 		DB:                     gormDB,
 		ConfigPaths:            catalogCfg.ConfigPath,
-		PreloadedOrigins:       preloadedOrigins,
 		PerformanceMetricsPath: catalogCfg.PerformanceMetricsPath,
 		RepoSet:                repoSet,
 		CORSAllowedOrigins:     catalogCfg.CORSAllowedOrigins,
@@ -267,12 +214,6 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 	if err := pluginServer.Start(ctx); err != nil {
 		return startupError("error starting plugins", err)
 	}
-	if control != nil {
-		if err := control.Report(ctx, nil); err != nil {
-			return fmt.Errorf("reporting committed activation: %w", err)
-		}
-		handler = control.Handler(handler, func(ctx context.Context) error { return activation.Committed(ctx, gormDB, control.Identity) })
-	}
 
 	// Election starts only after plugins are fully constructed and started.
 	// Its context also observes HTTP failures, so g.Wait cannot strand election.
@@ -292,9 +233,6 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 		recoveryCtx, recoveryCancel := context.WithTimeout(leaderCtx, initializationTimeout)
 		defer recoveryCancel()
 		newRepoSet, err := ds.Initialize(recoveryCtx, spec)
-		if err == nil && control != nil {
-			err = activation.Activate(recoveryCtx, gormDB, spec, control.Identity, catalogCfg.RequiredConfigPath, catalogCfg.PerformanceMetricsPath, control.Current)
-		}
 		if err == nil {
 			err = pluginServer.Reconnect(recoveryCtx, newRepoSet)
 		}
@@ -304,12 +242,6 @@ func runCatalogServer(cmd *cobra.Command, _ []string) (result error) {
 				cancel(fmt.Errorf("leader datastore initialization failed: %w", err))
 			}
 			return
-		}
-		if control != nil {
-			if err := control.Report(recoveryCtx, nil); err != nil {
-				cancel(fmt.Errorf("reporting recovered activation: %w", err))
-				return
-			}
 		}
 		recoveryCancel()
 		pluginServer.NotifyLeader(leaderCtx)

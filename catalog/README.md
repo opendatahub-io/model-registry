@@ -638,21 +638,3 @@ The catalog service is designed to complement the main Model Registry service by
 - Read-only access to distributed model catalogs
 
 For complete Kubeflow Hub documentation, see the [main README](../README.md).
-
-## Required image activation
-
-Operator-managed deployments use activation protocol `v1`: independent immutable
-catalog and benchmark images form one candidate. The runtime imports required
-sources and benchmarks into a private PostgreSQL schema in one transaction and
-reports completion to the operator. Every data request requires current intent
-and a committed local marker; failures return a non-cacheable `CatalogUnavailable`
-503. `/statusz` exposes diagnostics on a running pod. The UI backend preserves the
-error and also explains outages where no Service endpoint is ready.
-
-`--required-catalogs-path` identifies shipped source configurations and
-`--require-performance-metrics` validates the benchmark image. Optional user
-sources keep their ordinary source policy. Activation environment variables are
-supplied by the compatible operator; standalone invocations retain existing
-behavior. Runtime and operator changes must ship together. See
-[the activation protocol](docs/image-activation.md) for identity, storage,
-recovery and release requirements.

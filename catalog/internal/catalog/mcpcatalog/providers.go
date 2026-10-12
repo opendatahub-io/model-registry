@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -336,46 +335,15 @@ func (yp *yamlMCPProvider) emit(ctx context.Context, path string, recordChan cha
 }
 
 // ToMCPServerProviderRecord converts a yamlMCPServer to an MCPServerProviderRecord
-func (ys *yamlMCPServer) validate() error {
-	name := strings.TrimSpace(ys.Name)
-	if name == "" || len(name) > 255 || strings.Contains(name, "@") {
-		return fmt.Errorf("server %q must have a nonempty name of at most 255 bytes without @", ys.Name)
-	}
-	if ys.Version != nil && (len(*ys.Version) > 100 || strings.Contains(*ys.Version, "@")) {
-		return fmt.Errorf("server %q version must have at most 100 bytes without @", ys.Name)
-	}
-	if ys.DisplayName != nil && len(*ys.DisplayName) > maxMCPDisplayNameLen {
-		return fmt.Errorf(
-			"server %q displayName exceeds maximum length of %d characters",
-			ys.Name,
-			maxMCPDisplayNameLen,
-		)
-	}
-	for i, tool := range ys.Tools {
-		if tool == nil {
-			return fmt.Errorf("server %q tool %d is null", ys.Name, i)
-		}
-	}
-	for i, artifact := range ys.Artifacts {
-		if err := basecatalog.ValidateArtifactURI(artifact.Uri); err != nil {
-			return fmt.Errorf("server %q artifact %d: %w", ys.Name, i, err)
-		}
-	}
-	if ys.DeploymentMode != nil && *ys.DeploymentMode == "remote" &&
-		(ys.Endpoints == nil || (ys.Endpoints.HTTP == nil && ys.Endpoints.SSE == nil && ys.Endpoints.WebSocket == nil)) {
-		return fmt.Errorf("server %q has deploymentMode 'remote' but no endpoints defined", ys.Name)
-	}
-	if ys.Endpoints != nil {
-		if err := ys.Endpoints.validate(); err != nil {
-			return fmt.Errorf("server %q has invalid endpoints: %w", ys.Name, err)
-		}
-	}
-	return nil
-}
-
 func (ys *yamlMCPServer) ToMCPServerProviderRecord() MCPServerProviderRecord {
-	if err := ys.validate(); err != nil {
-		return MCPServerProviderRecord{Error: err}
+	if ys.DisplayName != nil && len(*ys.DisplayName) > maxMCPDisplayNameLen {
+		return MCPServerProviderRecord{
+			Error: fmt.Errorf(
+				"server %q displayName exceeds maximum length of %d characters",
+				ys.Name,
+				maxMCPDisplayNameLen,
+			),
+		}
 	}
 
 	attrs := &models.MCPServerAttributes{
@@ -471,8 +439,20 @@ func (ys *yamlMCPServer) ToMCPServerProviderRecord() MCPServerProviderRecord {
 
 	// Validate and convert artifacts to JSON
 	if len(ys.Artifacts) > 0 {
+		for i, artifact := range ys.Artifacts {
+			if err := basecatalog.ValidateArtifactURI(artifact.Uri); err != nil {
+				return MCPServerProviderRecord{Error: fmt.Errorf("server %q artifact %d: %w", ys.Name, i, err)}
+			}
+		}
 		if jsonBytes, err := json.Marshal(ys.Artifacts); err == nil {
 			properties = append(properties, mrmodels.NewStringProperty("artifacts", string(jsonBytes), false))
+		}
+	}
+
+	// Validate remote servers have at least one endpoint
+	if ys.DeploymentMode != nil && *ys.DeploymentMode == "remote" {
+		if ys.Endpoints == nil || (ys.Endpoints.HTTP == nil && ys.Endpoints.SSE == nil && ys.Endpoints.WebSocket == nil) {
+			return MCPServerProviderRecord{Error: fmt.Errorf("server %q has deploymentMode 'remote' but no endpoints defined", ys.Name)}
 		}
 	}
 
@@ -496,6 +476,9 @@ func (ys *yamlMCPServer) ToMCPServerProviderRecord() MCPServerProviderRecord {
 
 	// Convert endpoints to JSON
 	if ys.Endpoints != nil {
+		if err := ys.Endpoints.validate(); err != nil {
+			return MCPServerProviderRecord{Error: fmt.Errorf("server %q has invalid endpoints: %w", ys.Name, err)}
+		}
 		if jsonBytes, err := json.Marshal(ys.Endpoints); err == nil {
 			properties = append(properties, mrmodels.NewStringProperty("endpoints", string(jsonBytes), false))
 		}

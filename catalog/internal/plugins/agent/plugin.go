@@ -65,7 +65,6 @@ func (p *Plugin) Init(_ context.Context, cfg plugin.Config) error {
 	}
 
 	base := basecatalog.NewBaseLoader(cfg.ConfigPaths)
-	base.SetPreloadedOrigins(cfg.PreloadedOrigins)
 	p.loader = agentcatalog.NewAgentLoader(p.services, base)
 
 	p.PluginBase = plugin.NewPluginBase(plugin.PluginBaseConfig{

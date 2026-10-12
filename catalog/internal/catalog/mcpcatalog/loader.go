@@ -243,9 +243,6 @@ func (ml *MCPLoader) loadAllServers(ctx context.Context, sources map[string]base
 	// return before the goroutine's initial batch is done.
 	for _, entry := range toLoad {
 		source := entry.source
-		if basecatalog.SourcePreloaded(ml.state, source.Origin) {
-			continue
-		}
 		provider := entry.provider
 		filter := entry.filter
 		sourceCtx, sourceCancel := context.WithCancel(ctx)
