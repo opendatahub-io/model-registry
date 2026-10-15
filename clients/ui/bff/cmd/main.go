@@ -13,21 +13,81 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
-	"os/signal"
-	"syscall"
-
-	"github.com/kubeflow/hub/ui/bff/internal/api"
-	"github.com/kubeflow/hub/ui/bff/internal/config"
-
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/kubeflow/hub/ui/bff/internal/api"
+	"github.com/kubeflow/hub/ui/bff/internal/config"
+	"github.com/kubeflow/hub/ui/bff/internal/tlsprofile"
+	configv1 "github.com/openshift/api/config/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	restclient "k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	_ "github.com/kubeflow/hub/ui/bff/openapi" // swagger docs for Swagger UI
 )
+
+type tlsPolicyRuntime struct {
+	policy *tlsprofile.Result
+	done   chan error
+	stop   context.CancelFunc
+}
+
+type tlsPolicyDependencies struct {
+	getConfig    func() (*restclient.Config, error)
+	resolve      func(*restclient.Config) (*tlsprofile.Result, error)
+	startWatcher func(*restclient.Config, *tlsprofile.Result) (chan error, context.CancelFunc, error)
+}
+
+func waitForShutdown(shutdownCh <-chan os.Signal, serverDone <-chan error, policyManagerDone <-chan error) (int, error) {
+	select {
+	case <-shutdownCh:
+		return 0, nil
+	case err := <-serverDone:
+		if err != nil && err != http.ErrServerClosed {
+			return 1, fmt.Errorf("BFF server stopped unexpectedly: %w", err)
+		}
+		return 0, nil
+	case err := <-policyManagerDone:
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return 1, fmt.Errorf("TLS policy watcher stopped: %w", err)
+		}
+		return 0, nil
+	}
+}
+
+func initializeTLSPolicy(certFile, keyFile string, mockK8Client bool, deps tlsPolicyDependencies) (*tlsPolicyRuntime, error) {
+	runtime := &tlsPolicyRuntime{}
+	if certFile == "" || keyFile == "" || mockK8Client {
+		return runtime, nil
+	}
+
+	kubeConfig, err := deps.getConfig()
+	if err != nil {
+		return nil, fmt.Errorf("load Kubernetes config for TLS policy: %w", err)
+	}
+	runtime.policy, err = deps.resolve(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("resolve cluster TLS policy: %w", err)
+	}
+	if runtime.policy.HasOpenShiftConfigAPI {
+		runtime.done, runtime.stop, err = deps.startWatcher(kubeConfig, runtime.policy)
+		if err != nil {
+			return nil, fmt.Errorf("start TLS policy watcher: %w", err)
+		}
+	}
+	return runtime, nil
+}
 
 func main() {
 	var cfg config.EnvConfig
@@ -91,6 +151,50 @@ func main() {
 	// Only use for logging errors about logging configuration.
 	slog.SetDefault(logger)
 
+	policyDeps := tlsPolicyDependencies{
+		getConfig: ctrl.GetConfig,
+		resolve:   tlsprofile.Resolve,
+		startWatcher: func(kubeConfig *restclient.Config, tlsPolicy *tlsprofile.Result) (chan error, context.CancelFunc, error) {
+			scheme := runtime.NewScheme()
+			utilruntime.Must(configv1.Install(scheme))
+			policyManager, err := ctrl.NewManager(kubeConfig, ctrl.Options{
+				Scheme:                 scheme,
+				Logger:                 logr.FromSlogHandler(logger.Handler()),
+				Metrics:                server.Options{BindAddress: "0"},
+				HealthProbeBindAddress: "0",
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			var watcherCtx context.Context
+			watcherCtx, stopPolicyManager := context.WithCancel(context.Background())
+			watcher := tlsprofile.NewWatcher(tlsPolicy, stopPolicyManager)
+			watcher.Client = policyManager.GetClient()
+			if err := watcher.SetupWithManager(policyManager); err != nil {
+				return nil, nil, err
+			}
+			policyManagerDone := make(chan error, 1)
+			go func() { policyManagerDone <- policyManager.Start(watcherCtx) }()
+			return policyManagerDone, stopPolicyManager, nil
+		},
+	}
+	tlsRuntime, err := initializeTLSPolicy(certFile, keyFile, cfg.MockK8Client, policyDeps)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+	tlsPolicy := tlsRuntime.policy
+	policyManagerDone := tlsRuntime.done
+	stopPolicyManager := tlsRuntime.stop
+	if tlsPolicy != nil {
+		if tlsPolicy.FallbackReason != "" {
+			logger.Info("unable to read cluster TLS policy, using Intermediate profile", "error", tlsPolicy.FallbackReason)
+		}
+		if len(tlsPolicy.UnsupportedCipherSuites) > 0 {
+			logger.Warn("ignoring unsupported TLS cipher suites", "cipherSuites", tlsPolicy.UnsupportedCipherSuites)
+		}
+	}
+
 	app, err := api.NewApp(cfg, slog.New(logger.Handler()))
 	if err != nil {
 		logger.Error(err.Error())
@@ -105,18 +209,18 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
+	serverDone := make(chan error, 1)
+	exitCode := 0
 
 	// Start the server in a goroutine
 	go func() {
 		logger.Info("starting server", "addr", srv.Addr, "TLS enabled", (certFile != "" && keyFile != ""))
 		var err error
 		if certFile != "" && keyFile != "" {
-			// Configure TLS if both cert and key files are provided
-			tlsConfig := &tls.Config{
-				MinVersion: tls.VersionTLS13,
-				NextProtos: []string{"h2", "http/1.1"},
+			srv.TLSConfig = buildTLSConfig(tlsPolicy)
+			if shouldDisableHTTP2(tlsPolicy) {
+				srv.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){}
 			}
-			srv.TLSConfig = tlsConfig
 			err = srv.ListenAndServeTLS(certFile, keyFile)
 		} else {
 			err = srv.ListenAndServe()
@@ -124,15 +228,23 @@ func main() {
 		if err != nil && err != http.ErrServerClosed {
 			logger.Error("HTTP server ListenAndServe", "error", err)
 		}
+		serverDone <- err
 	}()
 
 	// Graceful shutdown setup
 	shutdownCh := make(chan os.Signal, 1)
 	signal.Notify(shutdownCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	// Wait for shutdown signal
-	<-shutdownCh
+	// A TLS policy change stops the watcher manager and triggers the same graceful shutdown as a signal.
+	shutdownExitCode, shutdownErr := waitForShutdown(shutdownCh, serverDone, policyManagerDone)
+	exitCode = shutdownExitCode
+	if shutdownErr != nil {
+		logger.Error(shutdownErr.Error())
+	}
 	logger.Info("shutting down gracefully...")
+	if stopPolicyManager != nil {
+		stopPolicyManager()
+	}
 
 	// Create a context with timeout for the shutdown process
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -149,5 +261,37 @@ func main() {
 	}
 
 	logger.Info("server stopped")
-	os.Exit(0)
+	os.Exit(exitCode)
+}
+
+func buildTLSConfig(policy *tlsprofile.Result) *tls.Config {
+	cfg := &tls.Config{
+		MinVersion: tls.VersionTLS13,
+		NextProtos: []string{"h2", "http/1.1"},
+	}
+	if policy != nil && !policy.KeepExisting {
+		cfg.MinVersion = policy.MinVersion
+		cfg.CipherSuites = policy.CipherSuites
+		// Keep ALPN consistent with the disabled HTTP/2 dispatch: advertising
+		// h2 without a TLSNextProto handler makes net/http close h2-negotiated
+		// connections without serving a response.
+		if shouldDisableHTTP2(policy) {
+			cfg.NextProtos = []string{"http/1.1"}
+		}
+	}
+	return cfg
+}
+
+func shouldDisableHTTP2(policy *tlsprofile.Result) bool {
+	return policy != nil && !policy.KeepExisting &&
+		policy.MinVersion < tls.VersionTLS13 && !hasHTTP2CipherSuite(policy.CipherSuites)
+}
+
+func hasHTTP2CipherSuite(cipherSuites []uint16) bool {
+	for _, suite := range cipherSuites {
+		if suite == tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 || suite == tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 {
+			return true
+		}
+	}
+	return false
 }
