@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/agentcatalog/models"
+	openapi "github.com/kubeflow/hub/catalog/pkg/openapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -89,4 +90,54 @@ func TestYamlTemplateToEntity_IDNotSet(t *testing.T) {
 	entity := yamlTemplateToEntity(tmpl, "agent", "source")
 
 	assert.Nil(t, entity.GetID())
+}
+
+func TestYamlAgentToEntity_IntCustomPropertyRoundTripsAsInt(t *testing.T) {
+	intValue := openapi.NewMetadataIntValueWithDefaults()
+	intValue.IntValue = "3"
+	ya := yamlAgent{
+		Name: "my-agent",
+		CustomProperties: &map[string]openapi.MetadataValue{
+			"replicas": {MetadataIntValue: intValue},
+		},
+	}
+
+	entity := yamlAgentToEntity(ya, "my-source")
+
+	customProps := entity.GetCustomProperties()
+	require.NotNil(t, customProps)
+	require.Len(t, *customProps, 1)
+	prop := (*customProps)[0]
+	assert.True(t, prop.IsCustomProperty)
+	require.NotNil(t, prop.IntValue, "an int customProperty must be stored as an int property")
+	assert.Equal(t, int32(3), *prop.IntValue)
+	assert.Nil(t, prop.StringValue)
+
+	apiAgent := mapDBAgentToAPI(entity)
+	replicas, ok := apiAgent.CustomProperties["replicas"]
+	require.True(t, ok)
+	require.NotNil(t, replicas.MetadataIntValue, "an int customProperty must be returned as MetadataIntValue")
+	assert.Equal(t, "3", replicas.MetadataIntValue.IntValue)
+	assert.Nil(t, replicas.MetadataStringValue)
+}
+
+func TestYamlAgentToEntity_IntCustomPropertyOutOfRangeFallsBackToString(t *testing.T) {
+	intValue := openapi.NewMetadataIntValueWithDefaults()
+	intValue.IntValue = "3000000000"
+	ya := yamlAgent{
+		Name: "my-agent",
+		CustomProperties: &map[string]openapi.MetadataValue{
+			"big": {MetadataIntValue: intValue},
+		},
+	}
+
+	entity := yamlAgentToEntity(ya, "my-source")
+
+	customProps := entity.GetCustomProperties()
+	require.NotNil(t, customProps)
+	require.Len(t, *customProps, 1)
+	prop := (*customProps)[0]
+	assert.Nil(t, prop.IntValue)
+	require.NotNil(t, prop.StringValue)
+	assert.Equal(t, "3000000000", *prop.StringValue)
 }

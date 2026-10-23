@@ -476,6 +476,43 @@ func TestYamlMCPEndpointsValidation(t *testing.T) {
 	}
 }
 
+func TestYamlMCPProviderEmitWithLicenseLinkKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test-catalog.yaml")
+
+	yamlContent := `mcp_servers:
+  - name: "test-server-1"
+    license: "apache-2.0"
+    license_link: "https://www.apache.org/licenses/LICENSE-2.0"
+`
+	err := os.WriteFile(testFile, []byte(yamlContent), 0644)
+	require.NoError(t, err)
+
+	source := basecatalog.MCPSource{
+		Type: "yaml",
+		Properties: map[string]any{
+			yamlMCPCatalogPathKey: testFile,
+		},
+	}
+
+	provider, err := NewYamlMCPProvider(source)
+	require.NoError(t, err)
+
+	record, ok := <-provider.Servers(t.Context())
+	require.True(t, ok)
+	require.Nil(t, record.Error)
+	require.NotNil(t, record.Server)
+	require.NotNil(t, record.Server.Properties)
+
+	var foundLicenseLink string
+	for _, prop := range *record.Server.Properties {
+		if prop.Name == "license_link" && prop.StringValue != nil {
+			foundLicenseLink = *prop.StringValue
+		}
+	}
+	assert.Equal(t, "https://www.apache.org/licenses/LICENSE-2.0", foundLicenseLink)
+}
+
 func TestYamlMCPEndpointsJSONKeys(t *testing.T) {
 	endpoints := &yamlMCPEndpoints{
 		HTTP: new("https://api.example.com/mcp"),

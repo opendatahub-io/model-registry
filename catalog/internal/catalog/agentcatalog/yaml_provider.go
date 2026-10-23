@@ -149,6 +149,11 @@ func convertAgentMetadataToProperty(key string, value openapi.MetadataValue) dbm
 	} else if value.MetadataBoolValue != nil {
 		return dbmodels.NewBoolProperty(key, value.MetadataBoolValue.BoolValue, true)
 	} else if value.MetadataIntValue != nil {
+		// MetadataIntValue.IntValue is a string, need to convert to int32
+		if intVal, err := strconv.ParseInt(value.MetadataIntValue.IntValue, 10, 32); err == nil {
+			return dbmodels.NewIntProperty(key, int32(intVal), true)
+		}
+		// If parsing fails, store as string
 		return dbmodels.NewStringProperty(key, value.MetadataIntValue.IntValue, true)
 	} else if value.MetadataDoubleValue != nil {
 		return dbmodels.NewDoubleProperty(key, value.MetadataDoubleValue.DoubleValue, true)

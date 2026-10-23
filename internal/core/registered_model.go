@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kubeflow/hub/internal/platform/apiutils"
 	"github.com/kubeflow/hub/internal/converter"
 	"github.com/kubeflow/hub/internal/db/models"
+	"github.com/kubeflow/hub/internal/platform/apiutils"
 	"github.com/kubeflow/hub/pkg/api"
 	"github.com/kubeflow/hub/pkg/openapi"
 	"gorm.io/gorm"
@@ -98,12 +98,7 @@ func (b *ModelRegistryService) GetRegisteredModelByInferenceService(inferenceSer
 		return nil, fmt.Errorf("no registered model id found for inference service: %w", api.ErrNotFound)
 	}
 
-	model, err := b.registeredModelRepository.GetByID(*registeredModelId)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.mapper.MapToRegisteredModel(model)
+	return b.GetRegisteredModelById(fmt.Sprint(*registeredModelId))
 }
 
 func (b *ModelRegistryService) GetRegisteredModelByParams(name *string, externalId *string) (*openapi.RegisteredModel, error) {

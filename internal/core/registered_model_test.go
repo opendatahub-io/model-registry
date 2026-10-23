@@ -418,6 +418,24 @@ func TestGetRegisteredModelByInferenceService(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
+
+	t.Run("non-existent registered model", func(t *testing.T) {
+		servingEnv, err := _service.UpsertServingEnvironment(&openapi.ServingEnvironment{
+			Name: "missing-model-env",
+		})
+		require.NoError(t, err)
+		inferenceService, err := _service.UpsertInferenceService(&openapi.InferenceService{
+			Name:                 new("missing-model-inference"),
+			ServingEnvironmentId: *servingEnv.Id,
+			RegisteredModelId:    "99999",
+		})
+		require.NoError(t, err)
+
+		result, err := _service.GetRegisteredModelByInferenceService(*inferenceService.Id)
+
+		assert.ErrorIs(t, err, api.ErrNotFound)
+		assert.Nil(t, result)
+	})
 }
 
 func TestGetRegisteredModelByParams(t *testing.T) {
