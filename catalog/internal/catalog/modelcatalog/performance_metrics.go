@@ -9,6 +9,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -44,17 +45,28 @@ func parseMetadataJSON(data []byte) (metadataJSON, error) {
 	return metadata, nil
 }
 
-// evaluationRecord represents a single evaluation result from evaluations.ndjson
-// Only minimal fields needed for association are explicitly defined
-// evaluationRecords will be merged into a single accuracy-metrics artifact
+// evaluationRecord represents a single evaluation result from evaluations.ndjson.
+// Records contribute to the aggregate accuracy-metrics artifact, and complete
+// records are also retained as individual evaluation-metrics artifacts.
 type evaluationRecord struct {
 	// Core fields needed to associate evaluation with model
-	ModelID   string `json:"model_id"`
-	Benchmark string `json:"benchmark"`
+	ID           string   `json:"id"`
+	ModelID      string   `json:"model_id"`
+	RunID        string   `json:"run_id"`
+	Evaluation   string   `json:"evaluation"`
+	Category     string   `json:"category"`
+	Benchmark    string   `json:"benchmark"`
+	Description  string   `json:"description"`
+	Result       *float64 `json:"result"`
+	ResultMetric string   `json:"result_metric"`
+	CreatedAt    *int64   `json:"created_at"`
+	UpdatedAt    *int64   `json:"updated_at"`
 
 	// CustomProperties captures all other fields dynamically
 	CustomProperties map[string]any `json:"-"`
 }
+
+var evaluationCategoryPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // UnmarshalJSON implements custom JSON unmarshaling to capture all undefined fields as CustomProperties
 func (er *evaluationRecord) UnmarshalJSON(data []byte) error {
@@ -65,11 +77,38 @@ func (er *evaluationRecord) UnmarshalJSON(data []byte) error {
 	}
 
 	// Extract the core fields
+	if id, ok := raw["id"].(string); ok {
+		er.ID = id
+	}
 	if modelID, ok := raw["model_id"].(string); ok {
 		er.ModelID = modelID
 	}
+	if runID, ok := raw["run_id"].(string); ok {
+		er.RunID = runID
+	}
+	if evaluation, ok := raw["evaluation"].(string); ok {
+		er.Evaluation = evaluation
+	}
+	if category, ok := raw["category"].(string); ok {
+		er.Category = category
+	}
 	if benchmark, ok := raw["benchmark"].(string); ok {
 		er.Benchmark = benchmark
+	}
+	if description, ok := raw["description"].(string); ok {
+		er.Description = description
+	}
+	if result, ok := raw["result"].(float64); ok {
+		er.Result = &result
+	}
+	if resultMetric, ok := raw["result_metric"].(string); ok {
+		er.ResultMetric = resultMetric
+	}
+	if createdAt, ok := timestampFromJSONValue(raw["created_at"]); ok {
+		er.CreatedAt = &createdAt
+	}
+	if updatedAt, ok := timestampFromJSONValue(raw["updated_at"]); ok {
+		er.UpdatedAt = &updatedAt
 	}
 
 	// Initialize CustomProperties if nil
@@ -81,6 +120,71 @@ func (er *evaluationRecord) UnmarshalJSON(data []byte) error {
 	maps.Copy(er.CustomProperties, raw)
 
 	return nil
+}
+
+// timestampFromJSONValue converts an integer-valued JSON number to an epoch
+// timestamp without accepting fractional or negative values.
+func timestampFromJSONValue(value any) (int64, bool) {
+	number, ok := value.(float64)
+	if !ok || number < 0 || number != float64(int64(number)) {
+		return 0, false
+	}
+	return int64(number), true
+}
+
+// validateDetailedEvaluation ensures a record can safely be exposed as an
+// evaluation-metrics artifact. Legacy evaluation rows may still contribute to
+// the aggregate accuracy artifact, but are not exposed as incomplete details.
+func (er evaluationRecord) validateDetailedEvaluation(expectedModelID string) error {
+	requiredStrings := []struct {
+		name  string
+		value string
+	}{
+		{name: "id", value: er.ID},
+		{name: "model_id", value: er.ModelID},
+		{name: "run_id", value: er.RunID},
+		{name: "evaluation", value: er.Evaluation},
+		{name: "category", value: er.Category},
+		{name: "benchmark", value: er.Benchmark},
+		{name: "description", value: er.Description},
+		{name: "result_metric", value: er.ResultMetric},
+	}
+	for _, field := range requiredStrings {
+		if strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("missing required %s", field.name)
+		}
+	}
+	if er.ModelID != expectedModelID {
+		return fmt.Errorf("model_id %q does not match metadata id %q", er.ModelID, expectedModelID)
+	}
+	if er.Result == nil {
+		return fmt.Errorf("missing or non-numeric required result")
+	}
+	if !evaluationCategoryPattern.MatchString(er.Category) {
+		return fmt.Errorf("category %q is not lowercase kebab-case", er.Category)
+	}
+	if er.CreatedAt == nil {
+		return fmt.Errorf("missing or invalid required created_at")
+	}
+	if _, present := er.CustomProperties["updated_at"]; present && er.UpdatedAt == nil {
+		return fmt.Errorf("invalid updated_at")
+	}
+	if er.UpdatedAt != nil && *er.UpdatedAt < *er.CreatedAt {
+		return fmt.Errorf("updated_at precedes created_at")
+	}
+	return nil
+}
+
+func filterEvaluationRecordsForModel(records []evaluationRecord, expectedModelID string) []evaluationRecord {
+	filtered := make([]evaluationRecord, 0, len(records))
+	for _, record := range records {
+		if record.ModelID != "" && record.ModelID != expectedModelID {
+			glog.Warningf("Evaluation record %q has model_id %q, expected %q; skipping", record.ID, record.ModelID, expectedModelID)
+			continue
+		}
+		filtered = append(filtered, record)
+	}
+	return filtered
 }
 
 // performanceRecord represents a single performance result from performance.ndjson
@@ -389,7 +493,10 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 		if err != nil {
 			glog.Errorf("Failed to parse evaluations file for %s: %v", modelName, err)
 		} else {
-			evaluationRecords = records
+			// Legacy records without model_id are accepted for the aggregate
+			// accuracy artifact. Explicitly mismatched records are rejected so
+			// data from one model can never be attributed to another model.
+			evaluationRecords = filterEvaluationRecordsForModel(records, modelName)
 		}
 	}
 
@@ -438,7 +545,7 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 	}
 
 	// Check which artifacts need to be created using the in-memory map
-	artifactsToInsert := make([]*dbmodels.CatalogMetricsArtifactImpl, 0, totalRecords)
+	artifactsToInsert := make([]*dbmodels.CatalogMetricsArtifactImpl, 0, totalRecords+len(evaluationRecords))
 
 	// Check evaluation artifacts
 	if len(evaluationRecords) > 0 {
@@ -448,6 +555,28 @@ func processModelArtifactsBatch(dirPath string, modelID int32, modelName string,
 			artifactsToInsert = append(artifactsToInsert, artifact)
 		} else {
 			glog.V(2).Infof("Accuracy metrics artifact already exists, skipping")
+		}
+	}
+
+	// Preserve complete evaluation rows as individual artifacts for the
+	// Evaluation Insights table and run history. The aggregate accuracy artifact
+	// above remains unchanged for existing consumers.
+	seenEvaluationIDs := make(map[string]bool, len(evaluationRecords))
+	for _, evalRecord := range evaluationRecords {
+		if err := evalRecord.validateDetailedEvaluation(modelName); err != nil {
+			glog.Warningf("Evaluation record %q is not eligible for detailed serving: %v", evalRecord.ID, err)
+			continue
+		}
+		if seenEvaluationIDs[evalRecord.ID] {
+			glog.Warningf("Duplicate evaluation artifact ID %s in file, skipping", evalRecord.ID)
+			continue
+		}
+		seenEvaluationIDs[evalRecord.ID] = true
+		if !existingArtifactsMap[evalRecord.ID] {
+			artifact := createEvaluationArtifact(evalRecord, metricsArtifactTypeID)
+			artifactsToInsert = append(artifactsToInsert, artifact)
+		} else {
+			glog.V(2).Infof("Evaluation artifact %s already exists, skipping", evalRecord.ID)
 		}
 	}
 
@@ -600,7 +729,12 @@ func createAccuracyMetricsArtifact(evalRecords []evaluationRecord, modelID int32
 	// on the (artifact_id, name, is_custom_property) composite primary key.
 	benchmarkScores := make(map[string]float64, len(evalRecords))
 	for _, evalRecord := range evalRecords {
-		if score, ok := evalRecord.CustomProperties["score"].(float64); ok {
+		score, ok := evalRecord.CustomProperties["score"].(float64)
+		if !ok && evalRecord.Result != nil {
+			score = *evalRecord.Result
+			ok = true
+		}
+		if ok {
 			if _, duplicate := benchmarkScores[evalRecord.Benchmark]; duplicate {
 				glog.Warningf("Duplicate benchmark %q for model %d, using latest score", evalRecord.Benchmark, modelID)
 			}
@@ -640,6 +774,63 @@ func createAccuracyMetricsArtifact(evalRecords []evaluationRecord, modelID int32
 	}
 
 	return metricsArtifact
+}
+
+// createEvaluationArtifact creates one evaluation-metrics artifact per complete
+// evaluations.ndjson record so callers can filter, paginate, and order run
+// history without losing record-level metadata.
+func createEvaluationArtifact(evalRecord evaluationRecord, typeID int32) *dbmodels.CatalogMetricsArtifactImpl {
+	artifactName := fmt.Sprintf("evaluation-%s", evalRecord.ID)
+	properties := []models.Properties{}
+	customProperties := make([]models.Properties, 0, len(evalRecord.CustomProperties))
+
+	for key, value := range evalRecord.CustomProperties {
+		if key == "created_at" || key == "updated_at" || value == nil {
+			continue
+		}
+
+		property := models.Properties{Name: key}
+		switch typedValue := value.(type) {
+		case string:
+			property.StringValue = &typedValue
+		case float64:
+			property.DoubleValue = &typedValue
+		case bool:
+			property.BoolValue = &typedValue
+		case json.Number:
+			if intValue, err := typedValue.Int64(); err == nil {
+				property.SetInt64Value(intValue)
+			} else if doubleValue, err := typedValue.Float64(); err == nil {
+				property.DoubleValue = &doubleValue
+			} else {
+				stringValue := typedValue.String()
+				property.StringValue = &stringValue
+			}
+		default:
+			encoded, err := json.Marshal(typedValue)
+			if err != nil {
+				stringValue := fmt.Sprintf("%v", typedValue)
+				property.StringValue = &stringValue
+			} else {
+				stringValue := string(encoded)
+				property.StringValue = &stringValue
+			}
+		}
+		customProperties = append(customProperties, property)
+	}
+
+	return &dbmodels.CatalogMetricsArtifactImpl{
+		TypeID: &typeID,
+		Attributes: &dbmodels.CatalogMetricsArtifactAttributes{
+			Name:                     &artifactName,
+			ExternalID:               &evalRecord.ID,
+			CreateTimeSinceEpoch:     evalRecord.CreatedAt,
+			LastUpdateTimeSinceEpoch: evalRecord.UpdatedAt,
+			MetricsType:              dbmodels.MetricsTypeEvaluation,
+		},
+		Properties:       &properties,
+		CustomProperties: &customProperties,
+	}
 }
 
 // createPerformanceArtifact creates a metrics artifact from performance record

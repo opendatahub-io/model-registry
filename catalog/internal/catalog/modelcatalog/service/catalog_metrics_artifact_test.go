@@ -397,7 +397,12 @@ func TestCatalogMetricsArtifactRepository(t *testing.T) {
 
 	t.Run("TestMetricsTypeField", func(t *testing.T) {
 		// Test various metrics types
-		metricsTypes := []models.MetricsType{models.MetricsTypeAccuracy, models.MetricsTypePerformance, models.MetricsTypeSecurityMetrics}
+		metricsTypes := []models.MetricsType{
+			models.MetricsTypeAccuracy,
+			models.MetricsTypePerformance,
+			models.MetricsTypeSecurityMetrics,
+			models.MetricsTypeEvaluation,
+		}
 
 		catalogModel := &models.CatalogModelImpl{
 			Attributes: &models.CatalogModelAttributes{

@@ -6,7 +6,7 @@ import tarfile
 import zipfile
 from pathlib import Path
 from unittest.mock import Mock, call, patch
-from job.download import download_from_s3, unpack_archive_file
+from job.download import download_from_http, download_from_s3, unpack_archive_file
 from job.config import get_config
 from job.mr_client import validate_and_get_model_registry_client
 from job.models import S3StorageConfig
@@ -29,6 +29,7 @@ def minimal_update_artifact_env_source_dest_vars():
         "oci_registry": "quay.io",
         "oci_username": "oci_username_env",
         "oci_password": "oci_password_env",
+        "oci_base_image": "registry.example.com/library/busybox:1.0",
     }
 
     # Source variables - using the correct format from existing tests
@@ -101,7 +102,8 @@ def create_dummy_zip(path, mode):
 def test_unpack_archive_file(dummy_archive, tmp_path):
     dest_dir = tmp_path / "unpacked_archive"
     mimetype = mimetypes.guess_type(dummy_archive)[0]
-    unpack_archive_file(dummy_archive, mimetype, dest_dir)
+    assert unpack_archive_file(dummy_archive, mimetype, dest_dir) == dest_dir
+    assert not dummy_archive.exists()
 
     result = {}
     for dirpath, _, filenames in os.walk(dest_dir):
@@ -113,40 +115,376 @@ def test_unpack_archive_file(dummy_archive, tmp_path):
     assert result == DUMMY_FILE_DATA
 
 
-def test_download_from_s3(minimal_update_artifact_env_source_dest_vars):
-    """Test download_from_s3 now that it pages through prefixes."""
+@pytest.fixture
+def permissive_tar_defaults(monkeypatch):
+    # Explicit filtering must work even when runtime defaults trust the archive.
+    monkeypatch.setattr(
+        tarfile.TarFile, "extraction_filter", staticmethod(tarfile.fully_trusted_filter)
+    )
 
-    # load config from your fixture
+
+def create_test_archive(tmp_path, archive_type, entries):
+    path = tmp_path / f"archive.{archive_type}"
+    if archive_type == "zip":
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, content in entries:
+                archive.writestr(name, content)
+    else:
+        with (
+            tarfile.open(path, "w:gz") if archive_type == "tar.gz" else tarfile.open(path, "w")
+        ) as archive:
+            for member, content in entries:
+                if isinstance(member, str):
+                    member = tarfile.TarInfo(member)
+                member.size = len(content)
+                archive.addfile(member, io.BytesIO(content))
+    return path
+
+
+def create_http_response(archive: Path) -> Mock:
+    response = Mock()
+    response.headers = {"Content-Type": mimetypes.guess_type(archive)[0]}
+    response.raw = io.BytesIO(archive.read_bytes())
+    response.__enter__ = Mock(return_value=response)
+    response.__exit__ = Mock(return_value=False)
+    return response
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "tar.gz"])
+@pytest.mark.parametrize("name", ["../outside.txt", "../unpacked-sibling/outside.txt"])
+def test_unpack_rejects_tar_traversal(tmp_path, permissive_tar_defaults, archive_type, name):
+    dest_dir = tmp_path / "unpacked"
+    outside = (dest_dir / name).resolve()
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_bytes(b"original")
+    archive = create_test_archive(tmp_path, archive_type, [(name, b"overwrite")])
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, "application/x-tar", dest_dir)
+
+    assert isinstance(error.value.__cause__, tarfile.FilterError)
+    assert outside.read_bytes() == b"original"
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("name", [
+    "../outside.txt",
+    "nested/../../outside.txt",
+    "nested/../model.bin",
+    r"..\outside.txt",
+    r"nested\..\model.bin",
+    "/absolute.txt",
+    r"\absolute.txt",
+    "C:/outside.txt",
+    r"C:\outside.txt",
+    "C:outside.txt",
+    r"\\server\share\outside.txt",
+])
+def test_unpack_rejects_suspicious_zip_names_before_extraction(tmp_path, name):
+    dest_dir = tmp_path / "unpacked"
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(b"original")
+    archive = create_test_archive(tmp_path, "zip", [
+        ("valid/model.bin", b"valid"),
+        (name, b"overwrite"),
+    ])
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, "application/zip", dest_dir)
+
+    assert error.value.__cause__ is not None
+    assert outside.read_bytes() == b"original"
+    assert not (dest_dir / "valid/model.bin").exists()
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "zip"])
+@pytest.mark.parametrize("symlink_path", ["nested", "nested/model.bin"])
+def test_unpack_rejects_existing_symlink_escape(
+    tmp_path, permissive_tar_defaults, archive_type, symlink_path
+):
+    dest_dir = tmp_path / "unpacked"
+    outside_dir = tmp_path / "unpacked-sibling"
+    outside_dir.mkdir()
+    outside = outside_dir / "model.bin"
+    outside.write_bytes(b"original")
+    link = dest_dir / symlink_path
+    link.parent.mkdir(parents=True)
+    link.symlink_to(outside_dir if symlink_path == "nested" else outside)
+    archive = create_test_archive(tmp_path, archive_type, [("nested/model.bin", b"overwrite")])
+    mimetype = mimetypes.guess_type(archive)[0]
+    assert mimetype is not None
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$"):
+        unpack_archive_file(archive, mimetype, dest_dir)
+
+    assert outside.read_bytes() == b"original"
+    assert link.is_symlink()
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("link_type", [tarfile.SYMTYPE, tarfile.LNKTYPE])
+@pytest.mark.parametrize("absolute", [False, True])
+def test_unpack_rejects_tar_link_escape(tmp_path, permissive_tar_defaults, link_type: bytes, absolute):
+    dest_dir = tmp_path / "unpacked"
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(b"original")
+    link = tarfile.TarInfo("link")
+    link.type = link_type
+    link.linkname = str(outside) if absolute else "../outside.txt"
+    archive = create_test_archive(tmp_path, "tar", [(link, b"")])
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, "application/x-tar", dest_dir)
+
+    assert isinstance(error.value.__cause__, tarfile.FilterError)
+    assert not (dest_dir / "link").is_symlink()
+    assert not (dest_dir / "link").exists()
+    assert outside.read_bytes() == b"original"
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "tar.gz"])
+def test_unpack_rejects_traversal_through_archive_created_symlink(
+    tmp_path, permissive_tar_defaults, archive_type
+):
+    dest_dir = tmp_path / "working/unpacked"
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(b"original")
+    directory = tarfile.TarInfo("target")
+    directory.type = tarfile.DIRTYPE
+    link = tarfile.TarInfo("nested/link")
+    link.type = tarfile.SYMTYPE
+    link.linkname = "../target"
+    archive = create_test_archive(tmp_path, archive_type, [
+        (directory, b""),
+        (link, b""),
+        ("nested/link/../../../outside.txt", b"overwrite"),
+    ])
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, "application/x-tar", dest_dir)
+
+    assert isinstance(error.value.__cause__, tarfile.FilterError)
+    assert (dest_dir / "nested/link").is_symlink()
+    assert (dest_dir / "nested/link").resolve() == dest_dir / "target"
+    assert outside.read_bytes() == b"original"
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("member_type", [tarfile.FIFOTYPE, tarfile.CHRTYPE, tarfile.BLKTYPE])
+def test_unpack_rejects_tar_special_files(tmp_path, permissive_tar_defaults, member_type: bytes):
+    member = tarfile.TarInfo("special")
+    member.type = member_type
+    archive = create_test_archive(tmp_path, "tar", [(member, b"")])
+    dest_dir = tmp_path / "unpacked"
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, "application/x-tar", dest_dir)
+
+    assert isinstance(error.value.__cause__, tarfile.FilterError)
+    assert not (dest_dir / "special").exists()
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("link_type", [tarfile.SYMTYPE, tarfile.LNKTYPE])
+def test_unpack_preserves_safe_tar_links(tmp_path, permissive_tar_defaults, link_type: bytes):
+    link = tarfile.TarInfo("nested/link")
+    link.type = link_type
+    link.linkname = "model.bin" if link_type == tarfile.SYMTYPE else "nested/model.bin"
+    archive = create_test_archive(tmp_path, "tar", [
+        ("nested/model.bin", b"model"),
+        (link, b""),
+    ])
+    dest_dir = tmp_path / "unpacked"
+
+    assert unpack_archive_file(archive, "application/x-tar", dest_dir) == dest_dir
+
+    assert (dest_dir / "nested/link").read_bytes() == b"model"
+    assert (dest_dir / "nested/link").samefile(dest_dir / "nested/model.bin")
+    assert not archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "tar.gz", "zip"])
+def test_unpack_empty_archive(tmp_path, archive_type):
+    archive = create_test_archive(tmp_path, archive_type, [])
+    dest_dir = tmp_path / "unpacked"
+    mimetype = mimetypes.guess_type(archive)[0]
+    assert mimetype is not None
+
+    assert unpack_archive_file(archive, mimetype, dest_dir) == dest_dir
+    assert not archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "zip"])
+def test_unpack_preserves_explicit_empty_directories(tmp_path, archive_type):
+    directories = ["./", "empty/"]
+    if archive_type == "tar":
+        directories = [tarfile.TarInfo(name) for name in directories]
+        for member in directories:
+            member.type = tarfile.DIRTYPE
+    archive = create_test_archive(tmp_path, archive_type, [(member, b"") for member in directories])
+    dest_dir = tmp_path / "unpacked"
+    mimetype = mimetypes.guess_type(archive)[0]
+    assert mimetype is not None
+
+    assert unpack_archive_file(archive, mimetype, dest_dir) == dest_dir
+    assert (dest_dir / "empty").is_dir()
+    assert not archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "zip"])
+def test_unpack_accepts_bytes_destination(tmp_path, archive_type):
+    archive = create_test_archive(tmp_path, archive_type, [("model.bin", b"model")])
+    dest_dir = tmp_path / "unpacked"
+    dest_bytes = os.fsencode(dest_dir)
+    mimetype = mimetypes.guess_type(archive)[0]
+    assert mimetype is not None
+
+    assert unpack_archive_file(archive, mimetype, dest_bytes) == dest_bytes
+    assert (dest_dir / "model.bin").read_bytes() == b"model"
+    assert not archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar", "zip"])
+def test_unpack_accepts_relative_destination_and_existing_safe_symlink(tmp_path, monkeypatch, archive_type):
+    dest_dir = tmp_path / "unpacked"
+    target_dir = dest_dir / "target"
+    target_dir.mkdir(parents=True)
+    (dest_dir / "nested").symlink_to(target_dir)
+    archive = create_test_archive(tmp_path, archive_type, [("./nested/model..bin", b"model")])
+    mimetype = mimetypes.guess_type(archive)[0]
+    assert mimetype is not None
+    monkeypatch.chdir(tmp_path)
+
+    assert unpack_archive_file(archive.name, mimetype, "unpacked") == "unpacked"
+
+    assert (target_dir / "model..bin").read_bytes() == b"model"
+    assert not archive.exists()
+
+
+def test_unpack_zip_rejects_late_symlink_escape(tmp_path, monkeypatch):
+    dest_dir = tmp_path / "unpacked"
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside = outside_dir / "model.bin"
+    outside.write_bytes(b"original")
+    archive = create_test_archive(tmp_path, "zip", [
+        ("first.bin", b"first"),
+        ("nested/model.bin", b"overwrite"),
+    ])
+    original_extract = zipfile.ZipFile.extract
+
+    def extract_and_create_link(self, member, path=None, pwd=None):
+        result = original_extract(self, member, path, pwd)
+        if member.filename == "first.bin":
+            (dest_dir / "nested").symlink_to(outside_dir)
+        return result
+
+    monkeypatch.setattr(zipfile.ZipFile, "extract", extract_and_create_link)
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$"):
+        unpack_archive_file(archive, "application/zip", dest_dir)
+
+    assert (dest_dir / "first.bin").read_bytes() == b"first"
+    assert outside.read_bytes() == b"original"
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("mimetype", ["application/x-tar", "application/zip"])
+def test_unpack_corrupt_archive_retains_input(tmp_path, mimetype):
+    archive = tmp_path / "archive"
+    archive.write_bytes(b"not an archive")
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, mimetype, tmp_path / "unpacked")
+
+    assert isinstance(error.value.__cause__, (tarfile.TarError, zipfile.BadZipFile))
+    assert archive.read_bytes() == b"not an archive"
+
+
+def test_unpack_tar_fails_closed_without_data_filter(tmp_path, monkeypatch, permissive_tar_defaults):
+    archive = create_test_archive(tmp_path, "tar", [("model.bin", b"model")])
+    dest_dir = tmp_path / "unpacked"
+    monkeypatch.delattr(tarfile, "data_filter")
+
+    with pytest.raises(RuntimeError, match="^Failed to unpack archive file$") as error:
+        unpack_archive_file(archive, "application/x-tar", dest_dir)
+
+    assert error.value.__cause__ is not None
+    assert not (dest_dir / "model.bin").exists()
+    assert archive.exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar.gz", "zip"])
+def test_http_download_rejects_malicious_archive(tmp_path, permissive_tar_defaults, archive_type):
+    archive = create_test_archive(tmp_path, archive_type, [("../outside.txt", b"overwrite")])
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(b"original")
+    dest_dir = tmp_path / "downloaded"
+    response = create_http_response(archive)
+    uri = f"https://example.test/{archive.name}"
+    destination = str(dest_dir)
+
+    with patch("job.download.requests.get", return_value=response) as get:
+        with pytest.raises(RuntimeError, match="^Failed to unpack archive file$"):
+            download_from_http(uri, destination)
+
+    get.assert_called_once_with(uri, stream=True)
+    response.raise_for_status.assert_called_once_with()
+    assert outside.read_bytes() == b"original"
+    assert (dest_dir / archive.name).exists()
+
+
+@pytest.mark.parametrize("archive_type", ["tar.gz", "zip"])
+def test_http_download_extracts_safe_archive(tmp_path, archive_type):
+    archive = create_test_archive(tmp_path, archive_type, [
+        ("nested/model.bin", b"model"),
+        ("config.json", b"{}"),
+    ])
+    dest_dir = tmp_path / "downloaded"
+    response = create_http_response(archive)
+
+    with patch("job.download.requests.get", return_value=response) as get:
+        assert download_from_http(
+            f"https://example.test/{archive.name}", str(dest_dir)
+        ) == str(dest_dir)
+
+    get.assert_called_once_with(f"https://example.test/{archive.name}", stream=True)
+    response.raise_for_status.assert_called_once_with()
+    assert (dest_dir / "nested/model.bin").read_bytes() == b"model"
+    assert (dest_dir / "config.json").read_bytes() == b"{}"
+    assert not (dest_dir / archive.name).exists()
+
+
+@pytest.mark.parametrize("source_key", ["test-key", "test-key/"])
+def test_download_from_s3(minimal_update_artifact_env_source_dest_vars, source_key):
+    os.environ["MODEL_SYNC_SOURCE_AWS_KEY"] = source_key
+
     config = get_config([])
 
-    # sanity-check config
     assert isinstance(config.source, S3StorageConfig)
     assert config.source.bucket == "test-bucket"
-    assert config.source.key == "test-key"
+    assert config.source.key == source_key
 
-    # use whatever path came back in config
     storage_path = config.storage.path
     assert storage_path == "/tmp/model-sync"
 
-    # mock out ModelRegistry so validate_and_get_model_registry_client returns a dummy client
     with patch("job.mr_client.ModelRegistry") as mock_registry_class:
         mock_registry_class.return_value = Mock()
         client = validate_and_get_model_registry_client(config.registry)
 
-    # now patch _connect_to_s3 and os.makedirs
     with patch("job.download._connect_to_s3") as mock_connect, \
          patch("os.makedirs") as mock_makedirs:
 
-        # prepare our fake s3 client + transfer config
         mock_s3 = Mock()
         mock_transfer_cfg = Mock()
         mock_connect.return_value = (mock_s3, mock_transfer_cfg)
 
-        # set up a paginator that yields a single page with two entries
         fake_page = {
             "Contents": [
                 {"Key": "test-key/file1.txt"},
-                {"Key": "test-key/dir/"},                # should be skipped
+                {"Key": "test-key/dir/"},
                 {"Key": "test-key/dir/file2.bin"},
             ]
         }
@@ -154,28 +492,24 @@ def test_download_from_s3(minimal_update_artifact_env_source_dest_vars):
         mock_paginator.paginate.return_value = [fake_page]
         mock_s3.get_paginator.return_value = mock_paginator
 
-        # call under test
         download_from_s3(config.source, config.storage.path)
 
-        # ensure _connect_to_s3 got all args including multipart settings
         mock_connect.assert_called_once_with(
             "http://localhost:9000",
             "test-access-key-id",
             "test-secret-access-key",
-            None,  # region
+            None,
             multipart_threshold=1024 * 1024,
             multipart_chunksize=1024 * 1024,
             max_pool_connections=10,
         )
 
-        # ensure we asked for the right paginator and paginated correctly
         mock_s3.get_paginator.assert_called_once_with("list_objects_v2")
         mock_paginator.paginate.assert_called_once_with(
             Bucket="test-bucket",
-            Prefix="test-key",
+            Prefix=source_key,
         )
 
-        # build expected download calls using the real storage_path
         expected = [
             call(
                 "test-bucket",
@@ -190,7 +524,6 @@ def test_download_from_s3(minimal_update_artifact_env_source_dest_vars):
         ]
         mock_s3.download_file.assert_has_calls(expected, any_order=False)
 
-        # directories should be created for each file
         mock_makedirs.assert_any_call(
             os.path.dirname(os.path.join(storage_path, "file1.txt")),
             exist_ok=True
@@ -199,6 +532,57 @@ def test_download_from_s3(minimal_update_artifact_env_source_dest_vars):
             os.path.dirname(os.path.join(storage_path, "dir", "file2.bin")),
             exist_ok=True
         )
+
+
+@pytest.mark.parametrize(
+    "source_key, expected_files",
+    [
+        ("my-model", ["model.onnx.bak", "model.onnx", "weights/data-backup", "weights/data"]),
+        ("my-model/", ["model.onnx.bak", "model.onnx", "weights/data-backup", "weights/data"]),
+        ("my-model/model.onnx", ["model.onnx"]),
+        ("my-model/weights/data", ["data"]),
+    ],
+)
+def test_download_from_s3_matching_keys(
+    minimal_update_artifact_env_source_dest_vars, tmp_path, source_key, expected_files
+):
+    os.environ["MODEL_SYNC_SOURCE_AWS_KEY"] = source_key
+    config = get_config([])
+    storage_path = tmp_path / "staging"
+    keys = [
+        "my-model-backup/unrelated.bin",
+        "my-model/",
+        "my-model/model.onnx.bak",
+        "my-model/model.onnx",
+        "my-model/weights/",
+        "my-model/weights/data-backup",
+        "my-model/weights/data",
+    ]
+
+    def paginate(*, Bucket, Prefix):
+        return [{"Contents": [{"Key": key}]} for key in keys if key.startswith(Prefix)]
+
+    def download_file(bucket, key, filename):
+        Path(filename).write_text(key)
+
+    with patch("job.download._connect_to_s3") as mock_connect:
+        mock_s3 = Mock()
+        mock_connect.return_value = (mock_s3, Mock())
+        mock_s3.get_paginator.return_value.paginate.side_effect = paginate
+        mock_s3.download_file.side_effect = download_file
+
+        download_from_s3(config.source, str(storage_path))
+
+    actual_files = {
+        path.relative_to(storage_path).as_posix()
+        for path in storage_path.rglob("*")
+        if path.is_file()
+    }
+    assert actual_files == set(expected_files)
+    assert mock_s3.download_file.call_count == len(expected_files)
+    for path in storage_path.rglob("*"):
+        if path.is_file():
+            assert path.read_text() in keys
 
 
 def test_download_from_s3_with_region(minimal_update_artifact_env_source_dest_vars):

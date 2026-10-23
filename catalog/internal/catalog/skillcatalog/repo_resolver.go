@@ -226,7 +226,7 @@ func (r *RepoResolver) RemoteCommit(ctx context.Context, repo SkillRepository, r
 
 	// Pass the exact ref and a trailing-glob: a narrow pattern omits the peeled
 	// (`^{}`) line for an annotated tag, while the glob captures it (along with
-	// sibling refs, which peelLsRemote filters out by exact name).
+	// sibling refs, which peelLsRemote filters out with refNameMatches).
 	out, err := runGitCmd(ctx, lsRemoteDir, env, "ls-remote", repo.URL, ref, ref+"*")
 	if err != nil {
 		return "", fmt.Errorf("ls-remote %s at %q: %w", repo.URL, ref, err)
@@ -236,7 +236,7 @@ func (r *RepoResolver) RemoteCommit(ctx context.Context, repo SkillRepository, r
 
 // peelLsRemote returns the commit SHA that ref resolves to, from `git ls-remote`
 // output that may include sibling refs and a peeled (`^{}`) line for an annotated
-// tag. It considers only lines whose ref name matches ref exactly, preferring the
+// tag. It considers only lines whose ref name is ref (see refNameMatches), preferring the
 // peeled line so an annotated tag yields its underlying commit rather than the tag
 // object (matching what Resolve records). Returns "" when nothing matched.
 func peelLsRemote(out, ref string) string {
@@ -248,8 +248,8 @@ func peelLsRemote(out, ref string) string {
 		}
 		sha, name := fields[0], fields[1]
 		core := strings.TrimSuffix(name, "^{}")
-		if core != ref && !strings.HasSuffix(core, "/"+ref) {
-			continue // a sibling ref matched by the glob (e.g. v2.0-rc for v2.0)
+		if !refNameMatches(core, ref) {
+			continue // a sibling ref matched by the pattern (e.g. v2.0-rc or sdk/v2.0 for v2.0)
 		}
 		if strings.HasSuffix(name, "^{}") {
 			peeled = sha
@@ -261,6 +261,21 @@ func peelLsRemote(out, ref string) string {
 		return peeled
 	}
 	return direct
+}
+
+// refNameMatches reports whether name, a full ref name listed by `git ls-remote`,
+// is one that git fetch could resolve ref to. ls-remote matches its patterns
+// against the tail of each ref name, so the pattern v1.0 also lists
+// refs/tags/sdk/v1.0 and refs/heads/release/v1.0; those are different refs and
+// must not be taken for ref. The accepted forms are the first four of git's
+// ref_rev_parse_rules: ref itself, or ref under refs/, refs/tags/ or refs/heads/.
+// The refs/remotes/ forms are left out because a skill ref never names a
+// remote-tracking branch.
+func refNameMatches(name, ref string) bool {
+	return name == ref ||
+		name == "refs/"+ref ||
+		name == "refs/tags/"+ref ||
+		name == "refs/heads/"+ref
 }
 
 // checkProtocol rejects repository URLs whose git transport is not allowed,
@@ -317,8 +332,13 @@ func (r *RepoResolver) checkImmutableRef(ctx context.Context, dir, url, ref stri
 	if err != nil {
 		return fmt.Errorf("unable to verify ref %q is immutable: %w", ref, err)
 	}
-	if strings.TrimSpace(out) != "" {
-		return fmt.Errorf("ref %q is a branch; skills must be pinned to a tag or commit SHA", ref)
+	// The pattern also lists branches that merely end in /ref (a tag v1.0 next to
+	// a branch release/v1.0), so ref is refused only when it names one of the
+	// listed branches (see refNameMatches).
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if fields := strings.Fields(line); len(fields) >= 2 && refNameMatches(fields[1], ref) {
+			return fmt.Errorf("ref %q is a branch; skills must be pinned to a tag or commit SHA", ref)
+		}
 	}
 	return nil
 }

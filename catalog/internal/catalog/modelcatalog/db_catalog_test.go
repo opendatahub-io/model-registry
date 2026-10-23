@@ -140,7 +140,7 @@ func TestDBCatalog(t *testing.T) {
 		savedModel, err := catalogModelRepo.Save(testModel)
 		require.NoError(t, err)
 
-		// Create: 1 model artifact, 2 performance, 1 accuracy
+		// Create: 1 model artifact, 2 performance, 1 accuracy, 1 evaluation
 		modelArt := &models.CatalogModelArtifactImpl{
 			TypeID: new(int32(modelArtifactTypeID)),
 			Attributes: &models.CatalogModelArtifactAttributes{
@@ -156,6 +156,7 @@ func TestDBCatalog(t *testing.T) {
 			models.MetricsTypePerformance,
 			models.MetricsTypePerformance,
 			models.MetricsTypeAccuracy,
+			models.MetricsTypeEvaluation,
 		} {
 			ma := &models.CatalogMetricsArtifactImpl{
 				TypeID: new(int32(metricsArtifactTypeID)),
@@ -176,6 +177,7 @@ func TestDBCatalog(t *testing.T) {
 			"model-artifact":      1,
 			"performance-metrics": 2,
 			"accuracy-metrics":    1,
+			"evaluation-metrics":  1,
 		}, *retrieved.ArtifactCounts)
 		_, hasSecurityKey := (*retrieved.ArtifactCounts)["security-metrics"]
 		assert.False(t, hasSecurityKey, "security-metrics key should be absent when count is zero")
@@ -713,6 +715,67 @@ func TestDBCatalog(t *testing.T) {
 		metricsArtifactIDStr := strconv.FormatInt(int64(*savedMetricsArt.GetID()), 10)
 		assert.True(t, artifactIDs[modelArtifactIDStr], "Should contain our model artifact")
 		assert.True(t, artifactIDs[metricsArtifactIDStr], "Should contain our metrics artifact")
+	})
+
+	t.Run("TestGetArtifacts_EvaluationMetricsAreModelScopedAndFilterable", func(t *testing.T) {
+		const sourceID = "evaluation-test-source"
+		createModel := func(name string) models.CatalogModel {
+			modelEntity := &models.CatalogModelImpl{
+				TypeID: new(int32(catalogModelTypeID)),
+				Attributes: &models.CatalogModelAttributes{
+					Name:       new(sourceID + ":" + name),
+					ExternalID: new(name + "-external-id"),
+				},
+				Properties: &[]mr_models.Properties{
+					{Name: "source_id", StringValue: new(sourceID)},
+				},
+			}
+			saved, err := catalogModelRepo.Save(modelEntity)
+			require.NoError(t, err)
+			return saved
+		}
+		modelA := createModel("org/model-a")
+		modelB := createModel("org/model-b")
+
+		createEvaluation := func(parentID *int32, name string, timestamp int64, category string) {
+			artifact := &models.CatalogMetricsArtifactImpl{
+				TypeID: new(int32(metricsArtifactTypeID)),
+				Attributes: &models.CatalogMetricsArtifactAttributes{
+					Name:                 new(name),
+					ExternalID:           new(name + "-external-id"),
+					MetricsType:          models.MetricsTypeEvaluation,
+					ArtifactType:         new(models.CatalogMetricsArtifactType),
+					CreateTimeSinceEpoch: new(timestamp),
+				},
+				CustomProperties: &[]mr_models.Properties{
+					{Name: "category", StringValue: new(category)},
+					{Name: "result", DoubleValue: new(0.85)},
+				},
+			}
+			_, err := metricsArtifactRepo.Save(artifact, parentID)
+			require.NoError(t, err)
+		}
+		createEvaluation(modelA.GetID(), "evaluation-a-old", 100, "general-llm")
+		createEvaluation(modelA.GetID(), "evaluation-a-new", 200, "general-llm")
+		createEvaluation(modelA.GetID(), "evaluation-a-safety", 300, "safety-testing")
+		createEvaluation(modelB.GetID(), "evaluation-b", 400, "general-llm")
+
+		result, err := dbCatalog.GetArtifacts(ctx, "org/model-a", sourceID, ListArtifactsParams{
+			FilterQuery:   `metricsType.string_value = "evaluation-metrics" AND category.string_value = "general-llm"`,
+			PageSize:      10,
+			OrderBy:       string(model.ORDERBYFIELD_CREATE_TIME),
+			SortOrder:     model.SORTORDER_DESC,
+			NextPageToken: new(""),
+		})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 2)
+		assert.Equal(t, "evaluation-a-new", *result.Items[0].CatalogMetricsArtifact.Name)
+		assert.Equal(t, "evaluation-a-old", *result.Items[1].CatalogMetricsArtifact.Name)
+		for _, item := range result.Items {
+			require.NotNil(t, item.CatalogMetricsArtifact)
+			assert.Equal(t, string(models.MetricsTypeEvaluation), item.CatalogMetricsArtifact.MetricsType)
+			assert.NotEqual(t, "evaluation-b", *item.CatalogMetricsArtifact.Name)
+		}
 	})
 
 	t.Run("TestGetArtifacts_ModelNotFound", func(t *testing.T) {

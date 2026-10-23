@@ -121,22 +121,22 @@ type hfModelProvider struct {
 
 // hfModelInfo represents the structure of Hugging Face API model information
 type hfModelInfo struct {
-	ID          string      `json:"id"`
-	Author      string      `json:"author,omitempty"`
-	Sha         string      `json:"sha,omitempty"`
-	CreatedAt   string      `json:"createdAt,omitempty"`
-	UpdatedAt   string      `json:"lastModified,omitempty"`
-	Private     bool        `json:"private,omitempty"`
-	Gated       gatedString `json:"gated,omitempty"`
-	Downloads   int         `json:"downloads,omitempty"`
-	Tags        []string    `json:"tags,omitempty"`
-	PipelineTag string      `json:"pipeline_tag,omitempty"`
-	LibraryName string      `json:"library_name,omitempty"`
-	ModelID     string      `json:"modelId,omitempty"`
-	Task        string      `json:"task,omitempty"`
-	Siblings    []hfFile    `json:"siblings,omitempty"`
-	Config      *hfConfig   `json:"config,omitempty"`
-	CardData    *hfCard     `json:"cardData,omitempty"`
+	ID          string         `json:"id"`
+	Author      string         `json:"author,omitempty"`
+	Sha         string         `json:"sha,omitempty"`
+	CreatedAt   string         `json:"createdAt,omitempty"`
+	UpdatedAt   string         `json:"lastModified,omitempty"`
+	Private     bool           `json:"private,omitempty"`
+	Gated       gatedString    `json:"gated,omitempty"`
+	Downloads   int            `json:"downloads,omitempty"`
+	Tags        []string       `json:"tags,omitempty"`
+	PipelineTag string         `json:"pipeline_tag,omitempty"`
+	LibraryName string         `json:"library_name,omitempty"`
+	ModelID     string         `json:"modelId,omitempty"`
+	Task        string         `json:"task,omitempty"`
+	Siblings    []hfFile       `json:"siblings,omitempty"`
+	Config      *hfConfig      `json:"config,omitempty"`
+	CardData    map[string]any `json:"cardData,omitempty"`
 }
 
 type hfFile struct {
@@ -146,10 +146,6 @@ type hfFile struct {
 type hfConfig struct {
 	Architectures []string `json:"architectures,omitempty"`
 	ModelType     string   `json:"model_type,omitempty"`
-}
-
-type hfCard struct {
-	Data map[string]any `json:"data,omitempty"`
 }
 
 //go:embed assets/catalog_logo.svg
@@ -294,14 +290,20 @@ func (hfm *hfModel) populateFromHFInfo(ctx context.Context, provider *hfModelPro
 	}
 
 	// Extract description from cardData if available
-	if hfInfo.CardData != nil && hfInfo.CardData.Data != nil {
+	if hfInfo.CardData != nil {
+		cardMap := hfInfo.CardData
+		if nested, ok := cardMap["data"].(map[string]any); ok && nested != nil {
+			cardMap = nested
+		}
+
 		// Extract description from cardData if available
-		if desc, ok := hfInfo.CardData.Data["description"].(string); ok && desc != "" {
+		if desc, ok := cardMap["description"].(string); ok && desc != "" {
 			hfm.Description = &desc
 		}
 
 		// Extract language from cardData if available
-		if langData, ok := hfInfo.CardData.Data["language"].([]any); ok && len(langData) > 0 {
+		// Handles both slice of any (e.g. ["en", "de"]) and plain string (e.g. "en")
+		if langData, ok := cardMap["language"].([]any); ok && len(langData) > 0 {
 			languages := make([]string, 0, len(langData))
 			for _, lang := range langData {
 				if langStr, ok := lang.(string); ok && langStr != "" {
@@ -311,6 +313,10 @@ func (hfm *hfModel) populateFromHFInfo(ctx context.Context, provider *hfModelPro
 			if len(languages) > 0 {
 				hfm.Language = languages
 			}
+		} else if langDataStr, ok := cardMap["language"].([]string); ok && len(langDataStr) > 0 {
+			hfm.Language = langDataStr
+		} else if langStr, ok := cardMap["language"].(string); ok && strings.TrimSpace(langStr) != "" {
+			hfm.Language = []string{strings.TrimSpace(langStr)}
 		}
 
 		// Extract license link from cardData if available
@@ -318,7 +324,7 @@ func (hfm *hfModel) populateFromHFInfo(ctx context.Context, provider *hfModelPro
 		if hfm.LicenseLink == nil {
 			licenseLinkFields := []string{"license_link", "licenseLink", "license_url", "licenseUrl", "license"}
 			for _, field := range licenseLinkFields {
-				if link, ok := hfInfo.CardData.Data[field].(string); ok && link != "" {
+				if link, ok := cardMap[field].(string); ok && link != "" {
 					if strings.HasPrefix(link, "http://") || strings.HasPrefix(link, "https://") {
 						hfm.LicenseLink = &link
 						break
@@ -326,7 +332,6 @@ func (hfm *hfModel) populateFromHFInfo(ctx context.Context, provider *hfModelPro
 				}
 			}
 		}
-
 	}
 
 	// Set provider from author
@@ -1069,7 +1074,7 @@ func (p *hfModelProvider) refreshCredentialStatus(ctx context.Context) {
 	if p.apiKey == "" {
 		var authed *bool
 		if p.hasOriginalKey {
-			authed = boolPtr(false)
+			authed = new(false)
 		}
 		p.credOpts = []basecatalog.SourceStatusOption{
 			basecatalog.WithCredentials(p.hasOriginalKey, authed, ""),
@@ -1082,7 +1087,7 @@ func (p *hfModelProvider) refreshCredentialStatus(ctx context.Context) {
 		if errors.Is(err, errHFAuthFailed) {
 			glog.Warningf("Credential re-validation rejected for source %s: %v", p.sourceId, err)
 			p.credOpts = []basecatalog.SourceStatusOption{
-				basecatalog.WithCredentials(p.hasOriginalKey, boolPtr(false), ""),
+				basecatalog.WithCredentials(p.hasOriginalKey, new(false), ""),
 			}
 		} else {
 			glog.Warningf("Credential re-validation transient error for source %s (keeping previous status): %v", p.sourceId, err)
@@ -1091,7 +1096,7 @@ func (p *hfModelProvider) refreshCredentialStatus(ctx context.Context) {
 	}
 
 	p.credOpts = []basecatalog.SourceStatusOption{
-		basecatalog.WithCredentials(p.hasOriginalKey, boolPtr(true), username),
+		basecatalog.WithCredentials(p.hasOriginalKey, new(true), username),
 	}
 }
 
@@ -1162,8 +1167,19 @@ func envVarSuffix(sourceID string) string {
 	return trimmed
 }
 
-// resolveHFAPIKey resolves the Hugging Face API key for the regular (non-preview)
-// provider from the environment. Precedence (first non-empty wins):
+// resolveSavedHFAPIKey reads the environment variable assigned to a source with
+// a saved credential reference. Such a source must not use another source's key
+// through the global fallback.
+func resolveSavedHFAPIKey(sourceID, propertyEnvVar string) (string, string) {
+	envVarName := propertyEnvVar
+	if envVarName == "" {
+		envVarName = apiKeyEnvVarPrefix + envVarSuffix(sourceID)
+	}
+	return os.Getenv(envVarName), envVarName
+}
+
+// resolveHFAPIKey resolves the Hugging Face API key for a source without a
+// saved credential reference. Precedence (first non-empty wins):
 //  1. The env var named by a validly-set apiKeyEnvVar property (propertyEnvVar).
 //  2. HF_API_KEY_<SOURCEID>, where <SOURCEID> is the source ID transformed by envVarSuffix.
 //  3. HF_API_KEY, the global fallback.
@@ -1181,6 +1197,29 @@ func resolveHFAPIKey(sourceID, propertyEnvVar string) string {
 	return os.Getenv(defaultAPIKeyEnvVar)
 }
 
+// parseSyncInterval reads the optional syncInterval property (a duration
+// string such as "1s", "10s", "1m" or "24h") and returns the interval for
+// periodic syncing. It falls back to defaultSyncInterval when the property is
+// unset, cannot be parsed, or is not positive, since time.NewTicker panics on
+// a non-positive interval. For testing, a shorter interval can be used to
+// speed up tests.
+func parseSyncInterval(props map[string]any) time.Duration {
+	syncInterval, ok := props[syncIntervalKey].(string)
+	if !ok || syncInterval == "" {
+		return defaultSyncInterval
+	}
+	parsed, err := time.ParseDuration(syncInterval)
+	if err != nil {
+		glog.Warningf("Invalid syncInterval duration string %q, using default: %v", syncInterval, err)
+		return defaultSyncInterval
+	}
+	if parsed <= 0 {
+		glog.Warningf("syncInterval %q must be positive, using default: %v", syncInterval, defaultSyncInterval)
+		return defaultSyncInterval
+	}
+	return parsed
+}
+
 func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, reldir string) (<-chan ModelProviderRecord, error) {
 	p := &hfModelProvider{}
 	p.client = &http.Client{Timeout: 30 * time.Second}
@@ -1193,9 +1232,21 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	p.sourceId = sourceId
 
 	// Reject custom URLs (SSRF prevention) and validate apiKeyEnvVar (must be HF_API_KEY or HF_API_KEY_*).
-	// Resolve the API key with precedence: apiKeyEnvVar property > HF_API_KEY_<SOURCEID> > HF_API_KEY.
 	apiKeyEnvVar := sanitizeHFProperties(source.Properties, "HuggingFace catalog")
-	apiKey := resolveHFAPIKey(sourceId, apiKeyEnvVar)
+	savedCredential, _ := source.Properties["apiKey"].(string)
+	var apiKey string
+	if savedCredential != "" {
+		var expectedEnvVar string
+		apiKey, expectedEnvVar = resolveSavedHFAPIKey(sourceId, apiKeyEnvVar)
+		if apiKey == "" {
+			setSourceCredentialStatus(source, false, nil, "")
+			return nil, fmt.Errorf("saved Hugging Face credential for source %q is unavailable to the catalog service: %s is not set; check credential injection and restart the catalog rollout", sourceId, expectedEnvVar)
+		}
+	} else {
+		// Sources without a saved credential retain optional authentication and
+		// may use a source-specific or global environment variable.
+		apiKey = resolveHFAPIKey(sourceId, apiKeyEnvVar)
+	}
 	if apiKey == "" {
 		glog.Infof("No API key configured for Hugging Face. Only public models and limited data for gated models will be available.")
 	}
@@ -1205,17 +1256,7 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	allowedOrg, _ := source.Properties[allowedOrgKey].(string)
 	restrictToOrg(allowedOrg, &source.IncludedModels, &source.ExcludedModels)
 
-	// Parse sync interval (optional, defaults to 24 hours)
-	// This can be configured as a duration string (e.g., "1s", "10s", "1m", "24h").
-	// For testing, a shorter interval can be used to speed up tests.
-	p.syncInterval = defaultSyncInterval
-	if syncInterval, ok := source.Properties[syncIntervalKey].(string); ok && syncInterval != "" {
-		if parsed, err := time.ParseDuration(syncInterval); err == nil {
-			p.syncInterval = parsed
-		} else {
-			glog.Warningf("Invalid syncInterval duration string %q, using default: %v", syncInterval, err)
-		}
-	}
+	p.syncInterval = parseSyncInterval(source.Properties)
 
 	// Record whether a key was originally resolved, before prefix validation
 	// may clear p.apiKey. Used by refreshCredentialStatus so hasApiKey stays
@@ -1227,6 +1268,10 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 	if p.apiKey != "" {
 		hasValidPrefix := strings.HasPrefix(p.apiKey, "hf_")
 		if !hasValidPrefix {
+			if savedCredential != "" {
+				setSourceCredentialStatus(source, true, new(false), "")
+				return nil, fmt.Errorf("saved Hugging Face credential for source %q is invalid: API key must start with 'hf_'", sourceId)
+			}
 			// API key is set but doesn't have expected prefix, warn and continue without authentication
 			glog.Infof("API key does not have expected 'hf_' prefix. Only public models and limited data for gated models will be available.")
 			p.apiKey = "" // Clear invalid key to prevent its use
@@ -1237,7 +1282,7 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 			if err != nil {
 				glog.Errorf("Hugging Face catalog credential validation failed: %v", err)
 				// Record credential status on source before returning error
-				setSourceCredentialStatus(source, true, boolPtr(false), "")
+				setSourceCredentialStatus(source, true, new(false), "")
 				return nil, fmt.Errorf("failed to validate Hugging Face catalog credentials: %w", err)
 			}
 			authSuccess = true
@@ -1252,7 +1297,7 @@ func newHFModelProvider(ctx context.Context, source *basecatalog.ModelSource, re
 		// malformed or failed. Derives from the error path, not from
 		// username, because validateCredentials returns ("", nil) when
 		// whoami is 200 but the body won't decode.
-		authed = boolPtr(authSuccess)
+		authed = new(authSuccess)
 	}
 	setSourceCredentialStatus(source, p.hasOriginalKey, authed, hfUsername)
 	p.credOpts = []basecatalog.SourceStatusOption{basecatalog.WithCredentials(p.hasOriginalKey, authed, hfUsername)}
@@ -1769,6 +1814,11 @@ func (p *hfModelProvider) FetchModelsForPreview(ctx context.Context, modelIdenti
 // restrictToOrg prefixes included and excluded model lists with an
 // organization name for convenience and to prevent any other organization from
 // being retrieved.
+//
+// The prefixed lists are always freshly allocated. Callers pass slices taken
+// from a copied ModelSource, and a struct copy shares its slices' backing
+// arrays with the original, so writing in place would leak the prefix into the
+// shared source collection (and re-prefix it on every leader transition).
 func restrictToOrg(org string, included *[]string, excluded *[]string) {
 	if org == "" {
 		// No op
@@ -1777,19 +1827,27 @@ func restrictToOrg(org string, included *[]string, excluded *[]string) {
 
 	prefix := org + "/"
 
-	if included == nil || len(*included) == 0 {
-		*included = []string{prefix + "*"}
-	} else {
-		for i := range *included {
-			(*included)[i] = prefix + (*included)[i]
+	if included != nil {
+		if len(*included) == 0 {
+			*included = []string{prefix + "*"}
+		} else {
+			*included = prefixPatterns(prefix, *included)
 		}
 	}
 
-	if excluded != nil {
-		for i := range *excluded {
-			(*excluded)[i] = prefix + (*excluded)[i]
-		}
+	if excluded != nil && len(*excluded) > 0 {
+		*excluded = prefixPatterns(prefix, *excluded)
 	}
+}
+
+// prefixPatterns returns a new slice with prefix prepended to every pattern,
+// leaving the input slice untouched.
+func prefixPatterns(prefix string, patterns []string) []string {
+	out := make([]string, len(patterns))
+	for i, p := range patterns {
+		out[i] = prefix + p
+	}
+	return out
 }
 
 // setSourceCredentialStatus records hasApiKey, authenticated, and hfUsername on the source's
@@ -1807,6 +1865,3 @@ func setSourceCredentialStatus(source *basecatalog.ModelSource, hasApiKey bool, 
 		source.SetHfUsernameNil()
 	}
 }
-
-// boolPtr returns a pointer to v.
-func boolPtr(v bool) *bool { return &v }

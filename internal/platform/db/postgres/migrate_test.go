@@ -191,14 +191,16 @@ func TestTypeNameUniqueMigrationDedupesExistingRows(t *testing.T) {
 	require.NoError(t, err)
 
 	// Bring the shared database to a known state (fully migrated), then step
-	// back exactly one migration -- 000026_type_name_unique -- so the
-	// UNIQUE(name) constraint does not yet exist and duplicate rows can be
-	// inserted directly. Stepping relative to "fully migrated" rather than
-	// to an absolute version keeps this independent of how many migrations
-	// precede it and of whatever state other tests in this file left behind.
+	// back past 000027_property_option_views_uncap_arrays and
+	// 000026_type_name_unique so the UNIQUE(name) constraint does not yet
+	// exist and duplicate rows can be inserted directly. Stepping relative to
+	// "fully migrated" rather than to an absolute version keeps this
+	// independent of how many migrations precede it and of whatever state
+	// other tests in this file left behind; bump the step count if another
+	// migration is added after 000026.
 	require.NoError(t, migrator.Migrate())
-	downOne := -1
-	require.NoError(t, migrator.Down(&downOne))
+	downTwo := -2
+	require.NoError(t, migrator.Down(&downTwo))
 
 	// Two duplicate Type rows for the same name, as the pre-fix race could
 	// produce: the lower id is the one later migrations/the application
@@ -219,7 +221,7 @@ func TestTypeNameUniqueMigrationDedupesExistingRows(t *testing.T) {
 	require.NoError(t, sharedDB.Exec(
 		`INSERT INTO "Artifact" (type_id, name, uri) VALUES (?, 'test-artifact', 'file:///dedup-test')`, dupID).Error)
 
-	// Apply 000026.
+	// Apply 000026 (and everything after it).
 	require.NoError(t, migrator.Up(nil))
 
 	var count int64

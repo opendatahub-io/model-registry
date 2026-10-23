@@ -20,6 +20,8 @@ func runGit(t *testing.T, dir string, args ...string) string {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(cmd.Environ(),
+		// Fixture setup must not inherit signing, editors, or hooks from local config.
+		"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull,
 		"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
 		"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
 	)
@@ -267,6 +269,39 @@ func TestRemoteCommit_MatchesResolvedCommit(t *testing.T) {
 	assert.Equal(t, annotated, skills[0].ResolvedCommit)
 }
 
+func TestRemoteCommit_IgnoresOtherRefsEndingInRef(t *testing.T) {
+	repo := initFixtureRepo(t)
+	writeSkill(t, repo, "s", "s", "S.")
+	sha := commitAll(t, repo, "first")
+	runGit(t, repo, "tag", "v1.0")
+	runGit(t, repo, "tag", "-a", "v2.0", "-m", "annotated")
+	writeRepoFile(t, repo, "other.txt", "x")
+	commitAll(t, repo, "second")
+	// ls-remote also lists these for the patterns v1.0 and v2.0. They point at a
+	// different commit and sort both before (release/, sdk/) and after (x/) the
+	// tags themselves.
+	runGit(t, repo, "branch", "release/v1.0")
+	runGit(t, repo, "tag", "sdk/v1.0")
+	runGit(t, repo, "tag", "-a", "x/v2.0", "-m", "annotated")
+
+	r := testResolver()
+	ctx := context.Background()
+	entry := repoEntry(repo, nil, nil, nil)
+
+	for _, ref := range []string{"v1.0", "v2.0"} {
+		t.Run(ref, func(t *testing.T) {
+			remote, err := r.RemoteCommit(ctx, entry, ref, nil)
+			require.NoError(t, err)
+			assert.Equal(t, sha, remote, "%s resolves to its own commit, not to another ref ending in /%s", ref, ref)
+
+			skills, err := r.Resolve(ctx, entry, ref, nil)
+			require.NoError(t, err)
+			require.Len(t, skills, 1)
+			assert.Equal(t, remote, skills[0].ResolvedCommit, "RemoteCommit must match what Resolve records")
+		})
+	}
+}
+
 func TestResolve_UnknownRefErrors(t *testing.T) {
 	repo := initFixtureRepo(t)
 	writeSkill(t, repo, "s", "s", "S.")
@@ -298,6 +333,26 @@ func TestCheckImmutableRef(t *testing.T) {
 	err = r.checkImmutableRef(ctx, dir, "/nonexistent/repo.git", "v1.0", env)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to verify")
+}
+
+func TestCheckImmutableRef_BranchEndingInTagName(t *testing.T) {
+	repo := initFixtureRepo(t)
+	writeSkill(t, repo, "s", "s", "S.")
+	commitAll(t, repo, "init")
+	runGit(t, repo, "tag", "v1.0")
+	// `ls-remote --heads <url> v1.0` lists this branch too, but it is not v1.0.
+	runGit(t, repo, "branch", "release/v1.0")
+
+	r := testResolver()
+	_, env, err := r.gitEnv(nil)
+	require.NoError(t, err)
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	assert.NoError(t, r.checkImmutableRef(ctx, dir, repo, "v1.0", env), "a tag is immutable even when a branch name ends in /v1.0")
+	assert.Error(t, r.checkImmutableRef(ctx, dir, repo, "release/v1.0", env), "the branch itself is refused")
+	assert.Error(t, r.checkImmutableRef(ctx, dir, repo, "heads/main", env), "git fetch resolves heads/main to the main branch")
+	assert.Error(t, r.checkImmutableRef(ctx, dir, repo, "refs/heads/main", env), "a full branch ref name is refused")
 }
 
 // TestComputeBaseEnv_HardeningOverridesAmbient pins the append order in

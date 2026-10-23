@@ -54,10 +54,8 @@ func TestPopulateFromHFInfo(t *testing.T) {
 					Architectures: []string{"GPT2LMHeadModel"},
 					ModelType:     "gpt2",
 				},
-				CardData: &hfCard{
-					Data: map[string]any{
-						"description": "A test model description",
-					},
+				CardData: map[string]any{
+					"description": "A test model description",
 				},
 			},
 			sourceId:          "test-source-id",
@@ -125,10 +123,8 @@ func TestPopulateFromHFInfo(t *testing.T) {
 			name: "model with description in cardData",
 			hfInfo: &hfModelInfo{
 				ID: "test/desc-model",
-				CardData: &hfCard{
-					Data: map[string]any{
-						"description": "This is a test description",
-					},
+				CardData: map[string]any{
+					"description": "This is a test description",
 				},
 			},
 			sourceId:          "source-6",
@@ -339,10 +335,8 @@ func TestConvertHFModelToRecord(t *testing.T) {
 				Tags:        []string{"license:mit"},
 				LibraryName: "transformers",
 				Task:        "text-generation",
-				CardData: &hfCard{
-					Data: map[string]any{
-						"description": "A complete test model",
-					},
+				CardData: map[string]any{
+					"description": "A complete test model",
 				},
 			},
 			originalModelName: "test-org/complete-model",
@@ -1840,6 +1834,50 @@ func TestNewHFModelProvider_SanitizesSecurityProperties(t *testing.T) {
 	assert.False(t, envVarExists, "apiKeyEnvVar property must be removed to prevent env var oracle")
 }
 
+func TestNewHFModelProvider_SavedCredentialUnavailable(t *testing.T) {
+	t.Setenv("HF_API_KEY_MY_SOURCE", "")
+	t.Setenv("HF_API_KEY", "hf_global_key")
+
+	source := &basecatalog.ModelSource{
+		CatalogSource: apimodels.CatalogSource{
+			Id:             "my_source",
+			IncludedModels: []string{"test-org/model-1"},
+		},
+		Properties: map[string]any{"apiKey": "catalog-my-source-apikey"},
+	}
+
+	ch, err := newHFModelProvider(context.Background(), source, "")
+	require.Error(t, err)
+	assert.Nil(t, ch)
+	assert.ErrorContains(t, err, "HF_API_KEY_MY_SOURCE is not set")
+	assert.NotContains(t, err.Error(), "catalog-my-source-apikey")
+	assert.False(t, source.GetHasApiKey())
+	authenticated, isSet := source.GetAuthenticatedOk()
+	assert.True(t, isSet)
+	assert.Nil(t, authenticated)
+}
+
+func TestNewHFModelProvider_SavedCredentialInvalid(t *testing.T) {
+	t.Setenv("HF_API_KEY_MY_SOURCE", "invalid-key")
+
+	source := &basecatalog.ModelSource{
+		CatalogSource: apimodels.CatalogSource{
+			Id:             "my_source",
+			IncludedModels: []string{"test-org/model-1"},
+		},
+		Properties: map[string]any{"apiKey": "catalog-my-source-apikey"},
+	}
+
+	ch, err := newHFModelProvider(context.Background(), source, "")
+	require.Error(t, err)
+	assert.Nil(t, ch)
+	assert.ErrorContains(t, err, "API key must start with 'hf_'")
+	assert.NotContains(t, err.Error(), "invalid-key")
+	assert.True(t, source.GetHasApiKey())
+	assert.True(t, source.HasAuthenticated())
+	assert.False(t, source.GetAuthenticated())
+}
+
 func TestEnvVarSuffix(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1904,6 +1942,68 @@ func TestResolveHFAPIKey(t *testing.T) {
 		t.Setenv("HF_API_KEY", "")
 		assert.Equal(t, "", resolveHFAPIKey("my-source", ""))
 	})
+}
+
+func TestResolveSavedHFAPIKey(t *testing.T) {
+	t.Run("reads the source-specific variable", func(t *testing.T) {
+		t.Setenv("HF_API_KEY_MY_SOURCE", "hf_source_key")
+		t.Setenv("HF_API_KEY", "hf_global_key")
+		key, envVar := resolveSavedHFAPIKey("my_source", "")
+		assert.Equal(t, "hf_source_key", key)
+		assert.Equal(t, "HF_API_KEY_MY_SOURCE", envVar)
+	})
+
+	t.Run("does not fall back to a global key", func(t *testing.T) {
+		t.Setenv("HF_API_KEY_MY_SOURCE", "")
+		t.Setenv("HF_API_KEY", "hf_global_key")
+		key, envVar := resolveSavedHFAPIKey("my_source", "")
+		assert.Empty(t, key)
+		assert.Equal(t, "HF_API_KEY_MY_SOURCE", envVar)
+	})
+
+	t.Run("uses an explicitly configured variable", func(t *testing.T) {
+		t.Setenv("HF_API_KEY_ORG1", "hf_org_key")
+		t.Setenv("HF_API_KEY_MY_SOURCE", "hf_source_key")
+		key, envVar := resolveSavedHFAPIKey("my_source", "HF_API_KEY_ORG1")
+		assert.Equal(t, "hf_org_key", key)
+		assert.Equal(t, "HF_API_KEY_ORG1", envVar)
+	})
+
+	t.Run("does not fall back when the configured variable is empty", func(t *testing.T) {
+		t.Setenv("HF_API_KEY_ORG1", "")
+		t.Setenv("HF_API_KEY_MY_SOURCE", "hf_source_key")
+		key, envVar := resolveSavedHFAPIKey("my_source", "HF_API_KEY_ORG1")
+		assert.Empty(t, key)
+		assert.Equal(t, "HF_API_KEY_ORG1", envVar)
+	})
+}
+
+func TestParseSyncInterval(t *testing.T) {
+	tests := []struct {
+		name  string
+		props map[string]any
+		want  time.Duration
+	}{
+		{"nil properties", nil, defaultSyncInterval},
+		{"unset", map[string]any{}, defaultSyncInterval},
+		{"empty string", map[string]any{syncIntervalKey: ""}, defaultSyncInterval},
+		{"non-string value", map[string]any{syncIntervalKey: 10}, defaultSyncInterval},
+		{"unparseable", map[string]any{syncIntervalKey: "soon"}, defaultSyncInterval},
+		{"zero", map[string]any{syncIntervalKey: "0s"}, defaultSyncInterval},
+		{"bare zero", map[string]any{syncIntervalKey: "0"}, defaultSyncInterval},
+		{"negative", map[string]any{syncIntervalKey: "-1m"}, defaultSyncInterval},
+		{"seconds", map[string]any{syncIntervalKey: "10s"}, 10 * time.Second},
+		{"hours", map[string]any{syncIntervalKey: "6h"}, 6 * time.Hour},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseSyncInterval(tt.props)
+			assert.Equal(t, tt.want, got)
+			// Whatever is configured, the result must be usable by time.NewTicker,
+			// which panics on a non-positive interval.
+			assert.NotPanics(t, func() { time.NewTicker(got).Stop() })
+		})
+	}
 }
 
 func TestDeriveHFAccessType(t *testing.T) {
@@ -2180,7 +2280,7 @@ func TestSetSourceCredentialStatus(t *testing.T) {
 		{
 			name:            "API key with successful auth and username",
 			hasApiKey:       true,
-			authenticated:   boolPtr(true),
+			authenticated:   new(true),
 			hfUsername:      "jdoe",
 			expectHasApiKey: true,
 			expectAuthSet:   true,
@@ -2190,7 +2290,7 @@ func TestSetSourceCredentialStatus(t *testing.T) {
 		{
 			name:              "API key with failed auth",
 			hasApiKey:         true,
-			authenticated:     boolPtr(false),
+			authenticated:     new(false),
 			hfUsername:        "",
 			expectHasApiKey:   true,
 			expectAuthSet:     true,
@@ -2232,12 +2332,12 @@ func TestShouldBlockGatedModel(t *testing.T) {
 	// Mock auth-check endpoint: 200 for granted models, 403 for denied,
 	// 429 for rate-limited, 503 for service unavailable.
 	grantedModels := map[string]bool{
-		"meta-llama/Llama-3-8B":        true,
+		"meta-llama/Llama-3-8B":       true,
 		"ibm-granite/granite-8b-code": true,
 	}
 	transientErrorModels := map[string]int{
-		"org/rate-limited-model":   http.StatusTooManyRequests,
-		"org/server-error-model":   http.StatusServiceUnavailable,
+		"org/rate-limited-model": http.StatusTooManyRequests,
+		"org/server-error-model": http.StatusServiceUnavailable,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -2439,7 +2539,7 @@ func TestGetModelsFromHF_BlocksGatedWithoutAccess(t *testing.T) {
 	// Create provider with exact model patterns (no expansion needed)
 	source := &basecatalog.ModelSource{
 		CatalogSource: apimodels.CatalogSource{
-			Id:             "test-source",
+			Id: "test-source",
 			IncludedModels: []string{
 				"org/public-model",
 				"org/gated-no-access",
@@ -2547,4 +2647,152 @@ func TestGetModelsFromHF_TransientGatedErrorPreservesRecords(t *testing.T) {
 	// The public model should still be in the results
 	require.Len(t, records, 1)
 	assert.Equal(t, "org/public-model", *records[0].Model.GetAttributes().Name)
+}
+
+func TestHFCardDataPopulation_FromLiveAPIShape(t *testing.T) {
+	ctx := context.Background()
+	provider := &hfModelProvider{
+		baseURL:  defaultHuggingFaceURL,
+		sourceId: "src-1",
+	}
+
+	tests := []struct {
+		name                string
+		payload             string
+		expectedDesc        *string
+		expectedLanguage    []string
+		expectedLicenseLink *string
+	}{
+		{
+			name: "list language with description and license_link",
+			payload: `{
+				"id": "meta-llama/Llama-3.1-8B-Instruct",
+				"author": "meta-llama",
+				"cardData": {
+					"language": ["en", "de"],
+					"description": "Llama 3.1 instructions tuned model",
+					"license_link": "https://huggingface.co/meta-llama/LICENSE"
+				}
+			}`,
+			expectedDesc:        new("Llama 3.1 instructions tuned model"),
+			expectedLanguage:    []string{"en", "de"},
+			expectedLicenseLink: new("https://huggingface.co/meta-llama/LICENSE"),
+		},
+		{
+			name: "single string language with alternative license link field",
+			payload: `{
+				"id": "google-bert/bert-base-uncased",
+				"author": "google-bert",
+				"cardData": {
+					"language": "en",
+					"description": "Pretrained BERT model",
+					"license_url": "https://www.apache.org/licenses/LICENSE-2.0"
+				}
+			}`,
+			expectedDesc:        new("Pretrained BERT model"),
+			expectedLanguage:    []string{"en"},
+			expectedLicenseLink: new("https://www.apache.org/licenses/LICENSE-2.0"),
+		},
+		{
+			name: "nested data backward compatibility",
+			payload: `{
+				"id": "test-org/test-model",
+				"author": "test-org",
+				"cardData": {
+					"data": {
+						"language": ["es"],
+						"description": "Nested description",
+						"license": "https://example.com/license"
+					}
+				}
+			}`,
+			expectedDesc:        new("Nested description"),
+			expectedLanguage:    []string{"es"},
+			expectedLicenseLink: new("https://example.com/license"),
+		},
+		{
+			name: "no cardData",
+			payload: `{
+				"id": "test-org/minimal-model",
+				"author": "test-org"
+			}`,
+			expectedDesc:        nil,
+			expectedLanguage:    nil,
+			expectedLicenseLink: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var info hfModelInfo
+			err := json.Unmarshal([]byte(tt.payload), &info)
+			require.NoError(t, err)
+
+			hfm := &hfModel{}
+			hfm.populateFromHFInfo(ctx, provider, &info, "src-1", info.ID, nil)
+
+			if tt.expectedDesc == nil {
+				assert.Nil(t, hfm.Description)
+			} else {
+				require.NotNil(t, hfm.Description)
+				assert.Equal(t, *tt.expectedDesc, *hfm.Description)
+			}
+
+			assert.Equal(t, tt.expectedLanguage, hfm.Language)
+
+			if tt.expectedLicenseLink == nil {
+				assert.Nil(t, hfm.LicenseLink)
+			} else {
+				require.NotNil(t, hfm.LicenseLink)
+				assert.Equal(t, *tt.expectedLicenseLink, *hfm.LicenseLink)
+			}
+		})
+	}
+}
+
+func TestRestrictToOrg(t *testing.T) {
+	t.Run("empty org is a no-op", func(t *testing.T) {
+		included := []string{"granite-*"}
+		excluded := []string{"granite-old"}
+		restrictToOrg("", &included, &excluded)
+		assert.Equal(t, []string{"granite-*"}, included)
+		assert.Equal(t, []string{"granite-old"}, excluded)
+	})
+
+	t.Run("empty included defaults to the whole org", func(t *testing.T) {
+		var included, excluded []string
+		restrictToOrg("ibm-granite", &included, &excluded)
+		assert.Equal(t, []string{"ibm-granite/*"}, included)
+		assert.Empty(t, excluded)
+	})
+
+	t.Run("prefixes included and excluded patterns", func(t *testing.T) {
+		included := []string{"granite-*", "granite-3.1-8b"}
+		excluded := []string{"granite-old-*"}
+		restrictToOrg("ibm-granite", &included, &excluded)
+		assert.Equal(t, []string{"ibm-granite/granite-*", "ibm-granite/granite-3.1-8b"}, included)
+		assert.Equal(t, []string{"ibm-granite/granite-old-*"}, excluded)
+	})
+
+	// Regression test for kubeflow/hub#3215: a ModelSource copy shares its
+	// slices' backing arrays with the original, so restrictToOrg must not
+	// write the prefix back into the shared source collection.
+	t.Run("does not mutate the slices of the source it was copied from", func(t *testing.T) {
+		original := basecatalog.ModelSource{
+			CatalogSource: apimodels.CatalogSource{
+				IncludedModels: []string{"granite-*"},
+				ExcludedModels: []string{"granite-old-*"},
+			},
+		}
+
+		for range 2 { // simulate building the provider on two leader terms
+			sourceCopy := original
+			restrictToOrg("ibm-granite", &sourceCopy.IncludedModels, &sourceCopy.ExcludedModels)
+			assert.Equal(t, []string{"ibm-granite/granite-*"}, sourceCopy.IncludedModels)
+			assert.Equal(t, []string{"ibm-granite/granite-old-*"}, sourceCopy.ExcludedModels)
+		}
+
+		assert.Equal(t, []string{"granite-*"}, original.IncludedModels)
+		assert.Equal(t, []string{"granite-old-*"}, original.ExcludedModels)
+	})
 }

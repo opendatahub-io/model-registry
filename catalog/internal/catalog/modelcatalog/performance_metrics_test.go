@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/kubeflow/hub/catalog/internal/catalog/modelcatalog/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseMetadataJSON(t *testing.T) {
@@ -333,6 +335,20 @@ func TestOverallAccuracyToOverallAverage(t *testing.T) {
 }
 
 func TestCreateAccuracyMetricsArtifact_DuplicateBenchmarks(t *testing.T) {
+	t.Run("result field is accepted as the score for the proposed schema", func(t *testing.T) {
+		result := 0.72
+		evalRecords := []evaluationRecord{
+			{Benchmark: "mmlu", Result: &result, CustomProperties: map[string]any{"result": result}},
+		}
+
+		artifact := createAccuracyMetricsArtifact(evalRecords, 1, 100, nil, nil, nil)
+
+		require.Len(t, *artifact.CustomProperties, 1)
+		require.NotNil(t, (*artifact.CustomProperties)[0].DoubleValue)
+		assert.Equal(t, "mmlu", (*artifact.CustomProperties)[0].Name)
+		assert.Equal(t, result, *(*artifact.CustomProperties)[0].DoubleValue)
+	})
+
 	t.Run("duplicate benchmarks are deduplicated using last score", func(t *testing.T) {
 		evalRecords := []evaluationRecord{
 			{Benchmark: "mmlu", CustomProperties: map[string]any{"score": 80.0}},
@@ -917,6 +933,170 @@ func TestEvaluationRecordUnmarshalJSON_CoreFieldsInCustomProperties(t *testing.T
 	}
 	if er.CustomProperties["score"] != 90.5 {
 		t.Errorf("CustomProperties[score] = %v, want %v", er.CustomProperties["score"], 90.5)
+	}
+}
+
+func TestDetailedEvaluationRecord(t *testing.T) {
+	const modelID = "RedHatAI/example-model"
+	jsonData := `{
+		"id": "evaluation-result-1",
+		"model_id": "RedHatAI/example-model",
+		"run_id": "evaluation-run-1",
+		"evaluation": "General language understanding",
+		"category": "general-llm",
+		"benchmark": "mmlu",
+		"description": "Measures multitask language understanding.",
+		"result": 0,
+		"result_metric": "accuracy",
+		"created_at": 1747112286087,
+		"updated_at": 1747548472571
+	}`
+
+	var record evaluationRecord
+	if err := json.Unmarshal([]byte(jsonData), &record); err != nil {
+		t.Fatalf("evaluationRecord.UnmarshalJSON() error = %v", err)
+	}
+	if err := record.validateDetailedEvaluation(modelID); err != nil {
+		t.Fatalf("validateDetailedEvaluation() error = %v", err)
+	}
+	if record.Result == nil || *record.Result != 0 {
+		t.Fatalf("Result = %v, want 0", record.Result)
+	}
+	if record.CreatedAt == nil || *record.CreatedAt != 1747112286087 {
+		t.Fatalf("CreatedAt = %v, want 1747112286087", record.CreatedAt)
+	}
+
+	artifact := createEvaluationArtifact(record, 100)
+	if artifact.Attributes == nil {
+		t.Fatal("Attributes should not be nil")
+	}
+	if artifact.Attributes.MetricsType != models.MetricsTypeEvaluation {
+		t.Errorf("MetricsType = %q, want %q", artifact.Attributes.MetricsType, models.MetricsTypeEvaluation)
+	}
+	if artifact.Attributes.ExternalID == nil || *artifact.Attributes.ExternalID != record.ID {
+		t.Errorf("ExternalID = %v, want %q", artifact.Attributes.ExternalID, record.ID)
+	}
+
+	properties := make(map[string]any)
+	for _, property := range *artifact.CustomProperties {
+		switch {
+		case property.StringValue != nil:
+			properties[property.Name] = *property.StringValue
+		case property.DoubleValue != nil:
+			properties[property.Name] = *property.DoubleValue
+		}
+	}
+	for name, expected := range map[string]any{
+		"model_id":      modelID,
+		"run_id":        "evaluation-run-1",
+		"evaluation":    "General language understanding",
+		"category":      "general-llm",
+		"benchmark":     "mmlu",
+		"description":   "Measures multitask language understanding.",
+		"result":        float64(0),
+		"result_metric": "accuracy",
+	} {
+		if actual := properties[name]; actual != expected {
+			t.Errorf("property %q = %#v, want %#v", name, actual, expected)
+		}
+	}
+	if _, found := properties["created_at"]; found {
+		t.Error("created_at should be represented by CreateTimeSinceEpoch, not a custom property")
+	}
+}
+
+func TestDetailedEvaluationValidation(t *testing.T) {
+	createdAt := int64(1747112286087)
+	result := 0.85
+	valid := evaluationRecord{
+		ID:           "evaluation-result-1",
+		ModelID:      "RedHatAI/example-model",
+		RunID:        "evaluation-run-1",
+		Evaluation:   "General language understanding",
+		Category:     "general-llm",
+		Benchmark:    "mmlu",
+		Description:  "Measures multitask language understanding.",
+		Result:       &result,
+		ResultMetric: "accuracy",
+		CreatedAt:    &createdAt,
+	}
+	if err := valid.validateDetailedEvaluation(valid.ModelID); err != nil {
+		t.Fatalf("valid record rejected: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*evaluationRecord)
+	}{
+		{name: "missing id", mutate: func(record *evaluationRecord) { record.ID = "" }},
+		{name: "mismatched model", mutate: func(record *evaluationRecord) { record.ModelID = "Other/model" }},
+		{name: "missing run id", mutate: func(record *evaluationRecord) { record.RunID = "" }},
+		{name: "missing evaluation", mutate: func(record *evaluationRecord) { record.Evaluation = "" }},
+		{name: "missing category", mutate: func(record *evaluationRecord) { record.Category = "" }},
+		{name: "missing benchmark", mutate: func(record *evaluationRecord) { record.Benchmark = "" }},
+		{name: "missing description", mutate: func(record *evaluationRecord) { record.Description = "" }},
+		{name: "missing result", mutate: func(record *evaluationRecord) { record.Result = nil }},
+		{name: "missing result metric", mutate: func(record *evaluationRecord) { record.ResultMetric = "" }},
+		{name: "missing timestamp", mutate: func(record *evaluationRecord) { record.CreatedAt = nil }},
+		{name: "invalid category", mutate: func(record *evaluationRecord) { record.Category = "General LLM" }},
+		{name: "update before creation", mutate: func(record *evaluationRecord) {
+			updatedAt := createdAt - 1
+			record.UpdatedAt = &updatedAt
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			record := valid
+			tt.mutate(&record)
+			if err := record.validateDetailedEvaluation(valid.ModelID); err == nil {
+				t.Fatal("validateDetailedEvaluation() error = nil, want error")
+			}
+		})
+	}
+
+	var fractionalTimestamp evaluationRecord
+	if err := json.Unmarshal([]byte(`{"created_at": 1.5}`), &fractionalTimestamp); err != nil {
+		t.Fatalf("evaluationRecord.UnmarshalJSON() error = %v", err)
+	}
+	if fractionalTimestamp.CreatedAt != nil {
+		t.Errorf("CreatedAt = %v, want nil for fractional timestamp", fractionalTimestamp.CreatedAt)
+	}
+
+	var invalidOptionalTimestamp evaluationRecord
+	if err := json.Unmarshal([]byte(`{
+		"id":"result-1",
+		"model_id":"RedHatAI/example-model",
+		"run_id":"run-1",
+		"evaluation":"General evaluation",
+		"category":"general-llm",
+		"benchmark":"mmlu",
+		"description":"Description",
+		"result":0.72,
+		"result_metric":"accuracy",
+		"created_at":1747112286087,
+		"updated_at":"invalid"
+	}`), &invalidOptionalTimestamp); err != nil {
+		t.Fatalf("evaluationRecord.UnmarshalJSON() error = %v", err)
+	}
+	if err := invalidOptionalTimestamp.validateDetailedEvaluation(valid.ModelID); err == nil {
+		t.Fatal("validateDetailedEvaluation() error = nil, want invalid updated_at error")
+	}
+}
+
+func TestFilterEvaluationRecordsForModel(t *testing.T) {
+	records := []evaluationRecord{
+		{ID: "matching", ModelID: "RedHatAI/example-model"},
+		{ID: "legacy-without-model-id"},
+		{ID: "mismatched", ModelID: "Other/model"},
+	}
+
+	filtered := filterEvaluationRecordsForModel(records, "RedHatAI/example-model")
+	if len(filtered) != 2 {
+		t.Fatalf("len(filtered) = %d, want 2", len(filtered))
+	}
+	if filtered[0].ID != "matching" || filtered[1].ID != "legacy-without-model-id" {
+		t.Errorf("filtered IDs = %q, %q", filtered[0].ID, filtered[1].ID)
 	}
 }
 
