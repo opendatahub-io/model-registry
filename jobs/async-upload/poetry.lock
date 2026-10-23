@@ -2489,14 +2489,14 @@ test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
 name = "rh-model-signing"
-version = "1.0.3"
+version = "1.0.5"
 description = "A tool for signing and verifying ML models (Red Hat Tech Preview)"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "rh_model_signing-1.0.3-py3-none-any.whl", hash = "sha256:32ff8df65f4f7c82c5b8a2d9451a6756e3e7f2f1430c651e41d29d8e4a2bf74c"},
-    {file = "rh_model_signing-1.0.3.tar.gz", hash = "sha256:f5088ec6cd1f1ae12eec6a9f1e2be3a640d0a3b4a4d792cc6791ac9f08610bb2"},
+    {file = "rh_model_signing-1.0.5-py3-none-any.whl", hash = "sha256:e8ff6cfb0e9ed169566f1792781cee456e6e100b2bcb0839c6d0addb7ba733e8"},
+    {file = "rh_model_signing-1.0.5.tar.gz", hash = "sha256:3acb7b250935f0935069b2b35ca5722ffa1e52a07682cdcc6a5510685349b268"},
 ]
 
 [package.dependencies]
@@ -2506,7 +2506,8 @@ click = "*"
 cryptography = ">=46.0.7"
 in-toto-attestation = "*"
 oras = ">=0.2.30"
-pyasn1 = ">=0.6.2"
+pyasn1 = ">=0.6.4"
+pyjwt = ">=2.14.0"
 sigstore = ">=4.2"
 sigstore-models = ">=0.0.5"
 typing-extensions = "*"
