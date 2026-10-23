@@ -15,16 +15,21 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"os/signal"
-	"syscall"
-
-	"github.com/kubeflow/hub/ui/bff/internal/api"
-	"github.com/kubeflow/hub/ui/bff/internal/config"
-
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/kubeflow/hub/pkg/tlsprofile"
+	"github.com/kubeflow/hub/ui/bff/internal/api"
+	"github.com/kubeflow/hub/ui/bff/internal/config"
+	configv1 "github.com/openshift/api/config/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	_ "github.com/kubeflow/hub/ui/bff/openapi" // swagger docs for Swagger UI
 )
@@ -91,6 +96,51 @@ func main() {
 	// Only use for logging errors about logging configuration.
 	slog.SetDefault(logger)
 
+	var tlsPolicy *tlsprofile.Result
+	var policyManagerDone <-chan error
+	var stopPolicyManager context.CancelFunc
+	// Mock mode runs without a cluster, so keep the TLS 1.3 default instead of
+	// resolving the cluster TLS policy.
+	if certFile != "" && keyFile != "" && !cfg.MockK8Client {
+		kubeConfig, err := ctrl.GetConfig()
+		if err != nil {
+			logger.Error("unable to load Kubernetes config for TLS policy", "error", err)
+			os.Exit(1)
+		}
+		tlsPolicy, err = tlsprofile.Resolve(kubeConfig)
+		if err != nil {
+			logger.Error("unable to resolve cluster TLS policy", "error", err)
+			os.Exit(1)
+		}
+		if tlsPolicy.FallbackReason != "" {
+			logger.Info("unable to read cluster TLS policy, using Intermediate profile", "error", tlsPolicy.FallbackReason)
+		}
+		if tlsPolicy.HasOpenShiftConfigAPI {
+			scheme := runtime.NewScheme()
+			utilruntime.Must(configv1.Install(scheme))
+			policyManager, err := ctrl.NewManager(kubeConfig, ctrl.Options{
+				Scheme:                 scheme,
+				Metrics:                server.Options{BindAddress: "0"},
+				HealthProbeBindAddress: "0",
+			})
+			if err != nil {
+				logger.Error("unable to create TLS policy watcher", "error", err)
+				os.Exit(1)
+			}
+			watcherCtx, cancel := context.WithCancel(context.Background())
+			stopPolicyManager = cancel
+			watcher := tlsprofile.NewWatcher(tlsPolicy, cancel)
+			watcher.Client = policyManager.GetClient()
+			if err := watcher.SetupWithManager(policyManager); err != nil {
+				logger.Error("unable to register TLS policy watcher", "error", err)
+				os.Exit(1)
+			}
+			done := make(chan error, 1)
+			policyManagerDone = done
+			go func() { done <- policyManager.Start(watcherCtx) }()
+		}
+	}
+
 	app, err := api.NewApp(cfg, slog.New(logger.Handler()))
 	if err != nil {
 		logger.Error(err.Error())
@@ -111,12 +161,7 @@ func main() {
 		logger.Info("starting server", "addr", srv.Addr, "TLS enabled", (certFile != "" && keyFile != ""))
 		var err error
 		if certFile != "" && keyFile != "" {
-			// Configure TLS if both cert and key files are provided
-			tlsConfig := &tls.Config{
-				MinVersion: tls.VersionTLS13,
-				NextProtos: []string{"h2", "http/1.1"},
-			}
-			srv.TLSConfig = tlsConfig
+			srv.TLSConfig = buildTLSConfig(tlsPolicy)
 			err = srv.ListenAndServeTLS(certFile, keyFile)
 		} else {
 			err = srv.ListenAndServe()
@@ -130,9 +175,18 @@ func main() {
 	shutdownCh := make(chan os.Signal, 1)
 	signal.Notify(shutdownCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	// Wait for shutdown signal
-	<-shutdownCh
+	// A TLS policy change stops the watcher manager and triggers the same graceful shutdown as a signal.
+	select {
+	case <-shutdownCh:
+	case err := <-policyManagerDone:
+		if err != nil {
+			logger.Error("TLS policy watcher stopped", "error", err)
+		}
+	}
 	logger.Info("shutting down gracefully...")
+	if stopPolicyManager != nil {
+		stopPolicyManager()
+	}
 
 	// Create a context with timeout for the shutdown process
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -150,4 +204,16 @@ func main() {
 
 	logger.Info("server stopped")
 	os.Exit(0)
+}
+
+func buildTLSConfig(policy *tlsprofile.Result) *tls.Config {
+	cfg := &tls.Config{
+		MinVersion: tls.VersionTLS13,
+		NextProtos: []string{"h2", "http/1.1"},
+	}
+	if policy != nil && !policy.KeepExisting {
+		cfg.MinVersion = policy.MinVersion
+		cfg.CipherSuites = policy.CipherSuites
+	}
+	return cfg
 }

@@ -8,15 +8,18 @@ import (
 	"os"
 	"strconv"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
+	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/hub/cmd/controller/internal/controllers"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/rest"
-
+	infrctrl "github.com/kubeflow/hub/pkg/inferenceservice-controller"
+	"github.com/kubeflow/hub/pkg/tlsprofile"
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -25,9 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	infrctrl "github.com/kubeflow/hub/pkg/inferenceservice-controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -48,7 +48,6 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -67,20 +66,20 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// if the enable-http2 flag is false (the default), http/2 should be disabled
-	// due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
+	restConfig := ctrl.GetConfigOrDie()
+	tlsPolicy, err := tlsprofile.Resolve(restConfig)
+	if err != nil {
+		setupLog.Error(err, "unable to resolve cluster TLS policy")
+		os.Exit(1)
+	}
+	if tlsPolicy.FallbackReason != "" {
+		setupLog.Info("unable to read cluster TLS policy, using Intermediate profile", "error", tlsPolicy.FallbackReason)
+	}
+	if tlsPolicy.HasOpenShiftConfigAPI {
+		utilruntime.Must(configv1.Install(scheme))
 	}
 
-	if !enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
-	}
+	tlsOpts := controllerTLSOptions(enableHTTP2, tlsPolicy)
 
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
@@ -111,7 +110,7 @@ func main() {
 	utilruntime.Must(kservev1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
@@ -139,7 +138,7 @@ func main() {
 		inferenceServiceController, err := setupInferenceServiceController(
 			context.Background(),
 			mgr,
-			ctrl.GetConfigOrDie(),
+			restConfig,
 		)
 		if err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InferenceService")
@@ -167,10 +166,35 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
+	defer cancel()
+	if watcher := tlsprofile.NewWatcher(tlsPolicy, cancel); watcher != nil {
+		watcher.Client = mgr.GetClient()
+		if err := watcher.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to register TLS security profile watcher")
+			os.Exit(1)
+		}
+	}
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func controllerTLSOptions(enableHTTP2 bool, policy *tlsprofile.Result) []func(*tls.Config) {
+	var tlsOpts []func(*tls.Config)
+	if !enableHTTP2 {
+		// Disabling HTTP/2 also mitigates HTTP/2 Stream Cancellation and Rapid Reset vulnerabilities.
+		// See https://github.com/advisories/GHSA-qppj-fm5r-hxr3 and https://github.com/advisories/GHSA-4374-p667-p6c8.
+		tlsOpts = append(tlsOpts, func(c *tls.Config) {
+			setupLog.Info("disabling http/2")
+			c.NextProtos = []string{"http/1.1"}
+		})
+	}
+	if policy != nil && !policy.KeepExisting {
+		tlsOpts = append(tlsOpts, policy.TLSOpts...)
+	}
+	return tlsOpts
 }
 
 func setupInferenceServiceController(ctx context.Context, mgr manager.Manager, cfg *rest.Config) (*infrctrl.InferenceServiceController, error) {
