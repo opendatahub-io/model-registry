@@ -1,0 +1,52 @@
+# API contract descriptor for red-hat-data-services/api-contract-tests.
+# Read by .github/workflows/api-contract.yml; see docs/api-contract-checks.md.
+# Only the v1 APIs are contracts; alpha APIs are excluded below.
+apiVersion: contracts.rhoai.io/v1alpha1
+kind: ContractSet
+metadata:
+  name: model-registry
+spec:
+  exclusions:
+    - path: api/openapi/model-registry.yaml
+      reason: Model Registry v1alpha3 API; alpha APIs are not covered by the compatibility contract
+    - path: api/openapi/src/model-registry.yaml
+      reason: Source of the Model Registry v1alpha3 bundle; alpha APIs are not covered by the compatibility contract
+    - path: api/openapi/catalog.yaml
+      reason: Catalog v1alpha1 APIs; alpha APIs are not covered by the compatibility contract
+    - path: api/openapi/src/catalog.yaml
+      reason: Source of the Catalog v1alpha1 bundle; alpha APIs are not covered by the compatibility contract
+    - path: clients/ui/api/openapi/mod-arch.yaml
+      reason: Internal API between the Model Registry UI frontend and its BFF, not a provider contract
+    - path: clients/ui/bff/openapi/*
+      reason: Swagger for the UI BFF health check only, not a provider contract
+  contracts:
+    - id: model-registry-v1
+      type: openapi
+      declaredArtifact: api/openapi/model-registry-v1.yaml
+      matchPath: "^/api/model_registry/v1(/|$)"
+      policy:
+        oasdiffVersion: "1.33.0"
+        yqVersion: "4.45.1"
+        flattenAllOf: true
+      generator:
+        adapter: openapi.bundle.yq-merge
+        script: scripts/merge_openapi.sh
+        sourceDir: api/openapi/src
+        sourceGlobs: ["model-registry-v1.yaml", "lib/*.yaml"]
+        entrypointArg: model-registry-v1.yaml
+        output: api/openapi/model-registry-v1.yaml
+    - id: catalog-v1
+      type: openapi
+      declaredArtifact: api/openapi/catalog-v1.yaml
+      matchPath: "^/api/[a-z_]+_catalog/v1(/|$)"
+      policy:
+        oasdiffVersion: "1.33.0"
+        yqVersion: "4.45.1"
+        flattenAllOf: true
+      generator:
+        adapter: openapi.bundle.yq-merge
+        script: scripts/merge_catalog_specs.sh
+        sourceDir: api/openapi/src
+        sourceGlobs: ["catalog-v1.yaml", "lib/*.yaml", "plugins/*-v1.yaml"]
+        entrypointArg: catalog-v1.yaml
+        output: api/openapi/catalog-v1.yaml
