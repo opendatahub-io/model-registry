@@ -1,0 +1,66 @@
+name: API contract
+
+# Static OpenAPI compatibility check from red-hat-data-services/api-contract-tests.
+# Compares the v1 OpenAPI documents in a pull request with an immutable baseline
+# commit and reports breaking changes (removed operations or fields, newly
+# required inputs, type changes, narrowed or added enum values, and so on) as
+# found by the pinned oasdiff. It does not replace the provider's behavior tests.
+# See docs/api-contract-checks.md.
+#
+# The contracts are declared in .rhoai/contracts.yaml:
+#   model-registry-v1  api/openapi/model-registry-v1.yaml  /api/model_registry/v1
+#   catalog-v1         api/openapi/catalog-v1.yaml         /api/*_catalog/v1
+# Alpha APIs (Model Registry v1alpha3, Catalog v1alpha1) are excluded there.
+#
+# The coverage job fails (once enforced) when an OpenAPI document exists that
+# the descriptor neither registers as a contract or generator input nor
+# excludes with a reason.
+#
+# Two refs below are deliberate:
+#   - the reusable workflow ref, the "latest" tag of api-contract-tests, which
+#     follows the current release (v1.0.0 today), so new releases are adopted
+#     without a change here; see docs/releasing.md in that repository.
+#   - baseline-refs, the full commit SHA whose OpenAPI documents are the
+#     compatibility floor: currently main at 8912d58 (2026-10-30, #1926), which
+#     has no release tag. It replaced v0.3.17 so that enum values added since
+#     that release are not reported on every pull request. Move it forward only
+#     for an intentional break that has been agreed, or list several commits
+#     (space-separated).
+#
+# Both jobs start in "report" mode (findings are annotated, the job stays
+# green). Switch to "enforce" once the provider and consumers agree on the policy.
+
+# Runs on every pull request targeting main, with no path filter, so an OpenAPI
+# document added anywhere in the repository reaches the coverage job, and the
+# checks can later be made required.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-contract:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        contract-id: [model-registry-v1, catalog-v1]
+    uses: red-hat-data-services/api-contract-tests/.github/workflows/provider-openapi-check.yml@latest
+    with:
+      contract-set: .rhoai/contracts.yaml
+      contract-id: ${{ matrix.contract-id }}
+      baseline-refs: 8912d5886ed1a38cd7039848d235b4d8fb953641 # main, 2026-10-30 (#1926)
+      oasdiff-version: "1.33.0"
+      yq-version: "4.45.1"
+      mode: report
+
+  api-contract-coverage:
+    permissions:
+      contents: read
+    uses: red-hat-data-services/api-contract-tests/.github/workflows/provider-coverage-check.yml@latest
+    with:
+      contract-set: .rhoai/contracts.yaml
+      baseline-refs: 8912d5886ed1a38cd7039848d235b4d8fb953641 # main, 2026-10-30 (#1926)
+      yq-version: "4.45.1"
+      mode: report
