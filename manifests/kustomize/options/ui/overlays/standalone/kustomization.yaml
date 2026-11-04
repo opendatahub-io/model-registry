@@ -20,3 +20,31 @@ patches:
     name: model-registry-service
     version: v1
 namespace: kubeflow
+
+replacements:
+- source:
+    kind: ServiceAccount
+    name: model-registry-ui
+    fieldPath: metadata.namespace
+  targets:
+  - select:
+      kind: ClusterRoleBinding
+      name: model-registry-ui-services-reader-binding
+    fieldPaths:
+    - subjects.0.namespace
+    options:
+      create: true
+  - select:
+      kind: ClusterRoleBinding
+      name: model-registry-retrieve-clusterrolebindings-binding
+    fieldPaths:
+    - subjects.0.namespace
+    options:
+      create: true
+  - select:
+      kind: ClusterRoleBinding
+      name: model-registry-create-sars-binding
+    fieldPaths:
+    - subjects.0.namespace
+    options:
+      create: true

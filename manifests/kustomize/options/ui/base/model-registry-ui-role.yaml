@@ -5,6 +5,14 @@ metadata:
   name: model-registry-ui-services-reader
 rules:
 - apiGroups:
+    - config.openshift.io
+  resources:
+    - apiservers
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
     - ''
   resources:
     - services
