@@ -272,6 +272,7 @@ func buildTLSConfig(policy *tlsprofile.Result) *tls.Config {
 	if policy != nil && !policy.KeepExisting {
 		cfg.MinVersion = policy.MinVersion
 		cfg.CipherSuites = policy.CipherSuites
+		cfg.CurvePreferences = policy.CurvePreferences
 		// Keep ALPN consistent with the disabled HTTP/2 dispatch: advertising
 		// h2 without a TLSNextProto handler makes net/http close h2-negotiated
 		// connections without serving a response.

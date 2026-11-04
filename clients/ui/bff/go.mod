@@ -12,6 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
 	github.com/openshift/api v0.0.0-20261002115817-f8795cdde518
+	github.com/openshift/library-go v0.0.0-20261001144932-192662696fc7
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/http-swagger/v2 v2.0.2
@@ -26,7 +27,6 @@ require (
 require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/openshift/controller-runtime-common v0.0.0-20260428152732-64ee174f5e2e
-	github.com/openshift/library-go v0.0.0-20261001144932-192662696fc7 // indirect
 	k8s.io/apiserver v0.37.1 // indirect
 )
 

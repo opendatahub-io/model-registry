@@ -126,6 +126,29 @@ func TestBuildTLSConfigAppliesClusterProfile(t *testing.T) {
 	}
 }
 
+func TestBuildTLSConfigAppliesCurvePreferences(t *testing.T) {
+	result, err := tlsprofile.ResolveAPIServer(&configv1.APIServer{Spec: configv1.APIServerSpec{
+		TLSSecurityProfile: &configv1.TLSSecurityProfile{
+			Type: configv1.TLSProfileCustomType,
+			Custom: &configv1.CustomTLSProfile{TLSProfileSpec: configv1.TLSProfileSpec{
+				MinTLSVersion: configv1.VersionTLS12,
+				Ciphers:       []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+				Groups:        []configv1.TLSGroup{configv1.TLSGroupX25519},
+			}},
+		},
+		TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := buildTLSConfig(result)
+	want := []tls.CurveID{tls.X25519}
+	if !slices.Equal(cfg.CurvePreferences, want) {
+		t.Fatalf("curve preferences = %v, want %v", cfg.CurvePreferences, want)
+	}
+}
+
 func TestBuildTLSConfigPreservesHistoricalDefault(t *testing.T) {
 	result, err := tlsprofile.ResolveAPIServer(&configv1.APIServer{Spec: configv1.APIServerSpec{
 		TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileIntermediateType},

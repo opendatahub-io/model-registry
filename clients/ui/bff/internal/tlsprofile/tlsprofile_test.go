@@ -158,6 +158,55 @@ func TestResolveAPIServerRetainsImplementedCustomCiphers(t *testing.T) {
 	}
 }
 
+func TestResolveAPIServerMapsGroupsAndDropsUnsupportedGroups(t *testing.T) {
+	result, err := ResolveAPIServer(&configv1.APIServer{Spec: configv1.APIServerSpec{
+		TLSSecurityProfile: &configv1.TLSSecurityProfile{
+			Type: configv1.TLSProfileCustomType,
+			Custom: &configv1.CustomTLSProfile{TLSProfileSpec: configv1.TLSProfileSpec{
+				MinTLSVersion: configv1.VersionTLS12,
+				Ciphers:       []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+				Groups:        []configv1.TLSGroup{configv1.TLSGroupX25519, "unsupported-group"},
+			}},
+		},
+		TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []tls.CurveID{tls.X25519}
+	if !slices.Equal(result.CurvePreferences, want) {
+		t.Fatalf("curve preferences = %v, want %v", result.CurvePreferences, want)
+	}
+	if !slices.Equal(result.UnsupportedGroups, []configv1.TLSGroup{"unsupported-group"}) {
+		t.Fatalf("unsupported groups = %v, want [unsupported-group]", result.UnsupportedGroups)
+	}
+	cfg := &tls.Config{}
+	for _, configure := range result.TLSOpts {
+		configure(cfg)
+	}
+	if !slices.Equal(cfg.CurvePreferences, want) {
+		t.Fatalf("TLS options curve preferences = %v, want %v", cfg.CurvePreferences, want)
+	}
+}
+
+func TestResolveAPIServerRejectsAllUnsupportedGroupsUnderStrictAdherence(t *testing.T) {
+	_, err := ResolveAPIServer(&configv1.APIServer{Spec: configv1.APIServerSpec{
+		TLSSecurityProfile: &configv1.TLSSecurityProfile{
+			Type: configv1.TLSProfileCustomType,
+			Custom: &configv1.CustomTLSProfile{TLSProfileSpec: configv1.TLSProfileSpec{
+				MinTLSVersion: configv1.VersionTLS12,
+				Ciphers:       []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+				Groups:        []configv1.TLSGroup{"unsupported-group"},
+			}},
+		},
+		TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+	}})
+	if err == nil || !strings.Contains(err.Error(), "no usable groups") {
+		t.Fatalf("ResolveAPIServer error = %v, want no usable groups error", err)
+	}
+}
+
 func TestResolveAPIServerEmptyProfileUsesIntermediate(t *testing.T) {
 	result, err := ResolveAPIServer(&configv1.APIServer{
 		Spec: configv1.APIServerSpec{TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents},

@@ -11,6 +11,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	tlspkg "github.com/openshift/controller-runtime-common/pkg/tls"
+	ocpcrypto "github.com/openshift/library-go/pkg/crypto"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,8 @@ type Result struct {
 	MinVersion              uint16
 	CipherSuites            []uint16
 	UnsupportedCipherSuites []uint16
+	CurvePreferences        []tls.CurveID
+	UnsupportedGroups       []configv1.TLSGroup
 	Profile                 configv1.TLSProfileSpec
 	AdherencePolicy         configv1.TLSAdherencePolicy
 	HasOpenShiftConfigAPI   bool
@@ -107,7 +110,15 @@ func ResolveAPIServer(apiServer *configv1.APIServer) (*Result, error) {
 	profileTLSOpts, _ := tlspkg.NewTLSConfigFromProfile(profile)
 	probe := &tls.Config{}
 	profileTLSOpts(probe)
+	curvePreferences, unsupportedGroups := ocpcrypto.TLSGroupsToCurveIDs(profile.Groups)
+	if len(profile.Groups) > 0 && len(curvePreferences) == 0 &&
+		apiServer.Spec.TLSAdherence != configv1.TLSAdherencePolicyNoOpinion &&
+		apiServer.Spec.TLSAdherence != configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly {
+		return nil, fmt.Errorf("TLS profile has no usable groups for curve preferences")
+	}
 	result.MinVersion = minVersion
+	result.CurvePreferences = curvePreferences
+	result.UnsupportedGroups = unsupportedGroups
 	if minVersion < tls.VersionTLS13 {
 		usable, unsupported := usableCipherSuites(probe.CipherSuites)
 		if len(profile.Ciphers) > 0 && len(usable) == 0 {
@@ -126,7 +137,10 @@ func ResolveAPIServer(apiServer *configv1.APIServer) (*Result, error) {
 		return nil, fmt.Errorf("TLS profile has no cipher suites for TLS <= 1.2")
 	}
 
-	result.TLSOpts = []func(*tls.Config){profileTLSOpts}
+	result.TLSOpts = []func(*tls.Config){
+		profileTLSOpts,
+		func(c *tls.Config) { c.CurvePreferences = curvePreferences },
+	}
 	if minVersion < tls.VersionTLS13 && len(profile.Ciphers) > 0 {
 		usable := result.CipherSuites
 		result.TLSOpts = append(result.TLSOpts, func(c *tls.Config) { c.CipherSuites = usable })
