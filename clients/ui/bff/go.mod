@@ -25,7 +25,7 @@ require (
 )
 
 require (
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/openshift/controller-runtime-common v0.0.0-20260428152732-64ee174f5e2e
 	k8s.io/apiserver v0.37.1 // indirect
 )
