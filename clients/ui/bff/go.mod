@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kubeflow/hub/pkg/openapi v0.0.0
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/openshift/api v0.0.0-20261002115817-f8795cdde518
 	github.com/openshift/library-go v0.0.0-20261001144932-192662696fc7
