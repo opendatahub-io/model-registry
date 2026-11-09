@@ -1,25 +1,15 @@
 name: "Pull Request Labeler"
 on:
   pull_request_target:
-  # // temp for validation: remove this push trigger after validation.
-  push:
-    branches:
-      - ci/automate-upstream-sync
-    paths:
-      - .github/workflows/labeler.yml
-      - .github/workflows/upstream-sync.yml
 
 permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
 jobs:
   labeler:
-    # // temp for validation: only run the push test in the ODH repository.
-    if: github.event_name != 'push' || github.repository == 'opendatahub-io/model-registry'
     # Must match upstream-sync.yml; cover the entire label read/replace cycle.
     concurrency:
-      # // temp for validation: remove the 1937 fallback after validation.
-      group: pr-labels-${{ github.event.pull_request.number || '1937' }}
+      group: pr-labels-${{ github.event.pull_request.number }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -27,6 +17,3 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
-      # // temp for validation: supply the PR number missing from push events.
-      with:
-        pr-number: ${{ github.event.pull_request.number || '1937' }}

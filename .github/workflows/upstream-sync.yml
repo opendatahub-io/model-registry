@@ -2,16 +2,8 @@ name: Upstream Sync (kubeflow/hub)
 
 on:
   workflow_dispatch:
-  # // temp for validation: remove this push trigger after validation.
-  push:
-    branches:
-      - ci/automate-upstream-sync
-    paths:
-      - .github/workflows/labeler.yml
-      - .github/workflows/upstream-sync.yml
-  # // temp for validation: enable the schedule after validation.
-  # schedule:
-  #   - cron: '3 */6 * * *' # Every day at 00:03, 06:03, 12:03, and 18:03 UTC.
+  schedule:
+    - cron: '3 */6 * * *' # Every day at 00:03, 06:03, 12:03, and 18:03 UTC.
 
 permissions:
   contents: read
