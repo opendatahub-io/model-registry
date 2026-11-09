@@ -2052,6 +2052,7 @@ description = "MessagePack serializer"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
+markers = "python_version < \"3.14\""
 files = [
     {file = "msgpack-1.2.3-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:ec0030361cc861ac699b2ef1c695b741fa145c88f8667fa3d7e3f73deeb648a3"},
     {file = "msgpack-1.2.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:5c1efdd9181cb1b719ee46865f368a927f1c0c65d577798340b1194545b7515a"},
@@ -2649,15 +2650,15 @@ markers = {main = "extra == \"signing\"", dev = "python_version < \"3.14\""}
 
 [[package]]
 name = "pyasn1"
-version = "0.6.4"
+version = "0.6.5"
 description = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"signing\""
 files = [
-    {file = "pyasn1-0.6.4-py3-none-any.whl", hash = "sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b"},
-    {file = "pyasn1-0.6.4.tar.gz", hash = "sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81"},
+    {file = "pyasn1-0.6.5-py3-none-any.whl", hash = "sha256:4017b0fce125096b8573b39c989fdb1a4b19cf761e683398184550fea0e66587"},
+    {file = "pyasn1-0.6.5.tar.gz", hash = "sha256:6b11616a6bcf3a40e635f082bb232fa57b5e0dd7f517bd7ddd69ec3794508a47"},
 ]
 
 [[package]]
@@ -3293,15 +3294,15 @@ test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
 name = "rh-model-signing"
-version = "1.0.5"
-description = "A tool for signing and verifying ML models (Red Hat Tech Preview)"
+version = "1.0.6"
+description = "A tool for signing and verifying ML models"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"signing\""
 files = [
-    {file = "rh_model_signing-1.0.5-py3-none-any.whl", hash = "sha256:e8ff6cfb0e9ed169566f1792781cee456e6e100b2bcb0839c6d0addb7ba733e8"},
-    {file = "rh_model_signing-1.0.5.tar.gz", hash = "sha256:3acb7b250935f0935069b2b35ca5722ffa1e52a07682cdcc6a5510685349b268"},
+    {file = "rh_model_signing-1.0.6-py3-none-any.whl", hash = "sha256:d19503145f871fc48a0c6684ce4fc76b54097dc05df064d7f14a04fce816359b"},
+    {file = "rh_model_signing-1.0.6.tar.gz", hash = "sha256:c6c5d41abe879790f45c4ff332214993400cd877ea14753bb7d719aafcf22fda"},
 ]
 
 [package.dependencies]
@@ -3311,8 +3312,9 @@ click = "*"
 cryptography = ">=46.0.7"
 in-toto-attestation = "*"
 oras = ">=0.2.30"
-pyasn1 = ">=0.6.4"
+pyasn1 = ">=0.6.5"
 pyjwt = ">=2.14.0"
+pyopenssl = "*"
 sigstore = ">=4.2"
 sigstore-models = ">=0.0.5"
 typing-extensions = "*"
