@@ -1,0 +1,191 @@
+name: Upstream Sync (kubeflow/hub)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3 */6 * * *' # Every day at 00:03, 06:03, 12:03, and 18:03 UTC.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'opendatahub-io/model-registry'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      pr-number: ${{ steps.sync.outputs.pr-number }}
+    steps:
+      - name: Create or refresh upstream sync PR
+        id: sync
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.KUBEFLOW2ODH_SYNC_TOKEN }}
+          script: |
+            const upstream = { owner: 'kubeflow', repo: 'hub', branch: 'main' };
+            const downstream = { ...context.repo, branch: 'main' };
+            const repo = { owner: downstream.owner, repo: downstream.repo };
+            const head = `${upstream.owner}:${upstream.branch}`;
+            const markerStart = '<!-- upstream-sync-status:start -->';
+            const markerEnd = '<!-- upstream-sync-status:end -->';
+
+            const { data: account } = await github.rest.users.getAuthenticated();
+            if (account.login !== 'dsp-developers') {
+              throw new Error('KUBEFLOW2ODH_SYNC_TOKEN must belong to dsp-developers.');
+            }
+
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              ...repo,
+              basehead: `${downstream.branch}...${head}`,
+              per_page: 1,
+            });
+            if (comparison.ahead_by === 0) {
+              core.info('ODH main already contains all upstream commits.');
+              await core.summary.addRaw('No upstream commits to sync.').write();
+              return;
+            }
+            core.info(`${comparison.ahead_by} upstream commit(s) are not in ODH main.`);
+
+            const candidates = await github.paginate(github.rest.pulls.list, {
+              ...repo,
+              state: 'open',
+              base: downstream.branch,
+              head,
+              per_page: 100,
+            });
+            const matches = candidates.filter(pr =>
+              pr.head.repo?.full_name === `${upstream.owner}/${upstream.repo}`
+            );
+            if (matches.length > 1) {
+              throw new Error('Multiple upstream sync PRs found; resolve duplicates manually.');
+            }
+
+            let pr = matches[0];
+            if (!pr) {
+              const { data } = await github.rest.pulls.create({
+                ...repo,
+                base: downstream.branch,
+                head,
+                head_repo: upstream.repo,
+                // The bot cannot grant ODH maintainers access to Kubeflow main.
+                maintainer_can_modify: false,
+                title: 'chore: sync upstream kubeflow/hub main',
+                body: [
+                  'Sync `kubeflow/hub:main` into `opendatahub-io/model-registry:main`.',
+                  '',
+                  'This PR follows upstream main and automatically includes new upstream commits.',
+                  'This workflow does not resolve conflicts or merge the PR (mergeMethod: none).',
+                  '',
+                  markerStart,
+                  'Conflict status: Pending GitHub mergeability check.',
+                  markerEnd,
+                ].join('\n'),
+              });
+              pr = data;
+              core.info(`Created ${pr.html_url}`);
+            } else {
+              core.info(`Reusing ${pr.html_url} (author: ${pr.user.login}).`);
+            }
+
+            const pull = { ...repo, pull_number: pr.number };
+            // GitHub computes mergeability asynchronously. Retry unknown results.
+            for (let attempt = 0; attempt < 4; attempt++) {
+              if (attempt > 0) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+              }
+              ({ data: pr } = await github.rest.pulls.get(pull));
+              if (pr.state !== 'open') {
+                core.info('PR is no longer open; nothing to update.');
+                return;
+              }
+              if (pr.mergeable !== null) break;
+              core.info('GitHub has not yet determined whether the PR has merge conflicts.');
+            }
+
+            const status = pr.mergeable === true
+              ? 'No conflicts.'
+              : pr.mergeable === false
+                ? 'Conflicts detected. Resolve conflicts in an ODH branch and open a replacement PR following the repository wiki.'
+                : 'Pending GitHub mergeability check. A later workflow run will check again.';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const section = [
+              markerStart,
+              `Conflict status: ${status}`,
+              '',
+              `Checked upstream head: \`${pr.head.sha}\`; ODH base: \`${pr.base.sha}\`.`,
+              '',
+              `[Workflow run](${runUrl}).`,
+              markerEnd,
+            ].join('\n');
+            // Preserve any description added by maintainers outside our status block.
+            const body = pr.body || '';
+            const start = body.indexOf(markerStart);
+            const end = body.indexOf(markerEnd, start);
+            const updatedBody = start >= 0 && end >= 0
+              ? body.slice(0, start) + section + body.slice(end + markerEnd.length)
+              : `${body}\n\n${section}`;
+            await github.rest.pulls.update({ ...pull, body: updatedBody });
+            core.setOutput('pr-number', pr.number);
+
+            await core.summary
+              .addLink(`Sync PR #${pr.number}`, pr.html_url)
+              .addRaw(`\n\n${comparison.ahead_by} upstream commit(s) to sync.\n\n${status}\n\nThis workflow does not merge PRs.`)
+              .write();
+
+  labels:
+    needs: sync
+    if: needs.sync.outputs.pr-number != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: write
+    # Must match labeler.yml so its read/replace cannot overwrite these labels.
+    concurrency:
+      group: pr-labels-${{ needs.sync.outputs.pr-number }}
+      cancel-in-progress: false
+    steps:
+      # Use the repository token; the sync account only needs to author PRs.
+      - name: Update sync PR labels
+        uses: actions/github-script@v7
+        env:
+          SYNC_PR_NUMBER: ${{ needs.sync.outputs.pr-number }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const repo = context.repo;
+            const { data: pr } = await github.rest.pulls.get({
+              ...repo,
+              pull_number: Number(process.env.SYNC_PR_NUMBER),
+            });
+            if (pr.state !== 'open') return;
+
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ ...repo, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({ ...repo, name, color, description });
+              }
+            }
+            const mergeLabel = 'tide/merge-method-merge';
+            const conflictLabel = 'merge-conflict';
+            await ensureLabel(mergeLabel, '0052cc', 'Use a merge commit when merging this PR');
+            const labels = [mergeLabel];
+            if (pr.mergeable === false) {
+              await ensureLabel(conflictLabel, 'b60205', 'GitHub reports merge conflicts');
+              labels.push(conflictLabel);
+            }
+            await github.rest.issues.addLabels({ ...repo, issue_number: pr.number, labels });
+            // Only clear a previous conflict label after GitHub confirms resolution.
+            if (pr.mergeable === true && pr.labels.some(label => label.name === conflictLabel)) {
+              await github.rest.issues.removeLabel({
+                ...repo,
+                issue_number: pr.number,
+                name: conflictLabel,
+              });
+            }
