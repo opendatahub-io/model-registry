@@ -3,7 +3,7 @@ module github.com/kubeflow/hub/ui/bff
 go 1.26.0
 
 require (
-	github.com/brianvoe/gofakeit/v7 v7.18.1
+	github.com/brianvoe/gofakeit/v7 v7.18.2
 	github.com/distribution/reference v0.6.0
 	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
