@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Create or refresh upstream sync PR
         id: sync
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.KUBEFLOW2ODH_SYNC_TOKEN }}
           script: |
@@ -151,7 +151,7 @@ jobs:
     steps:
       # Use the repository token; the sync account only needs to author PRs.
       - name: Update sync PR labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           SYNC_PR_NUMBER: ${{ needs.sync.outputs.pr-number }}
         with:
