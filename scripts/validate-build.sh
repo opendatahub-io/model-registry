@@ -179,11 +179,23 @@ for gomod in sorted(root.rglob("go.mod")):
         old: new for old, new in replaces if new.startswith("./") or new.startswith("../")
     }
 
-    external_requires = [
-        (module, version)
-        for module, version in requires
-        if module not in local_replaces
-    ]
+    remote_replaces = {}
+    for old, new in replaces:
+        if old in local_replaces:
+            continue
+        fields = new.split()
+        if len(fields) == 2:
+            remote_replaces[old] = (fields[0], fields[1])
+
+    external_requires = []
+    for module, version in requires:
+        if module in local_replaces:
+            continue
+        if module in remote_replaces:
+            # go.sum records the replacement module's checksum, not the original.
+            module, version = remote_replaces[module]
+        external_requires.append((module, version))
+    external_requires = sorted(set(external_requires))
 
     gosum = gomod.with_name("go.sum")
     if external_requires:
@@ -547,19 +559,20 @@ validate_go_modules() {
   pass "Root Go modules downloaded and verified"
 }
 
-validate_hermetic() {
-  HERMETIC_WORKDIR="$(mktemp -d)"
-  trap 'chmod -R u+w "$HERMETIC_WORKDIR" 2>/dev/null || true; rm -rf "$HERMETIC_WORKDIR"' EXIT
+validate_hermetic() (
+  local workdir
+  workdir="$(mktemp -d)"
+  trap 'chmod -R u+w "$workdir" 2>/dev/null || true; rm -rf "$workdir"' EXIT
 
   if command -v go >/dev/null 2>&1; then
-    local modcache="$HERMETIC_WORKDIR/gomodcache"
+    local modcache="$workdir/gomodcache"
     info "Populating an isolated Go module cache with network access..."
     GOMODCACHE="$modcache" GOFLAGS="-mod=readonly" go mod download
     pass "Go module cache populated"
 
     info "Compiling with GOPROXY=off (mirrors a Hermeto-prefetched build)..."
     GOMODCACHE="$modcache" GOPROXY=off GOFLAGS="-mod=readonly" \
-      CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -o "$HERMETIC_WORKDIR/model-registry" .
+      CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -o "$workdir/model-registry" .
     pass "Go build succeeds from the module cache alone"
   else
     warn "go not available; skipping hermetic Go build"
@@ -567,7 +580,7 @@ validate_hermetic() {
 
   local requirements="jobs/async-upload/requirements.txt"
   if command -v python3 >/dev/null 2>&1; then
-    local wheelhouse="$HERMETIC_WORKDIR/wheelhouse"
+    local wheelhouse="$workdir/wheelhouse"
     mkdir -p "$wheelhouse"
     info "Downloading async-upload distributions with network access..."
     python3 -m pip download --quiet --disable-pip-version-check \
@@ -578,11 +591,11 @@ validate_hermetic() {
 
     # Resolve inside a venv so PEP 668 externally-managed environments
     # (Homebrew, Debian) do not block the dry-run install.
-    if ! python3 -m venv "$HERMETIC_WORKDIR/venv" >/dev/null 2>&1; then
+    if ! python3 -m venv "$workdir/venv" >/dev/null 2>&1; then
       warn "python3 venv support missing; skipping hermetic Python resolution"
       return 0
     fi
-    local venv_python="$HERMETIC_WORKDIR/venv/bin/python"
+    local venv_python="$workdir/venv/bin/python"
     if ! "$venv_python" -m pip install --help 2>/dev/null | grep -q -- '--dry-run'; then
       warn "pip without --dry-run support; skipping hermetic Python resolution"
       return 0
@@ -595,7 +608,7 @@ validate_hermetic() {
   else
     warn "python3 not available; skipping hermetic Python resolution"
   fi
-}
+)
 
 validate_manifests() {
   require_cmd "$KUSTOMIZE_BIN"
@@ -651,15 +664,31 @@ validate_manifests() {
     for out in "$out_dir"/*.yaml; do
       [ -f "$out" ] || continue
       local json="$out.json"
+      local kc_err="$out.err"
       "$KUBECONFORM_BIN" -strict -ignore-missing-schemas \
         -kubernetes-version "$KUBERNETES_VERSION" -verbose \
-        -cache "$schema_cache" -output json "$out" > "$json" 2>/dev/null || true
+        -cache "$schema_cache" -output json "$out" > "$json" 2>"$kc_err" || true
+
+      if ! jq -e '.resources' "$json" >/dev/null 2>&1; then
+        err "kubeconform produced no parseable output for $out"
+        sed -n '1,20p' "$kc_err" >&2
+        issues=$((issues + 1))
+        continue
+      fi
 
       local invalid
       invalid=$(jq -r '.resources[] | select(.status=="statusInvalid") | "\(.kind) \(.version): \(.msg)"' "$json" 2>/dev/null || true)
       if [ -n "$invalid" ]; then
         err "kubeconform found invalid resources in $out:"
         printf '%s\n' "$invalid" >&2
+        issues=$((issues + 1))
+      fi
+
+      local errored
+      errored=$(jq -r '.resources[] | select(.status=="statusError") | "\(.kind) \(.version): \(.msg)"' "$json" 2>/dev/null || true)
+      if [ -n "$errored" ]; then
+        err "kubeconform could not validate resources in $out:"
+        printf '%s\n' "$errored" >&2
         issues=$((issues + 1))
       fi
 
@@ -696,7 +725,7 @@ validate_manifests() {
   cleanup_manifest_tmp
 }
 
-validate_server() {
+validate_server() (
   require_cmd docker
   require_cmd curl
   require_cmd jq
@@ -706,11 +735,16 @@ validate_server() {
   docker build --platform "$PLATFORM" --tag "$SERVER_IMAGE" -f Dockerfile .
   pass "Server image built"
 
-  local suffix db_name server_name network_name
+  local suffix db_name server_name network_name db_password
   suffix="${GITHUB_RUN_ID:-$$}-$RANDOM"
   db_name="mr-validation-db-$suffix"
   server_name="mr-validation-server-$suffix"
   network_name="mr-validation-net-$suffix"
+  if command -v openssl >/dev/null 2>&1; then
+    db_password="$(openssl rand -hex 24)"
+  else
+    db_password="$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  fi
 
   cleanup_server() {
     docker rm -f "$server_name" >/dev/null 2>&1 || true
@@ -724,7 +758,7 @@ validate_server() {
   docker run -d --name "$db_name" --network "$network_name" \
     -e POSTGRES_DB=model_registry \
     -e POSTGRES_USER=postgres \
-    -e POSTGRES_PASSWORD=demo \
+    -e "POSTGRES_PASSWORD=$db_password" \
     "$POSTGRES_IMAGE" >/dev/null
 
   local db_ready=false
@@ -747,7 +781,7 @@ validate_server() {
     -p "$SERVER_PORT:8080" "$SERVER_IMAGE" proxy \
     --hostname=0.0.0.0 --port=8080 --datastore-type=embedmd \
     --embedmd-database-type=postgres \
-    --embedmd-database-dsn="postgresql://postgres:demo@${db_name}:5432/model_registry?sslmode=disable" >/dev/null
+    --embedmd-database-dsn="postgresql://postgres:${db_password}@${db_name}:5432/model_registry?sslmode=disable" >/dev/null
 
   local health_code=""
   for _ in $(seq 1 60); do
@@ -821,7 +855,7 @@ validate_server() {
   cleanup_server
   trap - EXIT
   pass "Server image validation passed"
-}
+)
 
 validate_async_upload() {
   require_cmd docker

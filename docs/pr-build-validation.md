@@ -88,9 +88,11 @@ The workflow installs kustomize and kubeconform. Locally, kustomize is required 
 
 ## Skipping the workflow
 
-Add `[skip konflux-sim]` to the pull request title or add the `skip-konflux-sim` label. Use this only when the change cannot affect the Konflux images, dependencies, or manifests; the path filters already skip documentation-only changes.
+Add `[skip konflux-sim]` to the pull request title or add the `skip-konflux-sim` label. Use this only when the change cannot affect the Konflux images, dependencies, or manifests; documentation-only changes are detected automatically.
 
-The skip condition is evaluated once by the `Check Skip Condition` job; every other job consumes its output, so the title and label rules cannot drift between jobs.
+The skip condition is evaluated once by the `Check Skip Condition` job; every other job consumes its output, so the title and label rules cannot drift between jobs. Path filtering happens inside that job rather than in the workflow trigger, so the summary check also runs for out-of-scope PRs and required status checks are never left pending.
+
+The workflow re-evaluates the skip decision when a PR is edited or its labels change, so removing the opt-out starts validation again.
 
 ## Troubleshooting
 

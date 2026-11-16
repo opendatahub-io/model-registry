@@ -13,30 +13,7 @@ on:
       - stable
       - 'v*'
       - 'release-*'
-    paths:
-      - 'main.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '**/go.mod'
-      - '**/go.sum'
-      - 'Dockerfile'
-      - 'jobs/async-upload/Dockerfile'
-      - 'Makefile'
-      - '.dockerignore'
-      - 'api/**'
-      - 'catalog/**'
-      - 'cmd/**'
-      - 'internal/**'
-      - 'pkg/**'
-      - 'jobs/**'
-      - 'manifests/**'
-      - 'scripts/**'
-      - 'templates/**'
-      - 'patches/**'
-      - 'openapitools.json'
-      - '.openapi-generator-ignore'
-      - '.tekton/**'
-      - '.github/workflows/pr-build-validation.yml'
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -63,26 +40,44 @@ jobs:
       contents: read
     outputs:
       should-skip: ${{ steps.check.outputs.skip }}
+      reason: ${{ steps.check.outputs.reason }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Evaluate skip condition
         id: check
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
+          RELEVANT='^(main\.go|go\.(mod|sum)|.*/go\.(mod|sum)|Dockerfile|jobs/async-upload/Dockerfile|Makefile|\.dockerignore|(api|catalog|cmd|internal|pkg|jobs|manifests|scripts|templates|patches)/|openapitools\.json|\.openapi-generator-ignore|\.tekton/|\.github/workflows/pr-build-validation\.yml)'
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "reason=manual dispatch" >> "$GITHUB_OUTPUT"
             echo "✅ Manual dispatch: validation will run"
           elif [[ "$PR_TITLE" == *"[skip konflux-sim]"* ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=PR title contains [skip konflux-sim]" >> "$GITHUB_OUTPUT"
             echo "ℹ️  Validation skipped: PR title contains [skip konflux-sim]"
           elif [[ ",${PR_LABELS}," == *",skip-konflux-sim,"* ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=skip-konflux-sim label present" >> "$GITHUB_OUTPUT"
             echo "ℹ️  Validation skipped: skip-konflux-sim label present"
+          elif ! git diff --name-only "origin/${BASE_REF}...HEAD" | grep -Eq "$RELEVANT"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=no Konflux-relevant files changed" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Validation out of scope: no Konflux-relevant files changed"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "reason=relevant changes detected" >> "$GITHUB_OUTPUT"
             echo "✅ Validation will run"
           fi
 
@@ -233,10 +228,13 @@ jobs:
       - server-image
       - async-upload-image
       - manifest-validation
-    if: always() && needs.check-skip.outputs.should-skip != 'true'
+    if: always()
     steps:
       - name: Check results
         env:
+          CHECK_SKIP: ${{ needs.check-skip.result }}
+          SKIP: ${{ needs.check-skip.outputs.should-skip }}
+          REASON: ${{ needs.check-skip.outputs.reason }}
           HERMETIC: ${{ needs.hermetic-preflight.result }}
           STATIC: ${{ needs.static-validation.result }}
           SERVER: ${{ needs.server-image.result }}
@@ -246,6 +244,17 @@ jobs:
           set -euo pipefail
           echo "## Konflux Build Simulation Results"
           echo ""
+
+          if [ "$CHECK_SKIP" != "success" ]; then
+            echo "❌ Skip evaluation failed (${CHECK_SKIP:-no result}); refusing to report success."
+            exit 1
+          fi
+
+          if [ "$SKIP" = "true" ]; then
+            echo "✅ Validation not required: ${REASON:-explicit skip}"
+            exit 0
+          fi
+
           echo "| Phase | Result |"
           echo "|-------|--------|"
           echo "| Phase 0: Hermetic Preflight | ${HERMETIC} |"
@@ -257,7 +266,7 @@ jobs:
 
           failed=false
           for result in "$HERMETIC" "$STATIC" "$SERVER" "$ASYNC" "$MANIFESTS"; do
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+            if [ "$result" != "success" ]; then
               failed=true
             fi
           done
