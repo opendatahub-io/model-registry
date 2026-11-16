@@ -1,0 +1,269 @@
+name: PR Build Validation
+
+# Simulates the Konflux build inputs for this repository:
+#   .tekton/odh-model-registry-pull-request.yaml
+#   .tekton/odh-model-registry-job-async-upload-pull-request.yaml
+#
+# Skip with "[skip konflux-sim]" in the PR title or the "skip-konflux-sim" label.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - stable
+      - 'v*'
+      - 'release-*'
+    paths:
+      - 'main.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '**/go.mod'
+      - '**/go.sum'
+      - 'Dockerfile'
+      - 'jobs/async-upload/Dockerfile'
+      - 'Makefile'
+      - '.dockerignore'
+      - 'api/**'
+      - 'catalog/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'jobs/**'
+      - 'manifests/**'
+      - 'scripts/**'
+      - 'templates/**'
+      - 'patches/**'
+      - 'openapitools.json'
+      - '.openapi-generator-ignore'
+      - '.tekton/**'
+      - '.github/workflows/pr-build-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-validation-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.26.7'
+  KUSTOMIZE_VERSION: '5.7.1'
+  KUBECONFORM_VERSION: '0.7.0'
+  KUBERNETES_VERSION: '1.33.0'
+  PLATFORM: linux/amd64
+  SERVER_IMAGE: quay.io/opendatahub/model-registry:pr-${{ github.sha }}
+  ASYNC_IMAGE: quay.io/opendatahub/model-registry-job-async-upload:pr-${{ github.sha }}
+
+jobs:
+  check-skip:
+    name: Check Skip Condition
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should-skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Evaluate skip condition
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Manual dispatch: validation will run"
+          elif [[ "$PR_TITLE" == *"[skip konflux-sim]"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Validation skipped: PR title contains [skip konflux-sim]"
+          elif [[ ",${PR_LABELS}," == *",skip-konflux-sim,"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Validation skipped: skip-konflux-sim label present"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Validation will run"
+          fi
+
+  hermetic-preflight:
+    name: 'Phase 0: Hermetic Build Preflight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Prove prefetched inputs are sufficient
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh hermetic
+
+  static-validation:
+    name: Static Validation Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Validate build inputs
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh static
+
+      - name: Verify Go modules
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh go-modules
+
+  server-image:
+    name: Build and Validate Server Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    needs:
+      - check-skip
+      - hermetic-preflight
+      - static-validation
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and run the Konflux server image
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh server
+
+  async-upload-image:
+    name: Build and Validate Async Upload Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    needs:
+      - check-skip
+      - hermetic-preflight
+      - static-validation
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and inspect the Konflux async-upload image
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh async-upload
+
+  manifest-validation:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install kustomize and kubeconform
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/kustomize.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/kustomize /usr/local/bin/kustomize
+
+          curl -fsSL -o /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+
+          kustomize version
+          kubeconform -v
+
+      - name: Validate kustomize builds and schemas
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh manifests
+
+  summary:
+    name: Build Validation Summary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - check-skip
+      - hermetic-preflight
+      - static-validation
+      - server-image
+      - async-upload-image
+      - manifest-validation
+    if: always() && needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Check results
+        env:
+          HERMETIC: ${{ needs.hermetic-preflight.result }}
+          STATIC: ${{ needs.static-validation.result }}
+          SERVER: ${{ needs.server-image.result }}
+          ASYNC: ${{ needs.async-upload-image.result }}
+          MANIFESTS: ${{ needs.manifest-validation.result }}
+        run: |
+          set -euo pipefail
+          echo "## Konflux Build Simulation Results"
+          echo ""
+          echo "| Phase | Result |"
+          echo "|-------|--------|"
+          echo "| Phase 0: Hermetic Preflight | ${HERMETIC} |"
+          echo "| Static Validation | ${STATIC} |"
+          echo "| Server Image | ${SERVER} |"
+          echo "| Async Upload Image | ${ASYNC} |"
+          echo "| Manifests | ${MANIFESTS} |"
+          echo ""
+
+          failed=false
+          for result in "$HERMETIC" "$STATIC" "$SERVER" "$ASYNC" "$MANIFESTS"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              failed=true
+            fi
+          done
+
+          if [ "$failed" = "true" ]; then
+            echo "❌ Some validations failed. Check the individual job logs above."
+            exit 1
+          fi
+          echo "✅ All validations passed."
