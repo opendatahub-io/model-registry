@@ -51,7 +51,7 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 - Deploys `opendatahub-io/model-registry-operator` at a pinned commit from `config/default`.
 - Pins `RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE` to the PR image. This matters: the operator resolves workload images from `RELATED_IMAGE_*`, so patching the Deployment spec alone leaves `:latest` in play.
 - Applies `config/samples/mysql` and waits for `modelregistry-sample` to become `Available`.
-- Asserts the reconcile actually happened: `modelregistry.opendatahub.io/finalizer` is present, the rendered server Deployment uses the PR image, and no container restarted.
+- Asserts the reconcile actually happened: `modelregistry.opendatahub.io/finalizer` is present, the rendered server Deployment uses the PR image, and no container restarts after the Deployment reports `Available`. A restart during startup is reported with the previous container logs but does not fail the phase, because the server can legitimately start before MySQL accepts connections.
 - Dumps operator logs, pod state, the `ModelRegistry` resource, and recent events inside the failing step.
 
 This is the layer container checks cannot reach: CRD installation, RBAC, image wiring, and controller reconcile behaviour.

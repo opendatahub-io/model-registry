@@ -26,6 +26,7 @@ set -euo pipefail
 #   OPERATOR_REF        model-registry-operator ref (defaults to a pinned commit)
 #   REGISTRY_NAMESPACE  Namespace for the sample ModelRegistry (default default)
 #   KEEP_KIND=1         Keep the Kind cluster alive for debugging
+#   OPERATOR_SETTLE_SECONDS  Stability window after Available (default 30)
 
 MODE="${1:-all}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -1032,15 +1033,33 @@ validate_operator() (
   fi
   pass "Model Registry deployment is Available"
 
-  local restarts
-  restarts=$(kubectl -n "$registry_ns" get pods -l component=model-registry \
-    -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' 2>/dev/null | awk '{total += $1} END {print total + 0}')
-  if [ "$restarts" != "0" ]; then
-    err "Model Registry pods restarted ${restarts} time(s)"
+  # The operator renders :latest until the RELATED_IMAGE_* patch rolls out, and
+  # the server can start before MySQL accepts connections, so a restart during
+  # startup is expected. What matters is that it is not still restarting once
+  # the Deployment reports Available.
+  count_restarts() {
+    kubectl -n "$registry_ns" get pods -l component=model-registry \
+      -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' 2>/dev/null \
+      | awk '{total += $1} END {print total + 0}'
+  }
+
+  local restarts_before restarts_after settle="${OPERATOR_SETTLE_SECONDS:-30}"
+  restarts_before=$(count_restarts)
+  info "Waiting ${settle}s to confirm the deployment is stable..."
+  sleep "$settle"
+  restarts_after=$(count_restarts)
+
+  if [ "$restarts_after" -gt "$restarts_before" ]; then
+    err "Model Registry restarted $((restarts_after - restarts_before)) time(s) after becoming Available"
+    kubectl -n "$registry_ns" logs -l component=model-registry --previous --tail=100 || true
     dump_operator_state
     return 1
   fi
-  pass "Model Registry pods did not restart"
+  if [ "$restarts_before" -gt 0 ]; then
+    warn "Model Registry restarted ${restarts_before} time(s) during startup, before it became Available"
+    kubectl -n "$registry_ns" logs -l component=model-registry --previous --tail=50 || true
+  fi
+  pass "Model Registry pods are stable after reaching Available"
 
   pass "Operator integration validation passed"
 )
