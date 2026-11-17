@@ -92,7 +92,7 @@ Add `[skip konflux-sim]` to the pull request title or add the `skip-konflux-sim`
 
 The skip condition is evaluated once by the `Check Skip Condition` job; every other job consumes its output, so the title and label rules cannot drift between jobs. Path filtering happens inside that job rather than in the workflow trigger, so the summary check also runs for out-of-scope PRs and required status checks are never left pending.
 
-The workflow re-evaluates the skip decision when a PR is edited or its labels change, so removing the opt-out starts validation again.
+The workflow re-evaluates the skip decision when a PR is edited or its labels change, so removing the opt-out starts validation again. Metadata-only runs are queued rather than cancelling an in-flight build, because label bots would otherwise abort image validation.
 
 ## Troubleshooting
 

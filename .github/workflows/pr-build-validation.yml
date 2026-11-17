@@ -21,7 +21,10 @@ permissions:
 
 concurrency:
   group: pr-build-validation-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  # Label/title edits must re-evaluate the skip decision, but they must not
+  # cancel an in-flight build (bots add labels constantly). Only new commits
+  # supersede a running validation.
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 env:
   GO_VERSION: '1.26.7'
