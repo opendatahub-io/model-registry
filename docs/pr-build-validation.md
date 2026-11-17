@@ -11,7 +11,7 @@ The workflow is `.github/workflows/pr-build-validation.yml`; the reusable implem
 | `quay.io/opendatahub/model-registry` | `.tekton/odh-model-registry-pull-request.yaml` | `.` | `Dockerfile` |
 | `quay.io/opendatahub/model-registry-job-async-upload` | `.tekton/odh-model-registry-job-async-upload-pull-request.yaml` | `jobs/async-upload` | `Dockerfile` |
 
-The controller, CSI, testops, and UI images are out of scope here: Konflux does not build them in these PipelineRuns, and their existing GitHub workflows cover them. Operator-style Kind deployment is also already covered by `.github/workflows/build-image-pr.yml`.
+The controller, CSI, testops, and UI images are out of scope here: Konflux does not build them in these PipelineRuns, and their existing GitHub workflows cover them.
 
 ## What the workflow validates
 
@@ -45,6 +45,17 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 - Runs `pip check` and the job healthcheck module.
 - Verifies `cosign` and `skopeo` are present, the image runs as UID `1000`, and the image config contains a `HEALTHCHECK`.
 
+### Phase 4: Operator Integration
+
+- Loads the image built by the server phase into Kind, so the operator reconciles the same bytes that were just tested rather than a registry tag.
+- Deploys `opendatahub-io/model-registry-operator` at a pinned commit from `config/default`.
+- Pins `RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE` to the PR image. This matters: the operator resolves workload images from `RELATED_IMAGE_*`, so patching the Deployment spec alone leaves `:latest` in play.
+- Applies `config/samples/mysql` and waits for `modelregistry-sample` to become `Available`.
+- Asserts the reconcile actually happened: `modelregistry.opendatahub.io/finalizer` is present, the rendered server Deployment uses the PR image, and no container restarted.
+- Dumps operator logs, pod state, the `ModelRegistry` resource, and recent events inside the failing step.
+
+This is the layer container checks cannot reach: CRD installation, RBAC, image wiring, and controller reconcile behaviour.
+
 ### Validate Manifests
 
 - Renders every kustomization under `manifests/` with kustomize.
@@ -67,6 +78,9 @@ Prerequisites: Docker, Go 1.26+, Python 3, `curl`, `jq`, kustomize, and kubeconf
 ./scripts/validate-build.sh server
 ./scripts/validate-build.sh async-upload
 
+# Operator integration (needs Docker, kind, and kubectl)
+./scripts/validate-build.sh operator
+
 # Everything
 ./scripts/validate-build.sh all
 ```
@@ -78,6 +92,8 @@ PLATFORM=linux/arm64 ./scripts/validate-build.sh server
 SERVER_IMAGE=localhost/model-registry:dev ./scripts/validate-build.sh server
 ASYNC_IMAGE=localhost/model-registry-job-async-upload:dev ./scripts/validate-build.sh async-upload
 SERVER_PORT=28080 ./scripts/validate-build.sh server
+KEEP_KIND=1 ./scripts/validate-build.sh operator
+OPERATOR_REF=<sha> OPERATOR_REPO=<git-url> ./scripts/validate-build.sh operator
 KUSTOMIZE_BIN=/path/to/kustomize KUBECONFORM_BIN=/path/to/kubeconform \
   ./scripts/validate-build.sh manifests
 ```

@@ -4,11 +4,12 @@ set -euo pipefail
 # Konflux PR build simulator for opendatahub-io/model-registry.
 #
 # The simulator builds the two images that Konflux builds from this repository
-# (.tekton/*pull-request.yaml), checks their runtime behaviour, and validates
-# the Go/Python dependency inputs that a hermetic build would prefetch.
+# (.tekton/*pull-request.yaml), checks their runtime behaviour, validates the
+# Go/Python dependency inputs that a hermetic build would prefetch, and — in the
+# operator phase — deploys the model-registry-operator against the PR image.
 #
 # Usage:
-#   scripts/validate-build.sh <static|go-modules|hermetic|manifests|server|async-upload|all>
+#   scripts/validate-build.sh <static|go-modules|hermetic|manifests|server|async-upload|operator|all>
 #
 # Environment:
 #   SERVER_IMAGE      Local tag for the model-registry server image
@@ -19,6 +20,12 @@ set -euo pipefail
 #   KUBECONFORM_BIN   kubeconform binary (default kubeconform)
 #   KUSTOMIZE_BIN     kustomize binary (default kustomize)
 #   KUBERNETES_VERSION  Kubernetes schema version for kubeconform
+#   KIND_CLUSTER_NAME   Kind cluster name for the operator phase
+#   KIND_NODE_IMAGE     Kind node image (default kindest/node:v1.33.7)
+#   OPERATOR_REPO       model-registry-operator git URL
+#   OPERATOR_REF        model-registry-operator ref (defaults to a pinned commit)
+#   REGISTRY_NAMESPACE  Namespace for the sample ModelRegistry (default default)
+#   KEEP_KIND=1         Keep the Kind cluster alive for debugging
 
 MODE="${1:-all}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -903,6 +910,127 @@ validate_async_upload() {
   pass "Async-upload image validation passed"
 }
 
+# Phase 4: operator integration.
+#
+# Deploys opendatahub-io/model-registry-operator into Kind, points it at the PR
+# image, and asserts that it reconciles a ModelRegistry resource. This is the
+# layer the container checks cannot reach: CRD, RBAC, image wiring, and
+# controller reconcile behaviour.
+validate_operator() (
+  require_cmd docker
+  require_cmd kind
+  require_cmd kubectl
+
+  local cluster="${KIND_CLUSTER_NAME:-mr-operator-validation}"
+  local node_image="${KIND_NODE_IMAGE:-kindest/node:v1.33.7}"
+  local operator_repo="${OPERATOR_REPO:-https://github.com/opendatahub-io/model-registry-operator.git}"
+  local operator_ref="${OPERATOR_REF:-c7cad77782f7dcec705111cee96c80a3b14c9cab}"
+  local operator_ns="model-registry-operator-system"
+  local operator_deploy="model-registry-operator-controller-manager"
+  local registry_ns="${REGISTRY_NAMESPACE:-default}"
+  local registry="modelregistry-sample"
+  local timeout="${OPERATOR_TIMEOUT:-300s}"
+
+  if ! docker image inspect "$SERVER_IMAGE" >/dev/null 2>&1; then
+    info "Server image $SERVER_IMAGE is not local; building it for $PLATFORM..."
+    docker build --platform "$PLATFORM" --tag "$SERVER_IMAGE" -f Dockerfile .
+  fi
+
+  # Dump everything a controller failure needs, in the job that failed.
+  dump_operator_state() {
+    err "Operator integration did not converge; dumping cluster state"
+    kubectl get deploy,pods -n "$operator_ns" -o wide || true
+    kubectl describe deployment/"$operator_deploy" -n "$operator_ns" || true
+    kubectl logs -n "$operator_ns" deployment/"$operator_deploy" --all-containers --tail=200 || true
+    kubectl get all -n "$registry_ns" -o wide || true
+    kubectl describe modelregistries.modelregistry.opendatahub.io/"$registry" -n "$registry_ns" || true
+    kubectl get events -A --sort-by=.lastTimestamp | tail -40 || true
+  }
+
+  cleanup_operator() {
+    if [ "${KEEP_KIND:-0}" = "1" ]; then
+      info "Keeping Kind cluster $cluster (KEEP_KIND=1)"
+      return
+    fi
+    kind delete cluster --name "$cluster" >/dev/null 2>&1 || true
+  }
+  trap cleanup_operator EXIT
+
+  if kind get clusters 2>/dev/null | grep -qx "$cluster"; then
+    info "Reusing existing Kind cluster $cluster"
+  else
+    info "Creating Kind cluster $cluster ($node_image)..."
+    kind create cluster --name "$cluster" --image "$node_image" --wait 300s
+  fi
+
+  info "Loading the PR image into Kind..."
+  kind load docker-image "$SERVER_IMAGE" --name "$cluster"
+  pass "PR image is available in the cluster"
+
+  info "Deploying model-registry-operator at ${operator_ref:0:12}..."
+  kubectl apply -k "${operator_repo}/config/default?ref=${operator_ref}"
+
+  # The operator resolves workload images from RELATED_IMAGE_* variables, not
+  # from the Deployment spec, so this is what actually tests the PR image.
+  info "Pointing the operator at the PR image..."
+  kubectl -n "$operator_ns" set env deployment/"$operator_deploy" \
+    "RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE=$SERVER_IMAGE" >/dev/null
+
+  if ! kubectl -n "$operator_ns" rollout status deployment/"$operator_deploy" --timeout="$timeout"; then
+    dump_operator_state
+    return 1
+  fi
+  pass "Operator is Available"
+
+  info "Creating the MySQL-backed ModelRegistry sample..."
+  kubectl apply -k "${operator_repo}/config/samples/mysql?ref=${operator_ref}" >/dev/null
+
+  if ! kubectl -n "$registry_ns" wait --for=condition=Available deployment/model-registry-db --timeout="$timeout"; then
+    dump_operator_state
+    return 1
+  fi
+  pass "Sample database is Available"
+
+  if ! kubectl -n "$registry_ns" wait --for=condition=Available \
+    modelregistries.modelregistry.opendatahub.io/"$registry" --timeout="$timeout"; then
+    dump_operator_state
+    return 1
+  fi
+  pass "ModelRegistry reconciled to Available"
+
+  local finalizers
+  finalizers=$(kubectl -n "$registry_ns" get modelregistries.modelregistry.opendatahub.io/"$registry" \
+    -o jsonpath='{.metadata.finalizers[*]}')
+  if [[ " $finalizers " != *" modelregistry.opendatahub.io/finalizer "* ]]; then
+    err "Expected modelregistry.opendatahub.io/finalizer (got: ${finalizers:-none})"
+    dump_operator_state
+    return 1
+  fi
+  pass "Reconcile finalizer is set"
+
+  local deployed_image
+  deployed_image=$(kubectl -n "$registry_ns" get deployment/model-registry \
+    -o jsonpath='{.spec.template.spec.containers[0].image}')
+  if [ "$deployed_image" != "$SERVER_IMAGE" ]; then
+    err "Operator deployed '${deployed_image}' instead of the PR image '$SERVER_IMAGE'"
+    dump_operator_state
+    return 1
+  fi
+  pass "Operator rendered the PR image"
+
+  local restarts
+  restarts=$(kubectl -n "$registry_ns" get pods -l app="$registry" \
+    -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' | awk '{total += $1} END {print total + 0}')
+  if [ "$restarts" != "0" ]; then
+    err "Model Registry pods restarted ${restarts} time(s)"
+    dump_operator_state
+    return 1
+  fi
+  pass "Model Registry pods did not restart"
+
+  pass "Operator integration validation passed"
+)
+
 case "$MODE" in
   static)
     validate_static
@@ -922,6 +1050,9 @@ case "$MODE" in
   async-upload)
     validate_async_upload
     ;;
+  operator)
+    validate_operator
+    ;;
   all)
     validate_static
     validate_go_modules
@@ -931,7 +1062,7 @@ case "$MODE" in
     validate_async_upload
     ;;
   *)
-    echo "Usage: $0 <static|go-modules|hermetic|manifests|server|async-upload|all>" >&2
+    echo "Usage: $0 <static|go-modules|hermetic|manifests|server|async-upload|operator|all>" >&2
     exit 2
     ;;
 esac
