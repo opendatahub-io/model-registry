@@ -1008,9 +1008,16 @@ validate_operator() (
   fi
   pass "Reconcile finalizer is set"
 
+  # The Deployment is named after the CR, so select it by the label the operator
+  # template sets instead of guessing the name.
   local deployed_image
-  deployed_image=$(kubectl -n "$registry_ns" get deployment/model-registry \
-    -o jsonpath='{.spec.template.spec.containers[0].image}')
+  deployed_image=$(kubectl -n "$registry_ns" get deployment -l component=model-registry \
+    -o jsonpath='{.items[0].spec.template.spec.containers[0].image}' 2>/dev/null || true)
+  if [ -z "$deployed_image" ]; then
+    err "Operator did not create a model-registry Deployment in namespace $registry_ns"
+    dump_operator_state
+    return 1
+  fi
   if [ "$deployed_image" != "$SERVER_IMAGE" ]; then
     err "Operator deployed '${deployed_image}' instead of the PR image '$SERVER_IMAGE'"
     dump_operator_state
@@ -1018,9 +1025,16 @@ validate_operator() (
   fi
   pass "Operator rendered the PR image"
 
+  if ! kubectl -n "$registry_ns" wait --for=condition=Available deployment \
+    -l component=model-registry --timeout="$timeout"; then
+    dump_operator_state
+    return 1
+  fi
+  pass "Model Registry deployment is Available"
+
   local restarts
-  restarts=$(kubectl -n "$registry_ns" get pods -l app="$registry" \
-    -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' | awk '{total += $1} END {print total + 0}')
+  restarts=$(kubectl -n "$registry_ns" get pods -l component=model-registry \
+    -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' 2>/dev/null | awk '{total += $1} END {print total + 0}')
   if [ "$restarts" != "0" ]; then
     err "Model Registry pods restarted ${restarts} time(s)"
     dump_operator_state
