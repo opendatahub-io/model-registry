@@ -66,6 +66,7 @@ This is the layer container checks cannot reach: CRD installation, RBAC, image w
 ## Running locally
 
 Prerequisites: Docker, Go 1.26+, Python 3, `curl`, `jq`, kustomize, and kubeconform.
+`all` also runs the operator phase, so it additionally needs `kind` and `kubectl`.
 
 ```bash
 # Fast checks only

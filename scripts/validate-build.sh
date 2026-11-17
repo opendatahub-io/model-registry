@@ -145,6 +145,9 @@ def parse_requires(text):
 
 
 def parse_replaces(text):
+    # Go applies `old v1.0.0 => new` only to that exact version, while
+    # `old => new` applies to every version. Keep the optional left version so
+    # the two cases are not conflated.
     replaces = []
     in_block = False
     for line in text.splitlines():
@@ -160,14 +163,31 @@ def parse_replaces(text):
             if len(parts) == 2:
                 left = parts[0].strip().split()
                 if left:
-                    replaces.append((left[0], parts[1].strip()))
+                    replaces.append(
+                        (left[0], left[1] if len(left) > 1 else None, parts[1].strip())
+                    )
         elif stripped.startswith("replace "):
             parts = stripped.partition("=>")
             if parts[1]:
                 left = parts[0].replace("replace", "", 1).strip().split()
                 if left:
-                    replaces.append((left[0], parts[2].strip()))
+                    replaces.append(
+                        (left[0], left[1] if len(left) > 1 else None, parts[2].strip())
+                    )
     return replaces
+
+
+def replacement_for(replaces, module, version):
+    """Return the replace directive Go applies to module at version, if any."""
+    candidates = [
+        replace
+        for replace in replaces
+        if replace[0] == module and replace[1] in (None, version)
+    ]
+    if not candidates:
+        return None
+    qualified = [replace for replace in candidates if replace[1] is not None]
+    return qualified[-1] if qualified else candidates[-1]
 
 
 for gomod in sorted(root.rglob("go.mod")):
@@ -183,25 +203,25 @@ for gomod in sorted(root.rglob("go.mod")):
 
     requires = parse_requires(text)
     replaces = parse_replaces(text)
-    local_replaces = {
-        old: new for old, new in replaces if new.startswith("./") or new.startswith("../")
-    }
-
-    remote_replaces = {}
-    for old, new in replaces:
-        if old in local_replaces:
-            continue
-        fields = new.split()
-        if len(fields) == 2:
-            remote_replaces[old] = (fields[0], fields[1])
+    local_replaces = sorted(
+        {
+            (old, new)
+            for old, _version, new in replaces
+            if new.startswith("./") or new.startswith("../")
+        }
+    )
 
     external_requires = []
     for module, version in requires:
-        if module in local_replaces:
-            continue
-        if module in remote_replaces:
-            # go.sum records the replacement module's checksum, not the original.
-            module, version = remote_replaces[module]
+        replaced = replacement_for(replaces, module, version)
+        if replaced is not None:
+            _old, _old_version, new = replaced
+            if new.startswith("./") or new.startswith("../"):
+                continue
+            fields = new.split()
+            if len(fields) == 2:
+                # go.sum records the replacement module's checksum, not the original.
+                module, version = fields
         external_requires.append((module, version))
     external_requires = sorted(set(external_requires))
 
@@ -225,7 +245,7 @@ for gomod in sorted(root.rglob("go.mod")):
                     )
                     errors += 1
 
-    for old, new in local_replaces.items():
+    for old, new in local_replaces:
         target = (gomod.parent / new).resolve()
         try:
             target.relative_to(root)
@@ -243,12 +263,14 @@ for gomod in sorted(root.rglob("go.mod")):
             )
             errors += 1
 
-    for old, new in replaces:
-        if old in local_replaces:
+    for old, old_version, new in replaces:
+        if new.startswith("./") or new.startswith("../"):
             continue
         if new.startswith(("http://", "https://", "git@")):
+            qualifier = f" {old_version}" if old_version else ""
             print(
-                f"WARNING: {gomod.relative_to(root)}: remote replace {old} -> {new}; "
+                f"WARNING: {gomod.relative_to(root)}: remote replace "
+                f"{old}{qualifier} -> {new}; "
                 "verify hermetic prefetch can resolve it"
             )
             warnings += 1
@@ -931,6 +953,8 @@ validate_operator() (
   local registry_ns="${REGISTRY_NAMESPACE:-default}"
   local registry="modelregistry-sample"
   local timeout="${OPERATOR_TIMEOUT:-300s}"
+  local context="kind-$cluster"
+  local created_cluster=false
 
   if ! docker image inspect "$SERVER_IMAGE" >/dev/null 2>&1; then
     info "Server image $SERVER_IMAGE is not local; building it for $PLATFORM..."
@@ -940,17 +964,21 @@ validate_operator() (
   # Dump everything a controller failure needs, in the job that failed.
   dump_operator_state() {
     err "Operator integration did not converge; dumping cluster state"
-    kubectl get deploy,pods -n "$operator_ns" -o wide || true
-    kubectl describe deployment/"$operator_deploy" -n "$operator_ns" || true
-    kubectl logs -n "$operator_ns" deployment/"$operator_deploy" --all-containers --tail=200 || true
-    kubectl get all -n "$registry_ns" -o wide || true
-    kubectl describe modelregistries.modelregistry.opendatahub.io/"$registry" -n "$registry_ns" || true
-    kubectl get events -A --sort-by=.lastTimestamp | tail -40 || true
+    kubectl --context "$context" get deploy,pods -n "$operator_ns" -o wide || true
+    kubectl --context "$context" describe deployment/"$operator_deploy" -n "$operator_ns" || true
+    kubectl --context "$context" logs -n "$operator_ns" deployment/"$operator_deploy" --all-containers --tail=200 || true
+    kubectl --context "$context" get all -n "$registry_ns" -o wide || true
+    kubectl --context "$context" describe modelregistries.modelregistry.opendatahub.io/"$registry" -n "$registry_ns" || true
+    kubectl --context "$context" get events -A --sort-by=.lastTimestamp | tail -40 || true
   }
 
   cleanup_operator() {
     if [ "${KEEP_KIND:-0}" = "1" ]; then
       info "Keeping Kind cluster $cluster (KEEP_KIND=1)"
+      return
+    fi
+    if [ "$created_cluster" != "true" ]; then
+      info "Leaving pre-existing Kind cluster $cluster in place"
       return
     fi
     kind delete cluster --name "$cluster" >/dev/null 2>&1 || true
@@ -962,6 +990,7 @@ validate_operator() (
   else
     info "Creating Kind cluster $cluster ($node_image)..."
     kind create cluster --name "$cluster" --image "$node_image" --wait 300s
+    created_cluster=true
   fi
 
   info "Loading the PR image into Kind..."
@@ -969,30 +998,30 @@ validate_operator() (
   pass "PR image is available in the cluster"
 
   info "Deploying model-registry-operator at ${operator_ref:0:12}..."
-  kubectl apply -k "${operator_repo}/config/default?ref=${operator_ref}"
+  kubectl --context "$context" apply -k "${operator_repo}/config/default?ref=${operator_ref}"
 
   # The operator resolves workload images from RELATED_IMAGE_* variables, not
   # from the Deployment spec, so this is what actually tests the PR image.
   info "Pointing the operator at the PR image..."
-  kubectl -n "$operator_ns" set env deployment/"$operator_deploy" \
+  kubectl --context "$context" -n "$operator_ns" set env deployment/"$operator_deploy" \
     "RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE=$SERVER_IMAGE" >/dev/null
 
-  if ! kubectl -n "$operator_ns" rollout status deployment/"$operator_deploy" --timeout="$timeout"; then
+  if ! kubectl --context "$context" -n "$operator_ns" rollout status deployment/"$operator_deploy" --timeout="$timeout"; then
     dump_operator_state
     return 1
   fi
   pass "Operator is Available"
 
   info "Creating the MySQL-backed ModelRegistry sample..."
-  kubectl apply -k "${operator_repo}/config/samples/mysql?ref=${operator_ref}" >/dev/null
+  kubectl --context "$context" apply -k "${operator_repo}/config/samples/mysql?ref=${operator_ref}" >/dev/null
 
-  if ! kubectl -n "$registry_ns" wait --for=condition=Available deployment/model-registry-db --timeout="$timeout"; then
+  if ! kubectl --context "$context" -n "$registry_ns" wait --for=condition=Available deployment/model-registry-db --timeout="$timeout"; then
     dump_operator_state
     return 1
   fi
   pass "Sample database is Available"
 
-  if ! kubectl -n "$registry_ns" wait --for=condition=Available \
+  if ! kubectl --context "$context" -n "$registry_ns" wait --for=condition=Available \
     modelregistries.modelregistry.opendatahub.io/"$registry" --timeout="$timeout"; then
     dump_operator_state
     return 1
@@ -1000,7 +1029,7 @@ validate_operator() (
   pass "ModelRegistry reconciled to Available"
 
   local finalizers
-  finalizers=$(kubectl -n "$registry_ns" get modelregistries.modelregistry.opendatahub.io/"$registry" \
+  finalizers=$(kubectl --context "$context" -n "$registry_ns" get modelregistries.modelregistry.opendatahub.io/"$registry" \
     -o jsonpath='{.metadata.finalizers[*]}')
   if [[ " $finalizers " != *" modelregistry.opendatahub.io/finalizer "* ]]; then
     err "Expected modelregistry.opendatahub.io/finalizer (got: ${finalizers:-none})"
@@ -1012,7 +1041,7 @@ validate_operator() (
   # The Deployment is named after the CR, so select it by the label the operator
   # template sets instead of guessing the name.
   local deployed_image
-  deployed_image=$(kubectl -n "$registry_ns" get deployment -l component=model-registry \
+  deployed_image=$(kubectl --context "$context" -n "$registry_ns" get deployment -l component=model-registry \
     -o jsonpath='{.items[0].spec.template.spec.containers[0].image}' 2>/dev/null || true)
   if [ -z "$deployed_image" ]; then
     err "Operator did not create a model-registry Deployment in namespace $registry_ns"
@@ -1026,7 +1055,7 @@ validate_operator() (
   fi
   pass "Operator rendered the PR image"
 
-  if ! kubectl -n "$registry_ns" wait --for=condition=Available deployment \
+  if ! kubectl --context "$context" -n "$registry_ns" wait --for=condition=Available deployment \
     -l component=model-registry --timeout="$timeout"; then
     dump_operator_state
     return 1
@@ -1037,27 +1066,64 @@ validate_operator() (
   # the server can start before MySQL accepts connections, so a restart during
   # startup is expected. What matters is that it is not still restarting once
   # the Deployment reports Available.
-  count_restarts() {
-    kubectl -n "$registry_ns" get pods -l component=model-registry \
-      -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' 2>/dev/null \
-      | awk '{total += $1} END {print total + 0}'
+  #
+  # Counts are keyed by pod UID and container name: summing across pods hides a
+  # restart whenever a replacement pod has a lower count, and an empty pod list
+  # must not read as "no restarts".
+  restart_snapshot() {
+    kubectl --context "$context" -n "$registry_ns" get pods -l component=model-registry \
+      -o go-template='{{range .items}}{{$uid := .metadata.uid}}{{range .status.containerStatuses}}{{$uid}} {{.name}} {{.restartCount}}{{"\n"}}{{end}}{{end}}' \
+      2>/dev/null
   }
 
   local restarts_before restarts_after settle="${OPERATOR_SETTLE_SECONDS:-30}"
-  restarts_before=$(count_restarts)
-  info "Waiting ${settle}s to confirm the deployment is stable..."
-  sleep "$settle"
-  restarts_after=$(count_restarts)
-
-  if [ "$restarts_after" -gt "$restarts_before" ]; then
-    err "Model Registry restarted $((restarts_after - restarts_before)) time(s) after becoming Available"
-    kubectl -n "$registry_ns" logs -l component=model-registry --previous --tail=100 || true
+  restarts_before=$(restart_snapshot)
+  if [ -z "$restarts_before" ]; then
+    err "No model-registry pods found in namespace $registry_ns"
     dump_operator_state
     return 1
   fi
-  if [ "$restarts_before" -gt 0 ]; then
-    warn "Model Registry restarted ${restarts_before} time(s) during startup, before it became Available"
-    kubectl -n "$registry_ns" logs -l component=model-registry --previous --tail=50 || true
+  info "Waiting ${settle}s to confirm the deployment is stable..."
+  sleep "$settle"
+  restarts_after=$(restart_snapshot)
+  if [ -z "$restarts_after" ]; then
+    err "No model-registry pods found in namespace $registry_ns after the settle window"
+    dump_operator_state
+    return 1
+  fi
+
+  local restart_regression
+  restart_regression=$(
+    awk '
+      NR == FNR { before[$1 SUBSEP $2] = $3; next }
+      {
+        seen[$1 SUBSEP $2] = 1
+        if (!(($1 SUBSEP $2) in before)) {
+          printf "pod %s container %s appeared after Available\n", $1, $2
+        } else if ($3 + 0 > before[$1 SUBSEP $2] + 0) {
+          printf "pod %s container %s restarted %d time(s)\n", $1, $2, $3 - before[$1 SUBSEP $2]
+        }
+      }
+      END {
+        for (key in before) {
+          if (!(key in seen)) {
+            split(key, parts, SUBSEP)
+            printf "pod %s container %s disappeared\n", parts[1], parts[2]
+          }
+        }
+      }
+    ' <(printf '%s\n' "$restarts_before") <(printf '%s\n' "$restarts_after")
+  )
+  if [ -n "$restart_regression" ]; then
+    err "Model Registry changed after becoming Available:"
+    printf '%s\n' "$restart_regression"
+    kubectl --context "$context" -n "$registry_ns" logs -l component=model-registry --previous --tail=100 || true
+    dump_operator_state
+    return 1
+  fi
+  if printf '%s\n' "$restarts_before" | awk '$3 > 0 { found = 1 } END { exit found ? 0 : 1 }'; then
+    warn "Model Registry restarted during startup, before it became Available"
+    kubectl --context "$context" -n "$registry_ns" logs -l component=model-registry --previous --tail=50 || true
   fi
   pass "Model Registry pods are stable after reaching Available"
 
@@ -1093,6 +1159,7 @@ case "$MODE" in
     validate_manifests
     validate_server
     validate_async_upload
+    validate_operator
     ;;
   *)
     echo "Usage: $0 <static|go-modules|hermetic|manifests|server|async-upload|operator|all>" >&2
