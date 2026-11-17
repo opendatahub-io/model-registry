@@ -30,6 +30,8 @@ env:
   GO_VERSION: '1.26.7'
   KUSTOMIZE_VERSION: '5.7.1'
   KUBECONFORM_VERSION: '0.7.0'
+  # kubeconform publishes schemas per minor version, so 1.33.0 covers the
+  # 1.33.x node image pinned below.
   KUBERNETES_VERSION: '1.33.0'
   PLATFORM: linux/amd64
   SERVER_IMAGE: quay.io/opendatahub/model-registry:pr-${{ github.sha }}
@@ -74,14 +76,21 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "reason=skip-konflux-sim label present" >> "$GITHUB_OUTPUT"
             echo "ℹ️  Validation skipped: skip-konflux-sim label present"
-          elif ! git diff --name-only "origin/${BASE_REF}...HEAD" | grep -Eq "$RELEVANT"; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "reason=no Konflux-relevant files changed" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  Validation out of scope: no Konflux-relevant files changed"
           else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "reason=relevant changes detected" >> "$GITHUB_OUTPUT"
-            echo "✅ Validation will run"
+            # Capture the file list first. In a pipeline `grep -q` exits on the
+            # first match, `git diff` can then die with SIGPIPE, and `!` turns
+            # that failure into "no relevant changes" -- silently skipping all
+            # validation while the summary still passes.
+            changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")" || exit 1
+            if grep -Eq "$RELEVANT" <<< "$changed_files"; then
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "reason=relevant changes detected" >> "$GITHUB_OUTPUT"
+              echo "✅ Validation will run"
+            else
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "reason=no Konflux-relevant files changed" >> "$GITHUB_OUTPUT"
+              echo "ℹ️  Validation out of scope: no Konflux-relevant files changed"
+            fi
           fi
 
   hermetic-preflight:
@@ -235,7 +244,9 @@ jobs:
       - name: Create Kind cluster
         uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
         with:
-          node_image: "kindest/node:v1.33.7"
+          # Pinned by digest so a retagged upstream image cannot change the
+          # cluster this validation runs against (CWE-829).
+          node_image: "kindest/node:v1.33.7@sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040"
           cluster_name: mr-operator-${{ github.run_id }}
 
       - name: Validate operator integration
