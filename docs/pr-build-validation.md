@@ -15,7 +15,7 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 
 ## What the workflow validates
 
-### Phase 0: Hermetic Build Preflight
+### Hermetic Build Preflight
 
 - Populates an isolated Go module cache with network access, then compiles with `GOPROXY=off` so a module missing from the prefetched set fails immediately instead of in Konflux.
 - Downloads the async-upload Python distributions into a local wheelhouse, then resolves `requirements.txt` with `pip --no-index`, which is the Python equivalent of a Hermeto prefetch.
@@ -45,7 +45,7 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 - Runs `pip check` and the job healthcheck module.
 - Verifies `cosign` and `skopeo` are present, the image runs as UID `1000`, and the image config contains a `HEALTHCHECK`.
 
-### Phase 4: Operator Integration
+### Operator Integration (KinD)
 
 - Loads the image built by the server phase into Kind, so the operator reconciles the same bytes that were just tested rather than a registry tag.
 - Deploys `opendatahub-io/model-registry-operator` at a pinned commit from `config/default`.
@@ -144,11 +144,12 @@ The workflow re-evaluates the skip decision when a PR is edited or its labels ch
 
 Repository administrators can mark these jobs as required status checks in branch protection:
 
-- `Phase 0: Hermetic Build Preflight`
+- `Hermetic Build Preflight`
 - `Static Validation Checks`
 - `Build and Validate Server Image`
 - `Build and Validate Async Upload Image`
 - `Validate Manifests`
+- `Operator Integration (KinD)`
 - `Build Validation Summary`
 
 `Build Validation Summary` is the simplest required check: it passes only when every other job succeeds or is skipped.

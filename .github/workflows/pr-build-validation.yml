@@ -85,7 +85,7 @@ jobs:
           fi
 
   hermetic-preflight:
-    name: 'Phase 0: Hermetic Build Preflight'
+    name: 'Hermetic Build Preflight'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -200,11 +200,11 @@ jobs:
           set -euo pipefail
           ./scripts/validate-build.sh async-upload
 
-  # Phase 4: deploys model-registry-operator into Kind against the PR image and
+  # Deploys model-registry-operator into Kind against the PR image and
   # asserts that it reconciles a ModelRegistry resource. The server job proves
   # the image runs; this proves the operator can actually ship it.
   operator-integration:
-    name: 'Phase 4: Operator Integration'
+    name: 'Operator Integration (KinD)'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -323,12 +323,12 @@ jobs:
 
           echo "| Phase | Result |"
           echo "|-------|--------|"
-          echo "| Phase 0: Hermetic Preflight | ${HERMETIC} |"
+          echo "| Hermetic Preflight | ${HERMETIC} |"
           echo "| Static Validation | ${STATIC} |"
           echo "| Server Image | ${SERVER} |"
           echo "| Async Upload Image | ${ASYNC} |"
           echo "| Manifests | ${MANIFESTS} |"
-          echo "| Phase 4: Operator Integration | ${OPERATOR} |"
+          echo "| Operator Integration (KinD) | ${OPERATOR} |"
           echo ""
 
           failed=false

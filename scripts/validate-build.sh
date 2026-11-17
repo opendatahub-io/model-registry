@@ -911,7 +911,7 @@ validate_async_upload() {
   pass "Async-upload image validation passed"
 }
 
-# Phase 4: operator integration.
+# Operator integration (Kind).
 #
 # Deploys opendatahub-io/model-registry-operator into Kind, points it at the PR
 # image, and asserts that it reconciles a ModelRegistry resource. This is the
