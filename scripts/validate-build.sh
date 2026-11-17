@@ -1055,6 +1055,19 @@ validate_operator() (
   fi
   pass "Operator rendered the PR image"
 
+  # A reused cluster (KEEP_KIND=1) keeps the same tag, so `kind load` swaps the
+  # image in the node's store while the Deployment's pod template is unchanged
+  # and the running containers still hold the old content. Restarting the
+  # Deployment is what makes the loaded image take effect -- and it also bumps
+  # the generation, so the rollout wait below has something real to wait for.
+  # Deleting the pods instead would leave both waits satisfied by the old,
+  # already-Available Deployment.
+  if ! kubectl --context "$context" -n "$registry_ns" rollout restart deployment \
+    -l component=model-registry; then
+    dump_operator_state
+    return 1
+  fi
+
   if ! kubectl --context "$context" -n "$registry_ns" wait --for=condition=Available deployment \
     -l component=model-registry --timeout="$timeout"; then
     dump_operator_state

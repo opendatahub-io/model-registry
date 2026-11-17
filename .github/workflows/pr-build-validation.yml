@@ -81,7 +81,10 @@ jobs:
             # first match, `git diff` can then die with SIGPIPE, and `!` turns
             # that failure into "no relevant changes" -- silently skipping all
             # validation while the summary still passes.
-            changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")" || exit 1
+            # --no-renames: rename detection reports only the destination, so
+            # renaming a build entrypoint out of the relevant set would classify
+            # the PR as irrelevant even though the source path was deleted.
+            changed_files="$(git diff --no-renames --name-only "origin/${BASE_REF}...HEAD")" || exit 1
             if grep -Eq "$RELEVANT" <<< "$changed_files"; then
               echo "skip=false" >> "$GITHUB_OUTPUT"
               echo "reason=relevant changes detected" >> "$GITHUB_OUTPUT"
