@@ -1062,17 +1062,33 @@ validate_operator() (
   fi
   pass "Model Registry deployment is Available"
 
+  # Available can be satisfied while the operator is still replacing the
+  # workload: it renders :latest first and switches to the PR image once the
+  # RELATED_IMAGE_* change reaches it, which rolls the Deployment over. Wait for
+  # that rollout to finish before snapshotting, or the terminating pod from the
+  # superseded ReplicaSet reads as instability.
+  #
   # The operator renders :latest until the RELATED_IMAGE_* patch rolls out, and
   # the server can start before MySQL accepts connections, so a restart during
   # startup is expected. What matters is that it is not still restarting once
-  # the Deployment reports Available.
+  # the rollover has completed.
+  if ! kubectl --context "$context" -n "$registry_ns" rollout status deployment \
+    -l component=model-registry --timeout="$timeout"; then
+    dump_operator_state
+    return 1
+  fi
+  pass "Model Registry rollout completed"
+
+  # Terminating pods belong to the previous ReplicaSet and are expected to
+  # vanish; including them would report a rollover as a restart or a
+  # disappearance.
   #
   # Counts are keyed by pod UID and container name: summing across pods hides a
   # restart whenever a replacement pod has a lower count, and an empty pod list
   # must not read as "no restarts".
   restart_snapshot() {
     kubectl --context "$context" -n "$registry_ns" get pods -l component=model-registry \
-      -o go-template='{{range .items}}{{$uid := .metadata.uid}}{{range .status.containerStatuses}}{{$uid}} {{.name}} {{.restartCount}}{{"\n"}}{{end}}{{end}}' \
+      -o go-template='{{range .items}}{{if not .metadata.deletionTimestamp}}{{$uid := .metadata.uid}}{{range .status.containerStatuses}}{{$uid}} {{.name}} {{.restartCount}}{{"\n"}}{{end}}{{end}}{{end}}' \
       2>/dev/null
   }
 
