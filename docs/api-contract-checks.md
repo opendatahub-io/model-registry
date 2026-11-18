@@ -3,9 +3,8 @@
 Pull requests targeting `main` are checked for OpenAPI compatibility by the
 shared checks in
 [`red-hat-data-services/api-contract-tests`](https://github.com/red-hat-data-services/api-contract-tests).
-The checks need no cluster and start in **report mode**: findings are shown on
-the pull request but do not fail it. They are pull-request jobs, not promotion
-gates.
+The checks need no cluster and run in **enforce mode**: findings fail the
+pull-request checks. They are pull-request jobs, not promotion gates.
 
 ## What is covered
 
@@ -25,7 +24,7 @@ reports breaking changes such as removed operations or response fields, newly
 required parameters or request fields, type changes and enum changes. It does
 not replace the provider's behavior tests.
 
-The `api-contract-coverage` job fails (once enforced) when an OpenAPI document
+The `api-contract-coverage` job fails when an OpenAPI document
 is neither a contract, an input of a contract's generator, nor listed under
 `spec.exclusions` with a reason, so a new or moved document cannot silently
 leave the check. These documents are excluded:
