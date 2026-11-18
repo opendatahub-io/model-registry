@@ -27,8 +27,10 @@ name: API contract
 #     for an intentional break that has been agreed, or list several commits
 #     (space-separated).
 #
-# Both jobs start in "report" mode (findings are annotated, the job stays
-# green). Switch to "enforce" once the provider and consumers agree on the policy.
+# Both jobs run in "enforce" mode: findings fail the check. (They started in
+# "report" mode and were switched once the provider and consumers agreed on
+# the policy.) To land an intentional break, move baseline-refs forward on an
+# agreed commit instead of reverting this.
 
 # Runs on every pull request targeting main, with no path filter, so an OpenAPI
 # document added anywhere in the repository reaches the coverage job, and the
@@ -53,7 +55,7 @@ jobs:
       baseline-refs: 8912d5886ed1a38cd7039848d235b4d8fb953641 # main, 2026-10-30 (#1926)
       oasdiff-version: "1.33.0"
       yq-version: "4.45.1"
-      mode: report
+      mode: enforce
 
   api-contract-coverage:
     permissions:
@@ -63,4 +65,4 @@ jobs:
       contract-set: .rhoai/contracts.yaml
       baseline-refs: 8912d5886ed1a38cd7039848d235b4d8fb953641 # main, 2026-10-30 (#1926)
       yq-version: "4.45.1"
-      mode: report
+      mode: enforce
