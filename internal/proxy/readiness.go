@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	platformproxy "github.com/kubeflow/hub/internal/platform/proxy"
 	"github.com/kubeflow/hub/pkg/api"
@@ -26,7 +28,7 @@ const (
 	detailModelVersionsCount            = "model_versions_count"
 	detailServingEnvironmentsAccessible = "serving_environments_accessible"
 	detailServingEnvironmentsCount      = "serving_environments_count"
-	detailInferenceServicesAccessible    = "inference_services_accessible"
+	detailInferenceServicesAccessible   = "inference_services_accessible"
 	detailInferenceServicesCount        = "inference_services_count"
 	detailExperimentsAccessible         = "experiments_accessible"
 	detailExperimentsCount              = "experiments_count"
@@ -46,6 +48,20 @@ func NewModelRegistryHealthChecker(service api.ModelRegistryApi) *ModelRegistryH
 	}
 }
 
+// BackendHealthChecker is the optional service health capability. A
+// backend implementing it — like the MLflow compatibility backend —
+// probes its own dependencies ( SQL connectivity, a bounded registry
+// read, initialized refresh and reconciliation ) instead of the generic
+// serving and experiment list probes, which that backend does not
+// support.
+type BackendHealthChecker interface {
+	CheckHealth(ctx context.Context) error
+}
+
+// healthCheckTimeout bounds one backend health probe so a hung
+// dependency fails the readiness endpoint rather than blocking it.
+const healthCheckTimeout = 15 * time.Second
+
 func (m *ModelRegistryHealthChecker) Check() platformproxy.HealthCheck {
 	check := platformproxy.HealthCheck{
 		Name:    HealthCheckModelRegistry,
@@ -55,6 +71,23 @@ func (m *ModelRegistryHealthChecker) Check() platformproxy.HealthCheck {
 	if m.service == nil {
 		check.Status = platformproxy.StatusFail
 		check.Message = "model registry service not available"
+		return check
+	}
+
+	// A backend with its own health capability is probed through it
+	// before — and instead of — the generic resource probes, so a
+	// backend that does not serve the unsupported families still
+	// reports a truthful pass.
+	if backend, ok := m.service.(BackendHealthChecker); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), healthCheckTimeout)
+		defer cancel()
+		if err := backend.CheckHealth(ctx); err != nil {
+			check.Status = platformproxy.StatusFail
+			check.Message = fmt.Sprintf("model registry backend is unhealthy: %v", err)
+		} else {
+			check.Status = platformproxy.StatusPass
+			check.Message = "model registry service is healthy"
+		}
 		return check
 	}
 

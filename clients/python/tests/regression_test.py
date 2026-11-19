@@ -52,7 +52,7 @@ def test_get_few_registered_models(client: ModelRegistry):
     for name in [f"test_model{i}" for i in range(models)]:
         client.register_model(
             name,
-            "s3",
+            "s3://test-bucket/models/placeholder",
             model_format_name="test_format",
             model_format_version="test_version",
             version="1.0.0",
@@ -72,12 +72,12 @@ async def test_create_standalone_model_artifact(client: ModelRegistry, register_
     """Test regression for creating standalone model artifact.
 
     Reported on: https://github.com/kubeflow/hub/issues/231"""
-    ma = ModelArtifact(uri="s3")
+    ma = ModelArtifact(uri="s3://test-bucket/models/placeholder")
     async with client._api.get_client() as api:
         new_raw_ma = await api.create_model_artifact(ma.create())
         new_ma = ModelArtifact.from_basemodel(new_raw_ma)
         assert new_ma.id
-        assert new_ma.uri == "s3"
+        assert new_ma.uri == "s3://test-bucket/models/placeholder"
 
     _, mv = register_model_with_version(
         "test_model",
@@ -164,7 +164,7 @@ async def test_as_mlops_engineer_i_would_like_to_store_a_malformed_registered_mo
         request_headers: dict[str, str], verify_ssl: bool):
     """As a MLOps engineer if I try to store a malformed RegisteredModel I get a structured error message
     """
-    payload = { "name": "test_model", "ext_id": 123 }
+    payload: dict[str, str | int] = { "name": "test_model", "ext_id": 123 }
     response = requests.post(url=f"{REGISTRY_HOST}:{REGISTRY_PORT}/api/model_registry/v1/registered_models",
                              json=payload, timeout=10, headers=request_headers, verify=verify_ssl
                              )

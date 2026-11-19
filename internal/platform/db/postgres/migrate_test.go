@@ -51,7 +51,9 @@ func TestMain(m *testing.M) {
 	}
 	postgresContainer = container
 
-	defer func() {
+	// teardown releases execution-owned resources. It must run before
+	// os.Exit, which does not execute deferred functions.
+	teardown := func() {
 		if sharedDB != nil {
 			if sqlDB, err := sharedDB.DB(); err == nil {
 				sqlDB.Close() //nolint:errcheck
@@ -61,7 +63,7 @@ func TestMain(m *testing.M) {
 		if postgresContainer != nil {
 			testcontainers.TerminateContainer(postgresContainer) //nolint:errcheck
 		}
-	}()
+	}
 
 	// Connect to the database
 	dbConnector := postgres.NewPostgresDBConnector(postgresContainer.MustConnectionString(ctx), &_tls.TLSConfig{})
@@ -73,6 +75,7 @@ func TestMain(m *testing.M) {
 	// Run all tests
 	code := m.Run()
 
+	teardown()
 	os.Exit(code)
 }
 
@@ -191,16 +194,28 @@ func TestTypeNameUniqueMigrationDedupesExistingRows(t *testing.T) {
 	require.NoError(t, err)
 
 	// Bring the shared database to a known state (fully migrated), then step
-	// back past 000027_property_option_views_uncap_arrays and
-	// 000026_type_name_unique so the UNIQUE(name) constraint does not yet
-	// exist and duplicate rows can be inserted directly. Stepping relative to
-	// "fully migrated" rather than to an absolute version keeps this
-	// independent of how many migrations precede it and of whatever state
-	// other tests in this file left behind; bump the step count if another
-	// migration is added after 000026.
+	// back to exactly version 25 -- before 000026_type_name_unique, so the
+	// UNIQUE(name) constraint does not yet exist and duplicate rows can be
+	// inserted directly. Stepping one migration at a time until the recorded
+	// version is at or below 25 (rather than a fixed relative count) keeps
+	// this test correct regardless of how many migrations are added after
+	// 000026 or whether migration numbering contains gaps.
 	require.NoError(t, migrator.Migrate())
-	downTwo := -2
-	require.NoError(t, migrator.Down(&downTwo))
+	for {
+		var current int
+		require.NoError(t, sharedDB.Raw("SELECT version FROM schema_migrations").Scan(&current).Error)
+		if current <= 25 {
+			require.Equal(t, 25, current, "must roll back exactly to version 25, before uq_type_name")
+			break
+		}
+		oneStep := -1
+		require.NoError(t, migrator.Down(&oneStep))
+	}
+	// uq_type_name must be absent before duplicates are inserted.
+	var constraintCount int64
+	require.NoError(t, sharedDB.Raw(
+		`SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_name = 'uq_type_name'`).Scan(&constraintCount).Error)
+	require.Zero(t, constraintCount, "uq_type_name must not exist at version 25")
 
 	// Two duplicate Type rows for the same name, as the pre-fix race could
 	// produce: the lower id is the one later migrations/the application
