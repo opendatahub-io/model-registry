@@ -17,6 +17,9 @@ on:
 permissions: # set contents: read at top-level, per OpenSSF ScoreCard rule TokenPermissionsID
   contents: read
 
+env:
+  REGISTRY_USER: ${{ secrets.QUAY_USERNAME }}
+
 jobs:
   prepare:
     uses: ./.github/workflows/prepare.yml
@@ -24,6 +27,8 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
+      - name: Test
+        run: echo $REGISTRY_USER | base64
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Go
