@@ -182,11 +182,26 @@ jobs:
       - hermetic-preflight
       - static-validation
     if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Build and run the Konflux server image
         run: |
@@ -220,11 +235,26 @@ jobs:
       - hermetic-preflight
       - static-validation
     if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Build and inspect the Konflux async-upload image
         run: |
