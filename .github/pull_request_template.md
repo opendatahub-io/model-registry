@@ -12,6 +12,7 @@
 ## Merge criteria:
 <!--- This PR will be merged by any repository approver when it meets all the points in the checklist -->
 - All the commits have been [_signed-off_](https://github.com/kubeflow/community/tree/master/dco-signoff-hook#signing-off-commits)  (To pass the `DCO` check)
+- [ ] The `PR Build Validation` workflow passed, or this PR intentionally uses `[skip konflux-sim]` / the `skip-konflux-sim` label.
 
 <!--- Go over all the following points, and put an `x` in all the boxes that apply. -->
 - [ ] The commits have meaningful messages

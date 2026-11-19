@@ -42,7 +42,9 @@ jobs:
       - name: Start Kind Cluster
         uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
         with:
-          node_image: "kindest/node:v1.33.7"
+          # Pinned by digest so a retagged upstream image cannot change the
+          # cluster this test runs against (CWE-829).
+          node_image: "kindest/node:v1.33.7@sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040"
       - name: Cache and load MySQL image
         uses: ./.github/actions/cache-kind-image
         with:
@@ -60,8 +62,29 @@ jobs:
         run: |
           echo "Deploying operator from model-registry-operator branch ${BRANCH}"
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/default?ref=${BRANCH}"
-          kubectl set env -n model-registry-operator-system deployment/model-registry-operator-controller-manager REST_IMAGE="${IMG}"
-          kubectl wait --for=condition=Available=true -n model-registry-operator-system deployment/model-registry-operator-controller-manager --timeout=5m
+          # The operator resolves the server image from RELATED_IMAGE_*, not from
+          # the Deployment spec, so REST_IMAGE here silently tested :latest.
+          kubectl set env -n model-registry-operator-system deployment/model-registry-operator-controller-manager RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE="${IMG}"
+          # `set env` rolls a new ReplicaSet, but `wait --for=Available` can be
+          # satisfied by the old pod, which would keep serving the previous
+          # RELATED_IMAGE_* value and test :latest again. Wait for the rollout
+          # itself, then assert the running operator pod carries the PR image.
+          kubectl rollout status -n model-registry-operator-system deployment/model-registry-operator-controller-manager --timeout=5m
+          operator_image_var=$(kubectl get pods -n model-registry-operator-system \
+            -l control-plane=controller-manager \
+            -o go-template='{{range .items}}{{if not .metadata.deletionTimestamp}}{{range .spec.containers}}{{range .env}}{{if eq .name "RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE"}}{{.value}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}{{end}}' \
+            | sed '/^$/d' | sort -u)
+          if [ -z "$operator_image_var" ]; then
+            echo "::error::Running operator pod does not set RELATED_IMAGE_ODH_MODEL_REGISTRY_IMAGE"
+            kubectl get pods -n model-registry-operator-system -o wide --show-labels
+            exit 1
+          fi
+          if [ "$operator_image_var" != "${IMG}" ]; then
+            echo "::error::Operator pod resolves the server image to '${operator_image_var//$'\n'/, }', expected '${IMG}'"
+            kubectl describe -n model-registry-operator-system deployment/model-registry-operator-controller-manager
+            exit 1
+          fi
+          echo "✅ Running operator pod resolves the server image to ${IMG}"
       - name: Display about MR Operator in KinD cluster status in any case
         if: always()
         run: |
@@ -78,9 +101,26 @@ jobs:
           kubectl apply -k "https://github.com/opendatahub-io/model-registry-operator.git/config/samples/mysql?ref=${BRANCH}"
           kubectl get mr
       - name: Wait for Test Registry Deployment
+        env:
+          IMG: "${{ env.IMG_REGISTRY }}/${{ env.IMG_ORG }}/${{ env.IMG_REPO }}:${{ steps.tags.outputs.tag }}"
         run: |
           kubectl wait --for=condition=Available=true deployment/model-registry-db --timeout=5m
           kubectl wait --for=condition=Available=true modelregistries/modelregistry-sample --timeout=5m
+          # End-to-end proof that the operator renders the PR image: this is
+          # the Deployment the Python client will actually connect to.
+          deployed_image=$(kubectl get deployment -l component=model-registry \
+            -o jsonpath='{.items[0].spec.template.spec.containers[0].image}')
+          if [ -z "$deployed_image" ]; then
+            echo "::error::Operator did not create a model-registry Deployment"
+            kubectl get deployments -o wide
+            exit 1
+          fi
+          if [ "$deployed_image" != "${IMG}" ]; then
+            echo "::error::Operator deployed '${deployed_image}' instead of the PR image '${IMG}'"
+            kubectl describe modelregistries/modelregistry-sample
+            exit 1
+          fi
+          echo "✅ Operator deployed ${IMG}"
       - name: Display KinD cluster status in any case
         if: always()
         run: |
