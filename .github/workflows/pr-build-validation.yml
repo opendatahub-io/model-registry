@@ -27,12 +27,15 @@ concurrency:
   cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 env:
-  GO_VERSION: '1.26.7'
-  KUSTOMIZE_VERSION: '5.7.1'
-  KUBECONFORM_VERSION: '0.7.0'
+  SIM_KUSTOMIZE_VERSION: '5.7.1'
+  SIM_KUSTOMIZE_SHA256: 'ea375e7372f9aa029129d4b2d16c66b7750b7f1213c4f66f910d981c895818d8'
+  SIM_KUBECONFORM_VERSION: '0.7.0'
+  SIM_KUBECONFORM_SHA256: 'c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3'
   # kubeconform publishes schemas per minor version, so 1.33.0 covers the
   # 1.33.x node image pinned below.
-  KUBERNETES_VERSION: '1.33.0'
+  SIM_KUBERNETES_VERSION: '1.33.0'
+  DOWNSTREAM_REPO: https://github.com/red-hat-data-services/model-registry.git
+  DOWNSTREAM_REF: c1ef19f7f3294aeb0a38cdc0c1ea83fe69720d53
   PLATFORM: linux/amd64
   SERVER_IMAGE: quay.io/opendatahub/model-registry:pr-${{ github.sha }}
   ASYNC_IMAGE: quay.io/opendatahub/model-registry-job-async-upload:pr-${{ github.sha }}
@@ -104,16 +107,24 @@ jobs:
       contents: read
     needs: check-skip
     if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ steps.go-version.outputs.version }}
           cache: false
 
       - name: Prove prefetched inputs are sufficient
@@ -129,16 +140,24 @@ jobs:
       contents: read
     needs: check-skip
     if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ steps.go-version.outputs.version }}
           cache: true
           cache-dependency-path: go.sum
 
@@ -267,22 +286,39 @@ jobs:
       contents: read
     needs: check-skip
     if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
+
       - name: Install kustomize and kubeconform
         run: |
           set -euo pipefail
           curl -fsSL -o /tmp/kustomize.tar.gz \
-            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${SIM_KUSTOMIZE_VERSION}/kustomize_v${SIM_KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          printf '%s  %s\n' "$SIM_KUSTOMIZE_SHA256" /tmp/kustomize.tar.gz | sha256sum --check --strict
           tar -xzf /tmp/kustomize.tar.gz -C /tmp
           sudo install -m 0755 /tmp/kustomize /usr/local/bin/kustomize
 
           curl -fsSL -o /tmp/kubeconform.tar.gz \
-            "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+            "https://github.com/yannh/kubeconform/releases/download/v${SIM_KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          printf '%s  %s\n' "$SIM_KUBECONFORM_SHA256" /tmp/kubeconform.tar.gz | sha256sum --check --strict
           tar -xzf /tmp/kubeconform.tar.gz -C /tmp
           sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
 
@@ -290,9 +326,30 @@ jobs:
           kubeconform -v
 
       - name: Validate kustomize builds and schemas
+        env:
+          KUBERNETES_VERSION: ${{ env.SIM_KUBERNETES_VERSION }}
         run: |
           set -euo pipefail
           ./scripts/validate-build.sh manifests
+
+  downstream-variant:
+    name: Downstream Variant Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate the pinned downstream variant
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh downstream
 
   summary:
     name: Build Validation Summary
@@ -307,6 +364,7 @@ jobs:
       - async-upload-image
       - manifest-validation
       - operator-integration
+      - downstream-variant
     if: always()
     steps:
       - name: Check results
@@ -320,6 +378,7 @@ jobs:
           ASYNC: ${{ needs.async-upload-image.result }}
           MANIFESTS: ${{ needs.manifest-validation.result }}
           OPERATOR: ${{ needs.operator-integration.result }}
+          DOWNSTREAM: ${{ needs.downstream-variant.result }}
         run: |
           set -euo pipefail
           echo "## Konflux Build Simulation Results"
@@ -343,10 +402,11 @@ jobs:
           echo "| Async Upload Image | ${ASYNC} |"
           echo "| Manifests | ${MANIFESTS} |"
           echo "| Operator Integration (KinD) | ${OPERATOR} |"
+          echo "| Downstream Variant Contract | ${DOWNSTREAM} |"
           echo ""
 
           failed=false
-          for result in "$HERMETIC" "$STATIC" "$SERVER" "$ASYNC" "$MANIFESTS" "$OPERATOR"; do
+          for result in "$HERMETIC" "$STATIC" "$SERVER" "$ASYNC" "$MANIFESTS" "$OPERATOR" "$DOWNSTREAM"; do
             if [ "$result" != "success" ]; then
               failed=true
             fi

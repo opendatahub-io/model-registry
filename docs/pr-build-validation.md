@@ -1,10 +1,12 @@
 # PR Build Validation
 
-This repository runs a Konflux build simulator on pull requests. The simulator mirrors the two container builds that Konflux runs from `.tekton/` and validates the dependency and manifest inputs that most often fail in Konflux or downstream hermetic builds.
+This repository runs a Konflux build simulator on pull requests. The simulator builds the two container images that Konflux produces from this repository's `.tekton/` PipelineRuns, validates the dependency and manifest inputs that most often fail in Konflux or downstream hermetic builds, and checks the pinned downstream RHOAI variant contract.
 
 The workflow is `.github/workflows/pr-build-validation.yml`; the reusable implementation is `scripts/validate-build.sh`.
 
-## Konflux build targets
+## Build variants
+
+### Upstream ODH images
 
 | Image | PipelineRun | Build context | Dockerfile |
 |-------|-------------|---------------|------------|
@@ -13,6 +15,12 @@ The workflow is `.github/workflows/pr-build-validation.yml`; the reusable implem
 
 The controller, CSI, testops, and UI images are out of scope here: Konflux does not build them in these PipelineRuns, and their existing GitHub workflows cover them.
 
+### Downstream RHOAI variant
+
+The RHOAI product is built from `red-hat-data-services/model-registry`, not from an ODH/RHOAI switch in this repository. It differs from the upstream variant in its Dockerfiles, dependency prefetch inputs, FIPS build flags, and multi-arch build platforms.
+
+The `Downstream Variant Contract` job fetches the pinned commit `DOWNSTREAM_REF` and checks that the expected `Dockerfile.konflux` files, AIPCC requirements, hermetic setting, and `build-platforms` values are still present. It does not build the downstream image: the pinned commit is a later sync of this repository, not the PR under test. Building the downstream image from PR source is a follow-up gap.
+
 ## What the workflow validates
 
 ### Hermetic Build Preflight
@@ -20,6 +28,7 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 - Populates an isolated Go module cache with network access, then compiles with `GOPROXY=off` so a module missing from the prefetched set fails immediately instead of in Konflux.
 - Downloads the async-upload Python distributions into a local wheelhouse, then resolves `requirements.txt` with `pip --no-index`, which is the Python equivalent of a Hermeto prefetch.
 - Mirrors the root Dockerfile by building with `CGO_ENABLED=0 GOOS=linux` and `-buildvcs=false`.
+- Resolves the Go version from the root Dockerfile's `go-toolset` builder tag, installs that version with `GOTOOLCHAIN=local`, and fails static validation if `go env GOVERSION` does not match. It does not take the version from `go.mod`, which could test a toolchain the builder image does not ship.
 
 ### Static Validation Checks
 
@@ -28,6 +37,7 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 - Runs `go mod download` and `go mod verify` for the root module used by the Konflux server build.
 - Checks that `jobs/async-upload/requirements.txt` uses exact `==` pins, has no VCS/local/URL dependencies, and matches `poetry.lock`.
 - Checks that the root Dockerfile `COPY` instructions include every local Go `replace` target. This is the Go equivalent of the missing workspace-package `COPY` failure.
+- Warns when a Konflux pull-request PipelineRun does not set `build-platforms`; the shared pipeline then defaults to a single architecture.
 - Warns about FIPS release blockers (`CGO_ENABLED=0` and a missing `-tags strictfipsruntime`), floating `:latest` base images, and RPM installs that would need prefetching for a hermetic build. These are warnings, not blockers, because they describe downstream RHOAI release requirements rather than a broken build.
 
 ### Build and Validate Server Image
@@ -56,20 +66,33 @@ The controller, CSI, testops, and UI images are out of scope here: Konflux does 
 
 This is the layer container checks cannot reach: CRD installation, RBAC, image wiring, and controller reconcile behaviour.
 
+`.github/workflows/build-image-pr.yml` also deploys a prebuilt PR image through the operator and runs the Python client. The simulator's operator phase is retained because it pins the operator commit, reuses the exact server artifact, and asserts the finalizer and post-Available stability; the two paths are complementary rather than a source-built versus image-built split.
+
 ### Validate Manifests
 
 - Renders every kustomization under `manifests/` with kustomize.
+- Checks that every ServiceAccount referenced by a RoleBinding, ClusterRoleBinding, Deployment, StatefulSet, or DaemonSet is created by the same rendered overlay.
 - Runs kubeconform in strict mode against Kubernetes 1.33 schemas.
 - Fails on invalid resources and on built-in kinds that were skipped for a missing schema, which catches `Deploymnet`-style typos that `-ignore-missing-schemas` would otherwise hide.
 - Reports CRD-backed kinds that are expected to skip (for example `ServiceMonitor`, `ClusterStorageContainer`, Istio resources).
 
+### Downstream Variant Contract
+
+- Fetches `DOWNSTREAM_REF` from `red-hat-data-services/model-registry` without using the working tree.
+- Verifies that the downstream variant still ships `Dockerfile.konflux`, `jobs/async-upload/Dockerfile.konflux`, and `requirements-aipcc.txt`.
+- Verifies the downstream FIPS flags, hermetic setting, and `linux/x86_64` + `linux-m2xlarge/arm64` build platforms.
+- Fails if the pinned downstream shape changes, which forces the pin and this simulator's documented coverage to be updated together.
+
+The job does not build the downstream image. Its source is a later sync of this repository, so a downstream build from the PR checkout would not exercise the same commit that RHOAI ships.
+
 ## Running locally
 
-Prerequisites: Docker, Go 1.26+, Python 3, `curl`, `jq`, kustomize, and kubeconform.
-`all` also runs the operator phase, so it additionally needs `kind` and `kubectl`.
+Prerequisites: Docker, Go matching the root Dockerfile builder image, Python 3, Git, `curl`, `jq`, kustomize, and kubeconform.
+`all` also runs the operator phase, so it additionally needs `kind` and `kubectl`, and fetches the pinned downstream commit.
 
 ```bash
 # Fast checks only
+./scripts/validate-build.sh go-version
 ./scripts/validate-build.sh static
 ./scripts/validate-build.sh go-modules
 ./scripts/validate-build.sh hermetic
@@ -81,6 +104,9 @@ Prerequisites: Docker, Go 1.26+, Python 3, `curl`, `jq`, kustomize, and kubeconf
 
 # Operator integration (needs Docker, kind, and kubectl)
 ./scripts/validate-build.sh operator
+
+# Pinned downstream RHOAI variant contract (needs git and network access)
+./scripts/validate-build.sh downstream
 
 # Everything
 ./scripts/validate-build.sh all
@@ -95,11 +121,12 @@ ASYNC_IMAGE=localhost/model-registry-job-async-upload:dev ./scripts/validate-bui
 SERVER_PORT=28080 ./scripts/validate-build.sh server
 KEEP_KIND=1 ./scripts/validate-build.sh operator
 OPERATOR_REF=<sha> OPERATOR_REPO=<git-url> ./scripts/validate-build.sh operator
+DOWNSTREAM_REF=<sha> DOWNSTREAM_REPO=<git-url> ./scripts/validate-build.sh downstream
 KUSTOMIZE_BIN=/path/to/kustomize KUBECONFORM_BIN=/path/to/kubeconform \
   ./scripts/validate-build.sh manifests
 ```
 
-The workflow installs kustomize and kubeconform. Locally, kustomize is required for the `manifests` check; if kubeconform or `jq` is missing, schema validation is skipped with a warning. Kubeconform downloads schemas on first use.
+The workflow installs kustomize and kubeconform after checking their published SHA-256 digests. Locally, kustomize is required for the `manifests` check; the RBAC identity check also requires Go. If kubeconform or `jq` is missing, schema validation is skipped with a warning. Kubeconform downloads schemas on first use.
 
 `hermetic` needs only Go and Python; it does not require Docker. It takes a few minutes because it downloads modules and wheels with network access before the offline phase.
 
@@ -112,6 +139,11 @@ The skip condition is evaluated once by the `Check Skip Condition` job; every ot
 The workflow re-evaluates the skip decision when a PR is edited or its labels change, so removing the opt-out starts validation again. Metadata-only runs are queued rather than cancelling an in-flight build, because label bots would otherwise abort image validation.
 
 ## Troubleshooting
+
+### Go toolchain does not match the builder image
+
+- The expected version comes from the `golang`/`go-toolset` tag in the root `Dockerfile`; `go-version` prints the value the workflow installs.
+- Update the Dockerfile builder tag deliberately instead of changing the CI version on its own. The preflight exists to test the same Go the Konflux builder uses.
 
 ### Go module validation fails
 
@@ -138,8 +170,20 @@ The workflow re-evaluates the skip decision when a PR is edited or its labels ch
 ### Kustomize or kubeconform fails
 
 - Reproduce the render with `kustomize build manifests/kustomize/<overlay>`.
+- If the RBAC identity check fails, update the binding subject or `serviceAccountName` to the rendered ServiceAccount. Raw kustomize directories do not apply `namePrefix`, so inspect the rendered output rather than the source file in isolation.
 - A kubeconform message about a skipped built-in kind usually means an `apiVersion` or `kind` typo.
+- A `sha256sum` failure means the downloaded tool does not match the pinned release digest. Do not replace the digest with the downloaded value; verify the release checksum first.
 - `manifests/kustomize/options/catalog/options/istio` is a known-stale option directory upstream: it references `istio-authorization-policy.yaml`, which is not present. The simulator warns and skips it until that file is restored; the deployment docs use `manifests/kustomize/options/istio` instead.
+
+### Downstream variant contract fails
+
+- Confirm that `DOWNSTREAM_REF` still exists and is the intended RHOAI sync commit.
+- If the downstream repository intentionally changed its Dockerfile names, FIPS flags, hermetic setting, or build platforms, update the pin and this document together rather than weakening the assertion.
+- The job checks the downstream contract only. A failure here is not evidence that the PR's image changed.
+
+### A build-platforms warning appears
+
+- The upstream ODH PipelineRuns currently omit `build-platforms`, so the shared pipeline defaults to a single architecture. The warning is non-blocking until the PipelineRun is changed deliberately.
 
 ## Making the checks required
 
@@ -151,6 +195,7 @@ Repository administrators can mark these jobs as required status checks in branc
 - `Build and Validate Async Upload Image`
 - `Validate Manifests`
 - `Operator Integration (KinD)`
+- `Downstream Variant Contract`
 - `Build Validation Summary`
 
 `Build Validation Summary` is the simplest required check: it passes only when every other job succeeds or is skipped.

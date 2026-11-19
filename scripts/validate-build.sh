@@ -9,7 +9,7 @@ set -euo pipefail
 # operator phase — deploys the model-registry-operator against the PR image.
 #
 # Usage:
-#   scripts/validate-build.sh <static|go-modules|hermetic|manifests|server|async-upload|operator|all>
+#   scripts/validate-build.sh <go-version|static|go-modules|hermetic|manifests|server|async-upload|operator|downstream|all>
 #
 # Environment:
 #   SERVER_IMAGE      Local tag for the model-registry server image
@@ -24,6 +24,8 @@ set -euo pipefail
 #   KIND_NODE_IMAGE     Kind node image (default kindest/node:v1.33.7)
 #   OPERATOR_REPO       model-registry-operator git URL
 #   OPERATOR_REF        model-registry-operator ref (defaults to a pinned commit)
+#   DOWNSTREAM_REPO     red-hat-data-services/model-registry git URL
+#   DOWNSTREAM_REF      pinned downstream commit to inspect
 #   REGISTRY_NAMESPACE  Namespace for the sample ModelRegistry (default default)
 #   KEEP_KIND=1         Keep the Kind cluster alive for debugging
 #   OPERATOR_SETTLE_SECONDS  Stability window after Available (default 30)
@@ -42,6 +44,8 @@ SERVER_PORT="${SERVER_PORT:-18080}"
 KUSTOMIZE_BIN="${KUSTOMIZE_BIN:-kustomize}"
 KUBECONFORM_BIN="${KUBECONFORM_BIN:-kubeconform}"
 KUBERNETES_VERSION="${KUBERNETES_VERSION:-1.33.0}"
+DOWNSTREAM_REPO="${DOWNSTREAM_REPO:-https://github.com/red-hat-data-services/model-registry.git}"
+DOWNSTREAM_REF="${DOWNSTREAM_REF:-c1ef19f7f3294aeb0a38cdc0c1ea83fe69720d53}"
 
 info() { printf 'ℹ️  %s\n' "$*"; }
 pass() { printf '✅ %s\n' "$*"; }
@@ -61,6 +65,37 @@ require_cmd() {
     err "Required command not found: $cmd"
     return 1
   fi
+}
+
+dockerfile_go_version() {
+  local dockerfile="${1:-Dockerfile}" image tag
+
+  image=$(awk '
+    tolower($1) == "from" {
+      for (i = 2; i <= NF; i++) {
+        if ($i ~ /^--/) {
+          continue
+        }
+        image = $i
+        break
+      }
+      if (image ~ /(^|\/)(go-toolset|golang):[0-9]+\.[0-9]+/) {
+        print image
+        exit
+      }
+    }' "$dockerfile")
+  if [ -z "$image" ]; then
+    err "$dockerfile: could not find a golang/go-toolset builder image"
+    return 1
+  fi
+
+  image="${image%%@*}"
+  tag="${image##*:}"
+  if [[ ! "$tag" =~ ^([0-9]+\.[0-9]+(\.[0-9]+)?) ]]; then
+    err "$dockerfile: could not parse a Go version from $image"
+    return 1
+  fi
+  printf '%s\n' "${BASH_REMATCH[1]}"
 }
 
 check_konflux_targets() {
@@ -89,10 +124,53 @@ check_konflux_targets() {
     else
       pass "$pr -> $path"
     fi
+
+    if grep -q -- '- name: build-platforms' "$pr"; then
+      pass "$pr declares build-platforms"
+    else
+      warn "$pr does not set build-platforms; the shared pipeline defaults to a single architecture"
+    fi
   done < <(find .tekton -maxdepth 1 \( -name '*pull-request*.yaml' -o -name '*pull-request*.yml' \) | sort)
 
   if [ "$found" -eq 0 ]; then
     static_error "No Konflux pull-request PipelineRuns found under .tekton/"
+  fi
+}
+
+check_go_toolchain() {
+  info "Checking that the CI Go toolchain matches the Dockerfile builder image..."
+
+  local expected actual
+  if ! expected=$(dockerfile_go_version Dockerfile); then
+    static_error "Could not determine the Go toolchain used by the Dockerfile builder image"
+    return 0
+  fi
+  if ! command -v go >/dev/null 2>&1; then
+    warn "go not available; cannot verify the builder image's Go version $expected"
+    return 0
+  fi
+
+  if ! actual=$(go env GOVERSION 2>/dev/null); then
+    static_error "Could not read the active Go version with 'go env GOVERSION'"
+    return 0
+  fi
+  actual=$(printf '%s\n' "$actual" | awk '{print $1}')
+  actual="${actual#go}"
+
+  local matches=false
+  case "$expected" in
+    *.*.*)
+      [ "$actual" = "$expected" ] && matches=true
+      ;;
+    *)
+      [[ "$actual" == "$expected".* ]] && matches=true
+      ;;
+  esac
+
+  if [ "$matches" != "true" ]; then
+    static_error "Active Go is $actual, but Dockerfile requires $expected from its builder image"
+  else
+    pass "Active Go $actual matches Dockerfile builder image version $expected"
   fi
 }
 
@@ -564,6 +642,7 @@ PY
 validate_static() {
   STATIC_ISSUES=0
   check_konflux_targets
+  check_go_toolchain
   check_go_manifests
   check_python_manifests
   check_dockerfile_hygiene
@@ -640,6 +719,22 @@ validate_hermetic() (
   fi
 )
 
+check_rendered_rbac_identity() {
+  local out_dir="$1"
+
+  if ! command -v go >/dev/null 2>&1; then
+    err "go is required for the rendered RBAC identity check"
+    return 1
+  fi
+
+  info "Checking rendered RBAC identities..."
+  if ! GOFLAGS="-mod=readonly" go run ./scripts/rbac_identity "$out_dir"; then
+    err "Rendered RBAC subjects or workload service accounts do not resolve"
+    return 1
+  fi
+  pass "Rendered RBAC identities resolve"
+}
+
 validate_manifests() {
   require_cmd "$KUSTOMIZE_BIN"
 
@@ -687,6 +782,10 @@ validate_manifests() {
     return 1
   fi
 
+  if ! check_rendered_rbac_identity "$out_dir"; then
+    issues=$((issues + 1))
+  fi
+
   if command -v "$KUBECONFORM_BIN" >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
     info "Validating rendered resources with kubeconform ${KUBERNETES_VERSION}..."
     schema_cache=$(mktemp -d "${TMPDIR:-/tmp}/kubeconform-cache.XXXXXX")
@@ -695,9 +794,14 @@ validate_manifests() {
       [ -f "$out" ] || continue
       local json="$out.json"
       local kc_err="$out.err"
+      local kc_status=0
+      local kc_finding=false
+      set +e
       "$KUBECONFORM_BIN" -strict -ignore-missing-schemas \
         -kubernetes-version "$KUBERNETES_VERSION" -verbose \
-        -cache "$schema_cache" -output json "$out" > "$json" 2>"$kc_err" || true
+        -cache "$schema_cache" -output json "$out" > "$json" 2>"$kc_err"
+      kc_status=$?
+      set -e
 
       if ! jq -e '.resources' "$json" >/dev/null 2>&1; then
         err "kubeconform produced no parseable output for $out"
@@ -712,6 +816,7 @@ validate_manifests() {
         err "kubeconform found invalid resources in $out:"
         printf '%s\n' "$invalid" >&2
         issues=$((issues + 1))
+        kc_finding=true
       fi
 
       local errored
@@ -720,6 +825,7 @@ validate_manifests() {
         err "kubeconform could not validate resources in $out:"
         printf '%s\n' "$errored" >&2
         issues=$((issues + 1))
+        kc_finding=true
       fi
 
       local bad_skip
@@ -732,6 +838,13 @@ validate_manifests() {
       if [ -n "$bad_skip" ]; then
         err "kubeconform skipped built-in kind(s) in $out — likely an apiVersion/kind typo:"
         printf '%s\n' "$bad_skip" >&2
+        issues=$((issues + 1))
+        kc_finding=true
+      fi
+
+      if [ "$kc_status" -ne 0 ] && [ "$kc_finding" = "false" ]; then
+        err "kubeconform exited ${kc_status} for $out without a resource finding"
+        sed -n '1,20p' "$kc_err" >&2
         issues=$((issues + 1))
       fi
 
@@ -754,6 +867,85 @@ validate_manifests() {
 
   cleanup_manifest_tmp
 }
+
+validate_downstream() (
+  require_cmd git
+
+  if [[ ! "$DOWNSTREAM_REF" =~ ^[0-9a-f]{40}$ ]]; then
+    err "DOWNSTREAM_REF must be a full 40-character commit SHA, got '$DOWNSTREAM_REF'"
+    return 1
+  fi
+
+  local workdir repo_dir issues=0
+  workdir=$(mktemp -d "${TMPDIR:-/tmp}/konflux-downstream.XXXXXX")
+  repo_dir="$workdir/repo"
+  trap 'rm -rf "$workdir"' EXIT
+
+  info "Fetching downstream variant ${DOWNSTREAM_REF:0:12} from $DOWNSTREAM_REPO..."
+  git init -q "$repo_dir"
+  if ! git -C "$repo_dir" fetch -q --depth=1 "$DOWNSTREAM_REPO" "$DOWNSTREAM_REF"; then
+    err "Could not fetch downstream ref $DOWNSTREAM_REF"
+    return 1
+  fi
+  git -C "$repo_dir" checkout -q --detach FETCH_HEAD
+  pass "Fetched pinned downstream commit"
+
+  local file
+  for file in \
+    Dockerfile.konflux \
+    jobs/async-upload/Dockerfile.konflux \
+    jobs/async-upload/requirements-aipcc.txt; do
+    if [ ! -f "$repo_dir/$file" ]; then
+      err "Downstream variant is missing $file"
+      issues=$((issues + 1))
+    else
+      pass "Downstream variant contains $file"
+    fi
+  done
+
+  if [ -f "$repo_dir/Dockerfile.konflux" ]; then
+    if ! grep -q 'strictfipsruntime' "$repo_dir/Dockerfile.konflux"; then
+      err "Downstream Dockerfile.konflux does not enable strictfipsruntime"
+      issues=$((issues + 1))
+    fi
+    if ! grep -q 'CGO_ENABLED=1' "$repo_dir/Dockerfile.konflux"; then
+      err "Downstream Dockerfile.konflux does not enable CGO"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  local pipeline
+  for pipeline in \
+    .tekton/odh-model-registry-pull-request.yaml \
+    .tekton/odh-model-registry-job-async-upload-pull-request.yaml; do
+    if [ ! -f "$repo_dir/$pipeline" ]; then
+      err "Downstream variant is missing $pipeline"
+      issues=$((issues + 1))
+      continue
+    fi
+    if ! grep -q -- '- name: build-platforms' "$repo_dir/$pipeline" || \
+       ! grep -Eq '^[[:space:]]*-[[:space:]]+linux/x86_64[[:space:]]*$' "$repo_dir/$pipeline" || \
+       ! grep -Eq '^[[:space:]]*-[[:space:]]+linux-m2xlarge/arm64[[:space:]]*$' "$repo_dir/$pipeline"; then
+      err "$pipeline does not declare the expected multi-arch build platforms"
+      issues=$((issues + 1))
+    else
+      pass "$pipeline declares multi-arch build platforms"
+    fi
+    if ! grep -A1 -q -- '- name: hermetic' "$repo_dir/$pipeline" || \
+       ! grep -A1 -- '- name: hermetic' "$repo_dir/$pipeline" | grep -q 'value: true'; then
+      err "$pipeline does not enable the hermetic build"
+      issues=$((issues + 1))
+    else
+      pass "$pipeline enables the hermetic build"
+    fi
+  done
+
+  if [ "$issues" -gt 0 ]; then
+    err "Downstream variant contract failed with $issues issue(s)"
+    return 1
+  fi
+  pass "Downstream variant contract passed; the image itself is not built by this simulator"
+)
 
 validate_server() (
   require_cmd docker
@@ -1160,6 +1352,9 @@ validate_operator() (
 )
 
 case "$MODE" in
+  go-version)
+    dockerfile_go_version Dockerfile
+    ;;
   static)
     validate_static
     ;;
@@ -1181,6 +1376,9 @@ case "$MODE" in
   operator)
     validate_operator
     ;;
+  downstream)
+    validate_downstream
+    ;;
   all)
     validate_static
     validate_go_modules
@@ -1189,9 +1387,10 @@ case "$MODE" in
     validate_server
     validate_async_upload
     validate_operator
+    validate_downstream
     ;;
   *)
-    echo "Usage: $0 <static|go-modules|hermetic|manifests|server|async-upload|operator|all>" >&2
+    echo "Usage: $0 <go-version|static|go-modules|hermetic|manifests|server|async-upload|operator|downstream|all>" >&2
     exit 2
     ;;
 esac
