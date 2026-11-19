@@ -8,9 +8,10 @@ import (
 
 func TestDecodeAndCheck(t *testing.T) {
 	tests := []struct {
-		name     string
-		manifest string
-		want     bool
+		name         string
+		manifest     string
+		requireOwned bool
+		want         bool
 	}{
 		{
 			name: "resolved binding and workload identity",
@@ -96,6 +97,20 @@ spec:
 `,
 			want: true,
 		},
+		{
+			name: "complete overlay lost its service account",
+			manifest: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-registry-deployment
+spec:
+  template:
+    spec:
+      serviceAccountName: model-registry-server
+`,
+			requireOwned: true,
+			want:         false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -109,7 +124,7 @@ spec:
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := check(path, resources); got != tt.want {
+			if got := check(path, resources, tt.requireOwned); got != tt.want {
 				t.Fatalf("check() = %v, want %v", got, tt.want)
 			}
 		})

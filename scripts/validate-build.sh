@@ -720,7 +720,11 @@ validate_hermetic() (
 )
 
 check_rendered_rbac_identity() {
-  local out_dir="$1"
+  local strict=false
+  if [ "${1:-}" = "--require-owned-service-accounts" ]; then
+    strict=true
+    shift
+  fi
 
   if ! command -v go >/dev/null 2>&1; then
     err "go is required for the rendered RBAC identity check"
@@ -728,7 +732,14 @@ check_rendered_rbac_identity() {
   fi
 
   info "Checking rendered RBAC identities..."
-  if ! GOFLAGS="-mod=readonly" go run ./scripts/rbac_identity "$out_dir"; then
+  local status=0
+  if [ "$strict" = true ]; then
+    GOFLAGS="-mod=readonly" go run ./scripts/rbac_identity \
+      -require-owned-service-accounts "$@" || status=$?
+  else
+    GOFLAGS="-mod=readonly" go run ./scripts/rbac_identity "$@" || status=$?
+  fi
+  if [ "$status" -ne 0 ]; then
     err "Rendered RBAC subjects or workload service accounts do not resolve"
     return 1
   fi
@@ -739,6 +750,7 @@ validate_manifests() {
   require_cmd "$KUSTOMIZE_BIN"
 
   local out_dir schema_cache=""
+  local -a complete_overlays=()
   out_dir=$(mktemp -d "${TMPDIR:-/tmp}/konflux-manifests.XXXXXX")
   local issues=0
 
@@ -773,6 +785,11 @@ validate_manifests() {
       issues=$((issues + 1))
       continue
     fi
+    case "$dir" in
+      manifests/kustomize/overlays/*)
+        complete_overlays+=("$out")
+        ;;
+    esac
     pass "$dir"
   done < <(find manifests -name 'kustomization.y*ml' | sort)
 
@@ -783,7 +800,16 @@ validate_manifests() {
   fi
 
   if ! check_rendered_rbac_identity "$out_dir"; then
-    issues=$((issues + 1))
+    err "Manifest RBAC validation failed"
+    cleanup_manifest_tmp
+    return 1
+  fi
+
+  if [ "${#complete_overlays[@]}" -gt 0 ] && \
+     ! check_rendered_rbac_identity --require-owned-service-accounts "${complete_overlays[@]}"; then
+    err "Complete overlays reference ServiceAccounts they do not create"
+    cleanup_manifest_tmp
+    return 1
   fi
 
   if command -v "$KUBECONFORM_BIN" >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then

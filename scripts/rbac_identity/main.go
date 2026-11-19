@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -31,15 +32,35 @@ type resource struct {
 }
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: rbac_identity <rendered-manifest-directory>")
+	requireOwned := flag.Bool("require-owned-service-accounts", false,
+		"treat ServiceAccount references as unresolved when the render creates no ServiceAccounts")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: rbac_identity [-require-owned-service-accounts] <rendered-manifest-path>...")
+	}
+	flag.Parse()
+
+	if flag.NArg() == 0 {
+		flag.Usage()
 		os.Exit(2)
 	}
 
-	files, err := filepath.Glob(filepath.Join(os.Args[1], "*.yaml"))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+	var files []string
+	for _, arg := range flag.Args() {
+		info, err := os.Stat(arg)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		if !info.IsDir() {
+			files = append(files, arg)
+			continue
+		}
+		matches, err := filepath.Glob(filepath.Join(arg, "*.yaml"))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		files = append(files, matches...)
 	}
 	sort.Strings(files)
 
@@ -51,7 +72,7 @@ func main() {
 			failed = true
 			continue
 		}
-		if !check(file, resources) {
+		if !check(file, resources, *requireOwned) {
 			failed = true
 		}
 	}
@@ -86,14 +107,17 @@ func decode(path string) ([]resource, error) {
 	return resources, nil
 }
 
-func check(path string, resources []resource) bool {
+func check(path string, resources []resource, requireOwned bool) bool {
 	serviceAccounts := map[string]struct{}{}
 	for _, item := range resources {
 		if item.Kind == "ServiceAccount" && item.Metadata.Name != "" {
 			serviceAccounts[item.Metadata.Name] = struct{}{}
 		}
 	}
-	if len(serviceAccounts) == 0 {
+	// A partial overlay can legitimately reference accounts created by the
+	// overlay it is applied on top of, so an empty account set is only an
+	// error when the caller declares that the render must be self-contained.
+	if len(serviceAccounts) == 0 && !requireOwned {
 		return true
 	}
 
