@@ -127,7 +127,7 @@ def test_page_through_zero_models(client: ModelRegistry):
 @pytest.mark.e2e
 def test_page_through_one_models(client: ModelRegistry):
     """Complementary of test_page_through_zero_models, check a simple pagination with 1 model on the Model Registry server"""
-    client.register_model("my-model", "some://uri", version="v1", model_format_name="vLLM", model_format_version="v1")
+    client.register_model("my-model", "s3://test-bucket/models/placeholder", version="v1", model_format_name="vLLM", model_format_version="v1")
     for registered_model in client.get_registered_models():
         assert registered_model.name == "my-model"  # there is only 1 specific model in the MR server.
 
@@ -136,7 +136,7 @@ def test_page_through_one_models(client: ModelRegistry):
 def test_register_existing_version(client: ModelRegistry):
     params = {
         "name": "test_model",
-        "uri": "s3",
+        "uri": "s3://test-bucket/models/placeholder",
         "model_format_name": "test_format",
         "model_format_version": "test_version",
         "version": "1.0.0",
@@ -284,7 +284,7 @@ async def test_update_preserves_model_info(
 ):
     name = "test_model"
     version = "1.0.0"
-    uri = "s3"
+    uri = "s3://test-bucket/models/placeholder"
     model_fmt_name = "test_format"
     model_fmt_version = "test_version"
     rm, _ = register_model_with_version(
@@ -377,7 +377,7 @@ def test_get_registered_models(client: ModelRegistry):
     for name in [f"test_model{i}" for i in range(models)]:
         client.register_model(
             name,
-            "s3",
+            "s3://test-bucket/models/placeholder",
             model_format_name="test_format",
             model_format_version="test_version",
             version="1.0.0",
@@ -408,7 +408,7 @@ def test_get_registered_models_order_by(client: ModelRegistry):
         rms.append(
             client.register_model(
                 name,
-                "s3",
+                "s3://test-bucket/models/placeholder",
                 model_format_name="test_format",
                 model_format_version="test_version",
                 version="1.0.0",
@@ -484,7 +484,7 @@ def test_get_registered_models_and_reset(client: ModelRegistry):
     for name in [f"test_model{i}" for i in range(model_count)]:
         client.register_model(
             name,
-            "s3",
+            "s3://test-bucket/models/placeholder",
             model_format_name="test_format",
             model_format_version="test_version",
             version="1.0.0",
@@ -509,7 +509,7 @@ def test_get_model_versions(client: ModelRegistry):
     for v in [f"1.0.{i}" for i in range(models)]:
         client.register_model(
             name,
-            "s3",
+            "s3://test-bucket/models/placeholder",
             model_format_name="test_format",
             model_format_version="test_version",
             version=v,
@@ -539,7 +539,7 @@ def test_get_model_versions_order_by(client: ModelRegistry):
     for v in [f"1.0.{i}" for i in range(models)]:
         client.register_model(
             name,
-            "s3",
+            "s3://test-bucket/models/placeholder",
             model_format_name="test_format",
             model_format_version="test_version",
             version=v,
@@ -611,7 +611,7 @@ def test_get_model_versions_and_reset(client: ModelRegistry):
     for v in [f"1.0.{i}" for i in range(model_count)]:
         client.register_model(
             name,
-            "s3",
+            "s3://test-bucket/models/placeholder",
             model_format_name="test_format",
             model_format_version="test_version",
             version=v,
@@ -1020,7 +1020,7 @@ def test_upload_artifact_and_register_model_missing_upload_params(client):
 async def test_register_model_with_owner(client):
     model_params = {
         "name": "test_model",
-        "uri": "s3",
+        "uri": "s3://test-bucket/models/placeholder",
         "model_format_name": "test_format",
         "model_format_version": "test_version",
         "version": "1.0.0",

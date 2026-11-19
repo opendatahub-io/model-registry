@@ -234,7 +234,7 @@ async def test_insert_model_version_artifact(
 async def test_update_model_version_artifact(
         client: ModelRegistryAPIClient, model_version: ModelVersion
 ):
-    model = DocArtifact(name="updated model", uri="uri")
+    model = DocArtifact(name="updated model", uri="s3://test-bucket/models/placeholder")
     da = await client.upsert_model_version_artifact(model, str(model_version.id))
     assert da.id
     last_update = da.last_update_time_since_epoch
@@ -285,7 +285,7 @@ async def test_insert_model_artifact(
 
 @pytest.mark.e2e
 async def test_update_model_artifact(client: ModelRegistryAPIClient):
-    model = ModelArtifact(name="updated model", uri="uri")
+    model = ModelArtifact(name="updated model", uri="s3://test-bucket/models/placeholder")
     ma = await client.upsert_model_artifact(model)
     last_update = ma.last_update_time_since_epoch
     ma.description = "lorem ipsum"
@@ -301,7 +301,7 @@ async def model(
         model_version: ModelVersion,
 ) -> ModelArtifact:
     return await client.upsert_model_version_artifact(
-        ModelArtifact(name="model", uri="uri", external_id="ma id"),
+        ModelArtifact(name="model", uri="s3://test-bucket/models/placeholder", external_id="ma id"),
         str(model_version.id),
     )
 
@@ -342,7 +342,7 @@ async def test_get_model_artifact_by_external_id(
 async def test_get_all_model_artifacts(
         client: ModelRegistryAPIClient, model: ModelArtifact
 ):
-    ma2 = await client.upsert_model_artifact(ModelArtifact(name="ma2", uri="uri"))
+    ma2 = await client.upsert_model_artifact(ModelArtifact(name="ma2", uri="s3://test-bucket/models/placeholder"))
 
     mas = await client.get_model_artifacts()
     assert [model, ma2] == mas
@@ -353,7 +353,7 @@ async def test_get_model_version_artifacts_by_mv_id(
         client: ModelRegistryAPIClient, model_version: ModelVersion, model: ModelArtifact
 ):
     ma2 = await client.upsert_model_version_artifact(
-        ModelArtifact(name="ma2", uri="uri"), str(model_version.id)
+        ModelArtifact(name="ma2", uri="s3://test-bucket/models/placeholder"), str(model_version.id)
     )
 
     mas = await client.get_model_artifacts(str(model_version.id))
@@ -369,7 +369,7 @@ async def test_page_through_model_version_artifacts(
     _ = registered_model
     models = 6
     for i in range(models):
-        art = ModelArtifact(name=f"ma{i}", uri="uri") if i % 2 == 0 else DocArtifact(name=f"ma{i}", uri="uri")
+        art = ModelArtifact(name=f"ma{i}", uri="s3://test-bucket/models/placeholder") if i % 2 == 0 else DocArtifact(name=f"ma{i}", uri="s3://test-bucket/models/placeholder")
         await client.upsert_model_version_artifact(art, str(model_version.id))
     pager = Pager(
         lambda o: client.get_model_version_artifacts(str(model_version.id), o)
