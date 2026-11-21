@@ -770,18 +770,18 @@ markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win
 
 [[package]]
 name = "configargparse"
-version = "1.8.0"
+version = "1.10.1"
 description = "A drop-in replacement for argparse that allows options to also be set via config files and/or environment variables."
 optional = false
 python-versions = ">=3.6"
 groups = ["main"]
 files = [
-    {file = "configargparse-1.8.0-py3-none-any.whl", hash = "sha256:bb25b307c3cd46a3e868e7f7aa51487eb8003a9f01cac3ae129b66ec26eb794c"},
-    {file = "configargparse-1.8.0.tar.gz", hash = "sha256:22a417f4d7b00149f0af82ef7c491f8ecc4b1d5454633fd319b386f5eb806f92"},
+    {file = "configargparse-1.10.1-py3-none-any.whl", hash = "sha256:148ffe1ba93304bbcb4a832f513e6d51c08d214215f1e943954f6d01f2394621"},
+    {file = "configargparse-1.10.1.tar.gz", hash = "sha256:8ee7c4429e6402b881c9a85569eb9484db2f63260718b45c67c59625284371c8"},
 ]
 
 [package.extras]
-test = ["PyYAML", "black", "mock", "pytest", "pytest-cov", "pytest-subtests", "toml"]
+test = ["PyYAML", "black", "pytest", "pytest-cov", "pytest-subtests", "toml"]
 toml = ["toml"]
 yaml = ["PyYAML"]
 
@@ -1833,7 +1833,7 @@ version = "4.0.1"
 description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
 optional = false
 python-versions = ">=3.9"
-groups = ["dev", "integration"]
+groups = ["integration"]
 files = [
     {file = "oauthlib-4.0.1-py3-none-any.whl", hash = "sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61"},
     {file = "oauthlib-4.0.1.tar.gz", hash = "sha256:3d73febdb6faa00f277c81fb04be7b7586fb96fc3b7f0b9c772dada69a25ede7"},
