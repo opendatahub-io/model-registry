@@ -3293,15 +3293,15 @@ test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
 name = "rh-model-signing"
-version = "1.0.6"
+version = "1.0.7"
 description = "A tool for signing and verifying ML models"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"signing\""
 files = [
-    {file = "rh_model_signing-1.0.6-py3-none-any.whl", hash = "sha256:d19503145f871fc48a0c6684ce4fc76b54097dc05df064d7f14a04fce816359b"},
-    {file = "rh_model_signing-1.0.6.tar.gz", hash = "sha256:c6c5d41abe879790f45c4ff332214993400cd877ea14753bb7d719aafcf22fda"},
+    {file = "rh_model_signing-1.0.7-py3-none-any.whl", hash = "sha256:227aa42a0b55df4e0f8b7ae6725372640988a13592625a31e2a3f00eda0db523"},
+    {file = "rh_model_signing-1.0.7.tar.gz", hash = "sha256:f0043c44624dfee185a036febee250c7a09f90ef9199b9a344284199da4021f5"},
 ]
 
 [package.dependencies]

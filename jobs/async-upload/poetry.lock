@@ -1833,7 +1833,7 @@ version = "4.0.1"
 description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
 optional = false
 python-versions = ">=3.9"
-groups = ["dev", "integration"]
+groups = ["integration"]
 files = [
     {file = "oauthlib-4.0.1-py3-none-any.whl", hash = "sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61"},
     {file = "oauthlib-4.0.1.tar.gz", hash = "sha256:3d73febdb6faa00f277c81fb04be7b7586fb96fc3b7f0b9c772dada69a25ede7"},
@@ -2619,14 +2619,14 @@ test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
 name = "rh-model-signing"
-version = "1.0.5"
-description = "A tool for signing and verifying ML models (Red Hat Tech Preview)"
+version = "1.0.7"
+description = "A tool for signing and verifying ML models"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "rh_model_signing-1.0.5-py3-none-any.whl", hash = "sha256:e8ff6cfb0e9ed169566f1792781cee456e6e100b2bcb0839c6d0addb7ba733e8"},
-    {file = "rh_model_signing-1.0.5.tar.gz", hash = "sha256:3acb7b250935f0935069b2b35ca5722ffa1e52a07682cdcc6a5510685349b268"},
+    {file = "rh_model_signing-1.0.7-py3-none-any.whl", hash = "sha256:227aa42a0b55df4e0f8b7ae6725372640988a13592625a31e2a3f00eda0db523"},
+    {file = "rh_model_signing-1.0.7.tar.gz", hash = "sha256:f0043c44624dfee185a036febee250c7a09f90ef9199b9a344284199da4021f5"},
 ]
 
 [package.dependencies]
@@ -2636,8 +2636,9 @@ click = "*"
 cryptography = ">=46.0.7"
 in-toto-attestation = "*"
 oras = ">=0.2.30"
-pyasn1 = ">=0.6.4"
+pyasn1 = ">=0.6.5"
 pyjwt = ">=2.14.0"
+pyopenssl = "*"
 sigstore = ">=4.2"
 sigstore-models = ">=0.0.5"
 typing-extensions = "*"
