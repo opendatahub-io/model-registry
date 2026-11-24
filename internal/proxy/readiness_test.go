@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +20,7 @@ import (
 	"github.com/kubeflow/hub/internal/platform/tls"
 	"github.com/kubeflow/hub/internal/testutils"
 	"github.com/kubeflow/hub/pkg/api"
+	"github.com/kubeflow/hub/pkg/openapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -395,4 +398,73 @@ func TestGeneralReadinessHandler_MultipleFailures(t *testing.T) {
 
 	mrCheck := healthStatus.Checks[HealthCheckModelRegistry]
 	assert.Equal(t, platformproxy.StatusFail, mrCheck.Status)
+}
+
+// backendHealthStub is a registry service whose optional health
+// capability returns a controlled result; it records whether the
+// generic resource probes were bypassed.
+type backendHealthStub struct {
+	api.ModelRegistryApi
+	healthErr error
+	probed    bool
+}
+
+func (s *backendHealthStub) CheckHealth(ctx context.Context) error {
+	return s.healthErr
+}
+
+// GetRegisteredModels records that the generic probes ran.
+func (s *backendHealthStub) GetRegisteredModels(options api.ListOptions) (*openapi.RegisteredModelList, error) {
+	s.probed = true
+	return &openapi.RegisteredModelList{}, nil
+}
+
+// TestModelRegistryHealthChecker_DispatchesBackendCapability proves a
+// service implementing the health capability is probed through it —
+// before and instead of the generic serving and experiment probes —
+// passing when healthy and failing when the backend reports a broken
+// dependency.
+func TestModelRegistryHealthChecker_DispatchesBackendCapability(t *testing.T) {
+	t.Run("healthy backend", func(t *testing.T) {
+		stub := &backendHealthStub{}
+		check := NewModelRegistryHealthChecker(stub).Check()
+		assert.Equal(t, platformproxy.StatusPass, check.Status)
+		assert.Equal(t, HealthCheckModelRegistry, check.Name)
+		assert.False(t, stub.probed, "the generic resource probes must be bypassed")
+	})
+
+	t.Run("unhealthy backend", func(t *testing.T) {
+		stub := &backendHealthStub{healthErr: errors.New("the mlflow registry is unreachable")}
+		check := NewModelRegistryHealthChecker(stub).Check()
+		assert.Equal(t, platformproxy.StatusFail, check.Status)
+		assert.Contains(t, check.Message, "mlflow registry is unreachable")
+		assert.False(t, stub.probed, "the generic resource probes must be bypassed")
+	})
+
+	t.Run("capability without a service", func(t *testing.T) {
+		check := NewModelRegistryHealthChecker(nil).Check()
+		assert.Equal(t, platformproxy.StatusFail, check.Status)
+	})
+}
+
+// TestGeneralReadinessHandler_BackendCapability proves the readiness
+// endpoint reflects the backend health capability for both the plain
+// and JSON formats.
+func TestGeneralReadinessHandler_BackendCapability(t *testing.T) {
+	handler := platformproxy.GeneralReadinessHandler(NewModelRegistryHealthChecker(&backendHealthStub{}))
+
+	req, err := http.NewRequest("GET", "/readyz/health", nil)
+	require.NoError(t, err)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, responseOK, rr.Body.String())
+
+	failing := platformproxy.GeneralReadinessHandler(
+		NewModelRegistryHealthChecker(&backendHealthStub{healthErr: errors.New("dependency broken")}))
+	req, err = http.NewRequest("GET", "/readyz/health", nil)
+	require.NoError(t, err)
+	rr = httptest.NewRecorder()
+	failing.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }

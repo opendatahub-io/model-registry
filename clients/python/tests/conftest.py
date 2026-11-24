@@ -29,6 +29,17 @@ from .constants import (
 def pytest_addoption(parser):
     parser.addoption("--e2e", action="store_true", help="run end-to-end tests")
     parser.addoption("--fuzz", action="store_true", help="run fuzzing tests")
+    parser.addoption(
+        "--mlflow-backend",
+        action="store_true",
+        help="run e2e tests against a fixture-managed MLflow backend adapter (requires MLFLOW_TEST_BINARY and MR_BINARY)",
+    )
+    parser.addoption(
+        "--mlflow-compat-database",
+        choices=["mysql", "postgres"],
+        default="mysql",
+        help="compatibility database engine for --mlflow-backend",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -141,33 +152,76 @@ def cleanup(fixture_func):
             user_token = None
             verify_ssl = None
 
-        poll_for_ready(user_token=user_token, verify_ssl=verify_ssl)
+        # The --mlflow-backend fixtures own their cleanup: the shared
+        # cleanup script resets EmbedMD and must never run against the
+        # MLflow compatibility database or the native registry.
+        mlflow_backend = request.config.getoption("--mlflow-backend")
 
-        if inspect.iscoroutinefunction(fixture_func) or inspect.isasyncgenfunction(fixture_func):
-            async with asynccontextmanager(fixture_func)(user_token=user_token, verify_ssl=verify_ssl) as async_client:
-                yield async_client
+        if mlflow_backend:
+            # Start (or reuse) the session-owned adapter before the fixture
+            # body runs: eager clients connect during setup, so the adapter
+            # must already be listening on the MR_URL address.
+            request.getfixturevalue("managed_adapter")
         else:
-            # Check if fixture function expects parameters
-            sig = inspect.signature(fixture_func)
-            if "user_token" in sig.parameters:
-                yield fixture_func(user_token=user_token)
-            else:
-                # For fixtures that don't take parameters (like client_attrs)
-                yield fixture_func()
+            poll_for_ready(user_token=user_token, verify_ssl=verify_ssl)
 
-        print("Cleaning DB...")
-        subprocess.call(  # noqa: S602
-            "./scripts/cleanup.sh",
-            shell=True,
-            cwd=root,
-        )
+        try:
+            # Pass only the parameters the fixture function accepts.
+            available = {"request": request, "user_token": user_token, "verify_ssl": verify_ssl}
+            kwargs = {name: value for name, value in available.items() if name in inspect.signature(fixture_func).parameters}
+            if inspect.iscoroutinefunction(fixture_func) or inspect.isasyncgenfunction(fixture_func):
+                async with asynccontextmanager(fixture_func)(**kwargs) as async_client:
+                    yield async_client
+            else:
+                yield fixture_func(**kwargs)
+        finally:
+            if mlflow_backend:
+                print("Resetting fixture-owned MLflow backend state...")
+                request.getfixturevalue("managed_adapter").reset_test_state(
+                    recreate_native=request.node.path.parent.name != "mlflow"
+                )
+            else:
+                print("Cleaning DB...")
+                subprocess.call(  # noqa: S602
+                    "./scripts/cleanup.sh",
+                    shell=True,
+                    cwd=root,
+                )
 
     return yield_and_restart
 
 
+@pytest.fixture(scope="session")
+def managed_adapter(request):
+    """The session-owned MLflow backend stack for --mlflow-backend.
+
+    Owns the native server and its SQLite/artifact paths, adapter subprocess,
+    isolated ports, and compatibility database. Missing prerequisites are
+    failures with setup instructions, never skips.
+    """
+    if not request.config.getoption("--mlflow-backend"):
+        pytest.skip("managed_adapter requires --mlflow-backend")
+    from .mlflow.adapter import MLflowStack
+
+    stack = MLflowStack(engine=request.config.getoption("--mlflow-compat-database"))
+    try:
+        yield stack
+    finally:
+        stack.close()
+
+
 @pytest.fixture
 @cleanup
-def client(user_token: str) -> ModelRegistry:
+def client(request, user_token: str) -> ModelRegistry:
+    if request.config.getoption("--mlflow-backend"):
+        adapter = request.getfixturevalue("managed_adapter")
+        return ModelRegistry(
+            adapter.adapter_host,
+            adapter.adapter_port,
+            author="author",
+            is_secure=False,
+            user_token=user_token,
+        )
     return ModelRegistry(REGISTRY_HOST, REGISTRY_PORT, author="author", is_secure=False, user_token=user_token)
 
 
@@ -176,7 +230,7 @@ def register_model_with_version(client: ModelRegistry):
     def _register(
         name: str,
         version: str,
-        uri: str = "s3",
+        uri: str = "s3://test-bucket/models/placeholder",
         model_format_name: str = "test_format",
         model_format_version: str = "test_version",
         **register_kwargs,
@@ -200,7 +254,15 @@ def register_model_with_version(client: ModelRegistry):
 
 @pytest.fixture
 @cleanup
-def client_attrs() -> dict[str, any]:  # type: ignore[valid-type]
+def client_attrs(request) -> dict[str, any]:  # type: ignore[valid-type]
+    if request.config.getoption("--mlflow-backend"):
+        adapter = request.getfixturevalue("managed_adapter")
+        return {
+            "host": adapter.adapter_host,
+            "port": adapter.adapter_port,
+            "author": "author",
+            "ssl": False,
+        }
     return {
         "host": REGISTRY_HOST,
         "port": REGISTRY_PORT,

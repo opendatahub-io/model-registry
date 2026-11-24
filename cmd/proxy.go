@@ -1,11 +1,16 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"reflect"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +20,7 @@ import (
 	"github.com/kubeflow/hub/internal/datastore/embedmd"
 	"github.com/kubeflow/hub/internal/db/models"
 	"github.com/kubeflow/hub/internal/db/service"
+	"github.com/kubeflow/hub/internal/mlflow"
 	"github.com/kubeflow/hub/internal/platform/datastore"
 	platformproxy "github.com/kubeflow/hub/internal/platform/proxy"
 	platformmw "github.com/kubeflow/hub/internal/platform/server/middleware"
@@ -30,6 +36,8 @@ import (
 type ProxyConfig struct {
 	EmbedMD       embedmd.EmbedMDConfig
 	DatastoreType string
+	Backend       string
+	MLflow        MLflowBackendConfig
 }
 
 const (
@@ -40,8 +48,13 @@ const (
 var (
 	proxyCfg = ProxyConfig{
 		DatastoreType: "embedmd",
+		Backend:       "embedmd",
 		EmbedMD: embedmd.EmbedMDConfig{
 			TLSConfig: &tls.TLSConfig{},
+		},
+		MLflow: MLflowBackendConfig{
+			RequestTimeout:  mlflow.DefaultRequestTimeout,
+			RefreshInterval: mlflow.DefaultRefreshInterval,
 		},
 	}
 
@@ -98,10 +111,24 @@ func (c *ConditionalModelRegistryHealthChecker) Check() platformproxy.HealthChec
 }
 
 func runProxyServer(cmd *cobra.Command, args []string) error {
+	return runProxyServerWithFactory(cmd, args, newRegistryBackend)
+}
+
+func runProxyServerWithFactory(cmd *cobra.Command, args []string, factory func(context.Context, MLflowBackendConfig) (api.ModelRegistryApi, func() error, error)) error {
+	if proxyCfg.Backend != "embedmd" && proxyCfg.Backend != "mlflow" {
+		return fmt.Errorf("invalid --backend %q: supported backends: embedmd, mlflow", proxyCfg.Backend)
+	}
+
 	var (
-		ds datastore.Connector
-		wg sync.WaitGroup
+		ds           datastore.Connector
+		wg           sync.WaitGroup
+		cleanupOwner backendCleanupOwner
 	)
+
+	// shutdownBackend joins the selected backend's workers and closes its
+	// owned resources. It is idempotent and safe to call on every exit
+	// path; the EmbedMD backend owns no per-command resources.
+	shutdownBackend := func() { _ = cleanupOwner.Close() }
 
 	serviceHolder := &ModelRegistryServiceHolder{}
 
@@ -116,10 +143,16 @@ func runProxyServer(cmd *cobra.Command, args []string) error {
 		&ConditionalModelRegistryHealthChecker{holder: serviceHolder},
 	}
 
-	if proxyCfg.DatastoreType == "embedmd" {
+	switch proxyCfg.Backend {
+	case "embedmd":
 		dbHealthChecker := platformproxy.NewDatabaseHealthChecker()
 		readyChecks = append(readyChecks, dbHealthChecker)
 		generalChecks = append(generalChecks, dbHealthChecker)
+	case "mlflow":
+		// The MLflow backend's optional health capability drives both
+		// readiness endpoints: SQL, registry, and initialization state
+		// are checked through the service, not the global database.
+		readyChecks = append(readyChecks, &ConditionalModelRegistryHealthChecker{holder: serviceHolder})
 	}
 
 	generalReadinessHandler := platformproxy.GeneralReadinessHandler(generalChecks...)
@@ -141,7 +174,16 @@ func runProxyServer(cmd *cobra.Command, args []string) error {
 		router.ServeHTTP(w, r)
 	})
 
-	errChan := make(chan error, 1)
+	// The command's lifetime is the process's: cancellation on SIGINT or
+	// SIGTERM stops the HTTP server and the backend workers in order.
+	baseCtx := cmd.Context()
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	ctx, stopSignals := signal.NotifyContext(baseCtx, os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+
+	errChan := make(chan error, 2)
 
 	wg.Add(2)
 
@@ -150,58 +192,48 @@ func runProxyServer(cmd *cobra.Command, args []string) error {
 		wg.Wait()
 	}()
 
-	// Start the connection to the Datastore server in a separate goroutine, so that
+	// Start the connection to the backend in a separate goroutine, so that
 	// we can start the proxy server and start serving requests while we wait
 	// for the connection to be established.
 	go func() {
-		var (
-			err error
-		)
-
 		defer wg.Done()
 
-		ds, err = datastore.NewConnector(proxyCfg.DatastoreType, &proxyCfg.EmbedMD)
-		if err != nil {
-			errChan <- fmt.Errorf("error creating datastore: %w", err)
-			return
-		}
+		var conn api.ModelRegistryApi
 
-		conn, err := newModelRegistryService(ds)
-		if err != nil {
-			// {{ALERT}} is used to identify this error in pod logs, DO NOT REMOVE
-			errChan <- fmt.Errorf("{{ALERT}} error connecting to datastore: %w", err)
-			return
-		}
-
-		v1alpha3Service := v1alpha3.NewModelRegistryServiceAPIService(conn)
-		v1alpha3Controller := v1alpha3.NewModelRegistryServiceAPIController(v1alpha3Service)
-
-		v1Service := v1.NewModelRegistryServiceAPIService(conn)
-		v1Controller := v1.NewModelRegistryServiceAPIController(v1Service)
-
-		mux := chi.NewRouter()
-		mux.Use(chimiddleware.Logger)
-
-		if cfg.AlphaSunsetDate != "" {
-			sunsetDate, err := time.Parse("2006-01-02", cfg.AlphaSunsetDate)
+		if proxyCfg.Backend == "mlflow" {
+			// The MLflow backend opens its own compatibility database and
+			// native client; it never constructs the EmbedMD core
+			// repositories.
+			service, cleanup, err := factory(ctx, proxyCfg.MLflow)
 			if err != nil {
-				errChan <- fmt.Errorf("invalid --alpha-sunset-date %q: must be YYYY-MM-DD: %w", cfg.AlphaSunsetDate, err)
+				errChan <- fmt.Errorf("{{ALERT}} error starting mlflow backend: %w", err)
 				return
 			}
-			mux.Use(platformmw.DeprecationMiddleware(platformmw.DeprecationConfig{
-				SunsetDate: sunsetDate,
-				Paths: []platformmw.DeprecatedPath{
-					{Prefix: "/api/model_registry/v1alpha3/", Successor: "/api/model_registry/v1/"},
-				},
-			}))
-			glog.Infof("Alpha API (v1alpha3) deprecation headers enabled; sunset date: %s", cfg.AlphaSunsetDate)
+			cleanupOwner.Install(cleanup)
+			if ctx.Err() != nil {
+				return
+			}
+			conn = service
+		} else {
+			var err error
+			ds, err = datastore.NewConnector(proxyCfg.DatastoreType, &proxyCfg.EmbedMD)
+			if err != nil {
+				errChan <- fmt.Errorf("error creating datastore: %w", err)
+				return
+			}
+
+			conn, err = newModelRegistryService(ds)
+			if err != nil {
+				// {{ALERT}} is used to identify this error in pod logs, DO NOT REMOVE
+				errChan <- fmt.Errorf("{{ALERT}} error connecting to datastore: %w", err)
+				return
+			}
 		}
 
-		for _, route := range v1alpha3Controller.OrderedRoutes() {
-			mux.Method(route.Method, route.Pattern, route.HandlerFunc)
-		}
-		for _, route := range v1Controller.OrderedRoutes() {
-			mux.Method(route.Method, route.Pattern, route.HandlerFunc)
+		mux, err := buildRegistryRouter(conn)
+		if err != nil {
+			errChan <- err
+			return
 		}
 
 		router.SetRouter(middleware.WrapWithValidation(cfg.CORSAllowedOrigins, mux))
@@ -211,22 +243,79 @@ func runProxyServer(cmd *cobra.Command, args []string) error {
 		serviceHolder.Set(conn)
 	}()
 
+	server := &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", cfg.Hostname, cfg.Port),
+		Handler: mainHandler,
+	}
+
 	// Start the proxy server in a separate goroutine so that we can handle
-	// errors from both the proxy server and the connection to the Datastore server.
+	// errors from both the proxy server and the connection to the backend.
 	go func() {
 		defer wg.Done()
 
 		glog.Infof("Proxy server started at %s:%v", cfg.Hostname, cfg.Port)
 
-		err := http.ListenAndServe(fmt.Sprintf("%s:%d", cfg.Hostname, cfg.Port), mainHandler)
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errChan <- fmt.Errorf("error starting proxy server: %w", err)
 		}
 	}()
 
-	// Wait for either the Datastore server connection or the proxy server to return an error
-	// or for both to finish successfully.
-	return <-errChan
+	// Bound the shutdown so a stuck request cannot block exit; workers
+	// stop before their SQL connection and HTTP transport close.
+	shutdownServer := func() {
+		stopSignals()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+		shutdownBackend()
+	}
+
+	select {
+	case err := <-errChan:
+		shutdownServer()
+		return err
+	case <-ctx.Done():
+		shutdownServer()
+		glog.Info("Proxy server shut down")
+		return nil
+	}
+}
+
+// buildRegistryRouter wires both generated REST controllers over one
+// registry service, applying the configured v1alpha3 deprecation
+// headers.
+func buildRegistryRouter(conn api.ModelRegistryApi) (*chi.Mux, error) {
+	v1alpha3Service := v1alpha3.NewModelRegistryServiceAPIService(conn)
+	v1alpha3Controller := v1alpha3.NewModelRegistryServiceAPIController(v1alpha3Service)
+
+	v1Service := v1.NewModelRegistryServiceAPIService(conn)
+	v1Controller := v1.NewModelRegistryServiceAPIController(v1Service)
+
+	mux := chi.NewRouter()
+	mux.Use(chimiddleware.Logger)
+
+	if cfg.AlphaSunsetDate != "" {
+		sunsetDate, err := time.Parse("2006-01-02", cfg.AlphaSunsetDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --alpha-sunset-date %q: must be YYYY-MM-DD: %w", cfg.AlphaSunsetDate, err)
+		}
+		mux.Use(platformmw.DeprecationMiddleware(platformmw.DeprecationConfig{
+			SunsetDate: sunsetDate,
+			Paths: []platformmw.DeprecatedPath{
+				{Prefix: "/api/model_registry/v1alpha3/", Successor: "/api/model_registry/v1/"},
+			},
+		}))
+		glog.Infof("Alpha API (v1alpha3) deprecation headers enabled; sunset date: %s", cfg.AlphaSunsetDate)
+	}
+
+	for _, route := range v1alpha3Controller.OrderedRoutes() {
+		mux.Method(route.Method, route.Pattern, route.HandlerFunc)
+	}
+	for _, route := range v1Controller.OrderedRoutes() {
+		mux.Method(route.Method, route.Pattern, route.HandlerFunc)
+	}
+
+	return mux, nil
 }
 
 func newModelRegistryService(ds datastore.Connector) (api.ModelRegistryApi, error) {
@@ -283,6 +372,14 @@ func init() {
 	proxyCmd.Flags().BoolVar(&proxyCfg.EmbedMD.TLSConfig.VerifyServerCert, "embedmd-database-ssl-verify-server-cert", false, "EmbedMD SSL verify server cert")
 
 	proxyCmd.Flags().StringVar(&proxyCfg.DatastoreType, "datastore-type", proxyCfg.DatastoreType, "Datastore type")
+
+	proxyCmd.Flags().StringVar(&proxyCfg.Backend, "backend", proxyCfg.Backend, "Registry backend: embedmd (default) or mlflow")
+
+	bindMLflowResourceFlags(proxyCmd.Flags(), &proxyCfg.MLflow)
+	proxyCmd.Flags().DurationVar(&proxyCfg.MLflow.RefreshInterval, "mlflow-refresh-interval", mlflow.DefaultRefreshInterval, "Interval between MLflow registry refreshes")
+	// Unlike EmbedMD, MLflow database TLS verifies the server certificate
+	// by default; --mlflow-database-ssl-skip-verify is intentionally not
+	// offered.
 
 	proxyCmd.Flags().StringSliceVar(&cfg.CORSAllowedOrigins, "cors-allowed-origins", nil,
 		"Comma-separated list of allowed CORS origins. If empty (default), CORS is disabled.")

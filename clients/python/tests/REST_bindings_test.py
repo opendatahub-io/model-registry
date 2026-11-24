@@ -108,7 +108,7 @@ async def test_model_artifact(
 
     ma_create = ModelArtifact(
         name="model",
-        uri="uri",
+        uri="s3://test-bucket/models/placeholder",
         artifactType="model-artifact",
         description="a model artifact",
         customProperties={
