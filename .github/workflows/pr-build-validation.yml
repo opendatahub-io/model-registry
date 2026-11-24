@@ -1,0 +1,449 @@
+name: PR Build Validation
+
+# Simulates the Konflux build inputs for this repository:
+#   .tekton/odh-model-registry-pull-request.yaml
+#   .tekton/odh-model-registry-job-async-upload-pull-request.yaml
+#
+# Skip with "[skip konflux-sim]" in the PR title or the "skip-konflux-sim" label.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - stable
+      - 'v*'
+      - 'release-*'
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-validation-${{ github.event.pull_request.number || github.run_id }}
+  # Label/title edits must re-evaluate the skip decision, but they must not
+  # cancel an in-flight build (bots add labels constantly). Only new commits
+  # supersede a running validation.
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
+
+env:
+  SIM_KUSTOMIZE_VERSION: '5.7.1'
+  SIM_KUSTOMIZE_SHA256: 'ea375e7372f9aa029129d4b2d16c66b7750b7f1213c4f66f910d981c895818d8'
+  SIM_KUBECONFORM_VERSION: '0.7.0'
+  SIM_KUBECONFORM_SHA256: 'c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3'
+  # kubeconform publishes schemas per minor version, so 1.33.0 covers the
+  # 1.33.x node image pinned below.
+  SIM_KUBERNETES_VERSION: '1.33.0'
+  DOWNSTREAM_REPO: https://github.com/red-hat-data-services/model-registry.git
+  DOWNSTREAM_REF: c1ef19f7f3294aeb0a38cdc0c1ea83fe69720d53
+  PLATFORM: linux/amd64
+  SERVER_IMAGE: quay.io/opendatahub/model-registry:pr-${{ github.sha }}
+  ASYNC_IMAGE: quay.io/opendatahub/model-registry-job-async-upload:pr-${{ github.sha }}
+
+jobs:
+  check-skip:
+    name: Check Skip Condition
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should-skip: ${{ steps.check.outputs.skip }}
+      reason: ${{ steps.check.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Evaluate skip condition
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          RELEVANT='^(main\.go|go\.(mod|sum)|.*/go\.(mod|sum)|Dockerfile|jobs/async-upload/Dockerfile|Makefile|\.dockerignore|(api|catalog|cmd|internal|pkg|jobs|manifests|scripts|templates|patches)/|openapitools\.json|\.openapi-generator-ignore|\.tekton/|\.github/workflows/pr-build-validation\.yml)'
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "reason=manual dispatch" >> "$GITHUB_OUTPUT"
+            echo "✅ Manual dispatch: validation will run"
+          elif [[ "$PR_TITLE" == *"[skip konflux-sim]"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=PR title contains [skip konflux-sim]" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Validation skipped: PR title contains [skip konflux-sim]"
+          elif [[ ",${PR_LABELS}," == *",skip-konflux-sim,"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=skip-konflux-sim label present" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Validation skipped: skip-konflux-sim label present"
+          else
+            # Capture the file list first. In a pipeline `grep -q` exits on the
+            # first match, `git diff` can then die with SIGPIPE, and `!` turns
+            # that failure into "no relevant changes" -- silently skipping all
+            # validation while the summary still passes.
+            # --no-renames: rename detection reports only the destination, so
+            # renaming a build entrypoint out of the relevant set would classify
+            # the PR as irrelevant even though the source path was deleted.
+            changed_files="$(git diff --no-renames --name-only "origin/${BASE_REF}...HEAD")" || exit 1
+            if grep -Eq "$RELEVANT" <<< "$changed_files"; then
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "reason=relevant changes detected" >> "$GITHUB_OUTPUT"
+              echo "✅ Validation will run"
+            else
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "reason=no Konflux-relevant files changed" >> "$GITHUB_OUTPUT"
+              echo "ℹ️  Validation out of scope: no Konflux-relevant files changed"
+            fi
+          fi
+
+  hermetic-preflight:
+    name: 'Hermetic Build Preflight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: false
+
+      - name: Prove prefetched inputs are sufficient
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh hermetic
+
+  static-validation:
+    name: Static Validation Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Validate build inputs
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh static
+
+      - name: Verify Go modules
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh go-modules
+
+  server-image:
+    name: Build and Validate Server Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    needs:
+      - check-skip
+      - hermetic-preflight
+      - static-validation
+    if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Build and run the Konflux server image
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh server
+
+      # The operator phase consumes this image instead of rebuilding it, so the
+      # image the operator reconciles is byte-identical to the one just tested.
+      - name: Save the server image
+        run: |
+          set -euo pipefail
+          docker save "$SERVER_IMAGE" | gzip > /tmp/server-image.tar.gz
+          ls -lh /tmp/server-image.tar.gz
+
+      - name: Upload the server image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-image
+          path: /tmp/server-image.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  async-upload-image:
+    name: Build and Validate Async Upload Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    needs:
+      - check-skip
+      - hermetic-preflight
+      - static-validation
+    if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Build and inspect the Konflux async-upload image
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh async-upload
+
+  # Deploys model-registry-operator into Kind against the PR image and
+  # asserts that it reconciles a ModelRegistry resource. The server job proves
+  # the image runs; this proves the operator can actually ship it.
+  operator-integration:
+    name: 'Operator Integration (KinD)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    needs:
+      - check-skip
+      - server-image
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the server image
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: server-image
+          path: /tmp
+
+      - name: Load the server image
+        run: |
+          set -euo pipefail
+          docker load < /tmp/server-image.tar.gz
+          docker image inspect "$SERVER_IMAGE" >/dev/null
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          # Pinned by digest so a retagged upstream image cannot change the
+          # cluster this validation runs against (CWE-829).
+          node_image: "kindest/node:v1.33.7@sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040"
+          cluster_name: mr-operator-${{ github.run_id }}
+
+      - name: Validate operator integration
+        env:
+          KIND_CLUSTER_NAME: mr-operator-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh operator
+
+  manifest-validation:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve the builder Go version
+        id: go-version
+        run: |
+          set -euo pipefail
+          echo "version=$(./scripts/validate-build.sh go-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Install kustomize and kubeconform
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${SIM_KUSTOMIZE_VERSION}/kustomize_v${SIM_KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          printf '%s  %s\n' "$SIM_KUSTOMIZE_SHA256" /tmp/kustomize.tar.gz | sha256sum --check --strict
+          tar -xzf /tmp/kustomize.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/kustomize /usr/local/bin/kustomize
+
+          curl -fsSL -o /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/v${SIM_KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          printf '%s  %s\n' "$SIM_KUBECONFORM_SHA256" /tmp/kubeconform.tar.gz | sha256sum --check --strict
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+
+          kustomize version
+          kubeconform -v
+
+      - name: Validate kustomize builds and schemas
+        env:
+          KUBERNETES_VERSION: ${{ env.SIM_KUBERNETES_VERSION }}
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh manifests
+
+  downstream-variant:
+    name: Downstream Variant Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    needs: check-skip
+    if: needs.check-skip.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate the pinned downstream variant
+        run: |
+          set -euo pipefail
+          ./scripts/validate-build.sh downstream
+
+  summary:
+    name: Build Validation Summary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - check-skip
+      - hermetic-preflight
+      - static-validation
+      - server-image
+      - async-upload-image
+      - manifest-validation
+      - operator-integration
+      - downstream-variant
+    if: always()
+    steps:
+      - name: Check results
+        env:
+          CHECK_SKIP: ${{ needs.check-skip.result }}
+          SKIP: ${{ needs.check-skip.outputs.should-skip }}
+          REASON: ${{ needs.check-skip.outputs.reason }}
+          HERMETIC: ${{ needs.hermetic-preflight.result }}
+          STATIC: ${{ needs.static-validation.result }}
+          SERVER: ${{ needs.server-image.result }}
+          ASYNC: ${{ needs.async-upload-image.result }}
+          MANIFESTS: ${{ needs.manifest-validation.result }}
+          OPERATOR: ${{ needs.operator-integration.result }}
+          DOWNSTREAM: ${{ needs.downstream-variant.result }}
+        run: |
+          set -euo pipefail
+          echo "## Konflux Build Simulation Results"
+          echo ""
+
+          if [ "$CHECK_SKIP" != "success" ]; then
+            echo "❌ Skip evaluation failed (${CHECK_SKIP:-no result}); refusing to report success."
+            exit 1
+          fi
+
+          if [ "$SKIP" = "true" ]; then
+            echo "✅ Validation not required: ${REASON:-explicit skip}"
+            exit 0
+          fi
+
+          echo "| Phase | Result |"
+          echo "|-------|--------|"
+          echo "| Hermetic Preflight | ${HERMETIC} |"
+          echo "| Static Validation | ${STATIC} |"
+          echo "| Server Image | ${SERVER} |"
+          echo "| Async Upload Image | ${ASYNC} |"
+          echo "| Manifests | ${MANIFESTS} |"
+          echo "| Operator Integration (KinD) | ${OPERATOR} |"
+          echo "| Downstream Variant Contract | ${DOWNSTREAM} |"
+          echo ""
+
+          failed=false
+          for result in "$HERMETIC" "$STATIC" "$SERVER" "$ASYNC" "$MANIFESTS" "$OPERATOR" "$DOWNSTREAM"; do
+            if [ "$result" != "success" ]; then
+              failed=true
+            fi
+          done
+
+          if [ "$failed" = "true" ]; then
+            echo "❌ Some validations failed. Check the individual job logs above."
+            exit 1
+          fi
+          echo "✅ All validations passed."
